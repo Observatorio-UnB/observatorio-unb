@@ -16,7 +16,7 @@ SILVER_DIR = BASE_DIR / "data" / "silver"
 GOLD_DIR = BASE_DIR / "data" / "gold"
 
 sys.path.insert(0, str(BASE_DIR))
-from src.pipeline.build_gold import normalize_turno_grupo, normalize_categoria_grau
+from src.pipeline.build_gold import normalize_turno_grupo, normalize_categoria_grau, build_area_por_curso
 
 
 class TestCanonicalNormalization(unittest.TestCase):
@@ -38,6 +38,30 @@ class TestCanonicalNormalization(unittest.TestCase):
     def test_categoria_grau_bacharelado_inclui_titulacoes_profissionais(self):
         for grau in ["BACHAREL", "ENGENHEIRO CIVIL", "MEDICO", "ARQUITETO E URBANISTA"]:
             self.assertEqual(normalize_categoria_grau(grau), "BACHARELADO")
+
+    def test_build_area_por_curso_usa_entrada_propria_do_catalogo(self):
+        df_cur = pd.DataFrame({
+            "nome_curso_norm": ["FISICA", "QUIMICA"],
+            "area_conhecimento_norm": ["CIENCIAS EXATAS E DA TERRA", "CIENCIAS EXATAS E DA TERRA"],
+        })
+        area_dict = build_area_por_curso(df_cur, ["FISICA"])
+        self.assertEqual(area_dict["FISICA"], "CIENCIAS EXATAS E DA TERRA")
+
+    def test_build_area_por_curso_herda_area_das_habilitacoes(self):
+        df_cur = pd.DataFrame({
+            "nome_curso_norm": ["COMUNICACAO SOCIAL - JORNALISMO", "COMUNICACAO SOCIAL - AUDIOVISUAL"],
+            "area_conhecimento_norm": ["CIENCIAS SOCIAIS APLICADAS", "CIENCIAS SOCIAIS APLICADAS"],
+        })
+        area_dict = build_area_por_curso(df_cur, ["COMUNICACAO SOCIAL"])
+        self.assertEqual(area_dict["COMUNICACAO SOCIAL"], "CIENCIAS SOCIAIS APLICADAS")
+
+    def test_build_area_por_curso_nao_herda_quando_habilitacoes_divergem(self):
+        df_cur = pd.DataFrame({
+            "nome_curso_norm": ["CURSO X - A", "CURSO X - B"],
+            "area_conhecimento_norm": ["CIENCIAS EXATAS E DA TERRA", "LINGUISTICA, LETRAS E ARTES"],
+        })
+        area_dict = build_area_por_curso(df_cur, ["CURSO X"])
+        self.assertNotIn("CURSO X", area_dict)
 
 
 class TestDataPipeline(unittest.TestCase):
@@ -97,8 +121,10 @@ class TestDataPipeline(unittest.TestCase):
         turnos_inesperados = set(df_gold["turno"].unique()) - {"DIURNO", "NOTURNO", "INTEGRAL"}
         self.assertFalse(turnos_inesperados, f"Valores de turno não normalizados encontrados: {turnos_inesperados}")
 
-        # Curso genérico de ingresso comum (ex. Engenharia sem habilitação) não deve aparecer
-        self.assertNotIn("ENGENHARIA", df_gold["curso"].values, "Curso genérico 'ENGENHARIA' não deveria estar na análise")
+        # Curso genérico de ingresso comum (ex. Engenharia sem habilitação) permanece na tabela
+        # Gold (compõe o panorama geral da UnB); é descartado só no dashboard, nas telas de
+        # Visão Executiva e Detalhe por Curso (ver EXCLUDED_GENERIC_COURSES em build_gold.py).
+        self.assertIn("ENGENHARIA", df_gold["curso"].values, "Curso genérico 'ENGENHARIA' deveria estar na tabela Gold")
 
         # Cursos com oferta dupla (Bacharelado e Licenciatura sob o mesmo nome, ex. Química)
         # aparecem como uma única linha marcada "MISTO", já que não há como atribuir cada

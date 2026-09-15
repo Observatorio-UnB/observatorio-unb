@@ -7,7 +7,7 @@ Este documento descreve a semântica, os tipos de dados e os métodos de cálcul
 ## 1. Metadados do Artefato
 - **Arquivo**: `data/gold/retencao_cursos_unb.csv`
 - **Granularidade**: 1 linha por curso canônico de graduação da UnB. Cursos com oferta dupla de Bacharelado e Licenciatura sob o mesmo nome no catálogo (ex. Química, Física, Matemática — ver seção 3) permanecem em uma única linha, com `categoria_grau = "MISTO"`.
-- **Total de Cursos Consolidados**: 93 cursos. O curso-tronco de ingresso comum `ENGENHARIA` (habilitação escolhida posteriormente pelo discente, ex. modelo FGA/FT) é excluído de toda a análise por não ser um curso terminal válido para métricas de retenção/evasão.
+- **Total de Cursos Consolidados**: 88 cursos. O curso-tronco de ingresso comum `ENGENHARIA` (habilitação escolhida posteriormente pelo discente, ex. modelo FGA/FT) permanece na tabela e nas métricas globais — compõe o panorama geral da UnB — mas é descartado apenas nas telas de Visão Executiva e Detalhe por Curso do dashboard (`EXCLUDED_GENERIC_COURSES` em `src/dashboard/app.py`), por não ser um curso terminal válido para um raio-x individual.
 - **Fontes Primárias**: `sigra_discentes.csv` (24.5 MB) + `estrutura_curricular.csv` (76 KB) + `cursos_graduacao.csv` (45 KB).
 - **Taxa de Casamento dos Joins**: 100.00%.
 

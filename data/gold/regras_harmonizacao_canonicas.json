@@ -1,6 +1,6 @@
 {
-  "total_regras": 73,
-  "total_discentes_harmonizados": 9278,
+  "total_regras": 78,
+  "total_discentes_harmonizados": 8900,
   "metodologia": "Entity Resolution e Harmonização Canônica (SIGRA -> Matrizes Curriculares Ativas)",
   "regras": [
     {
@@ -11,13 +11,6 @@
       "discentes_impactados": 1597
     },
     {
-      "origem_sigra": "CIENCIA POLITICA",
-      "destino_estrutura": "CIENCIAS SOCIAIS",
-      "categoria": "Ciências Sociais",
-      "justificativa": "Habilitação de Ciência Política vinculada à matriz de Ciências Sociais.",
-      "discentes_impactados": 836
-    },
-    {
       "origem_sigra": "CONTROLE E AUTOMACAO",
       "destino_estrutura": "ENGENHARIA MECATRONICA - CONTROLE E AUTOMACAO",
       "categoria": "Engenharias",
@@ -26,9 +19,9 @@
     },
     {
       "origem_sigra": "COMUNICACAO ORGANIZACIONAL",
-      "destino_estrutura": "COMUNICACAO SOCIAL",
+      "destino_estrutura": "COMUNICACAO SOCIAL - COMUNICACAO ORGANIZACIONAL",
       "categoria": "Comunicação",
-      "justificativa": "Habilitação de Comunicação Organizacional alocada na matriz tronco de Comunicação Social.",
+      "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
       "discentes_impactados": 497
     },
     {
@@ -37,6 +30,13 @@
       "categoria": "Letras e Línguas",
       "justificativa": "Prefixo formal 'LETRAS' adicionado pela matriz curricular.",
       "discentes_impactados": 474
+    },
+    {
+      "origem_sigra": "JORNALISMO",
+      "destino_estrutura": "COMUNICACAO SOCIAL - JORNALISMO",
+      "categoria": "Comunicação",
+      "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco (nome padronizado com o prefixo do catálogo oficial).",
+      "discentes_impactados": 458
     },
     {
       "origem_sigra": "LINGUA ESPANHOLA E LITERATURA ESPANHOLA E HISPANO-AMERICANA",
@@ -82,9 +82,9 @@
     },
     {
       "origem_sigra": "PUBLICIDADE E PROPAGANDA",
-      "destino_estrutura": "COMUNICACAO SOCIAL",
+      "destino_estrutura": "COMUNICACAO SOCIAL - PUBLICIDADE E PROPAGANDA",
       "categoria": "Comunicação",
-      "justificativa": "Habilitação de Publicidade alocada na matriz tronco de Comunicação Social.",
+      "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
       "discentes_impactados": 322
     },
     {
@@ -96,9 +96,9 @@
     },
     {
       "origem_sigra": "AUDIOVISUAL",
-      "destino_estrutura": "COMUNICACAO SOCIAL",
+      "destino_estrutura": "COMUNICACAO SOCIAL - AUDIOVISUAL",
       "categoria": "Comunicação",
-      "justificativa": "Habilitação de Audiovisual alocada na matriz tronco de Comunicação Social.",
+      "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
       "discentes_impactados": 275
     },
     {
@@ -131,9 +131,9 @@
     },
     {
       "origem_sigra": "ANTROPOLOGIA",
-      "destino_estrutura": "CIENCIAS SOCIAIS",
+      "destino_estrutura": "CIENCIAS SOCIAIS - ANTROPOLOGIA",
       "categoria": "Ciências Sociais",
-      "justificativa": "Habilitação de Antropologia vinculada à matriz de Ciências Sociais.",
+      "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
       "discentes_impactados": 206
     },
     {
@@ -145,9 +145,9 @@
     },
     {
       "origem_sigra": "SOCIOLOGIA",
-      "destino_estrutura": "CIENCIAS SOCIAIS",
+      "destino_estrutura": "CIENCIAS SOCIAIS - SOCIOLOGIA",
       "categoria": "Ciências Sociais",
-      "justificativa": "Habilitação de Sociologia vinculada à matriz de Ciências Sociais.",
+      "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
       "discentes_impactados": 192
     },
     {
@@ -194,9 +194,9 @@
     },
     {
       "origem_sigra": "COMPOSICAO",
-      "destino_estrutura": "MUSICA - COMPOSICAO",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação em Composição Musical vinculada ao catálogo oficial com prefixo 'MUSICA'.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 36
     },
     {
@@ -215,9 +215,9 @@
     },
     {
       "origem_sigra": "VIOLAO",
-      "destino_estrutura": "MUSICA - VIOLAO",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 15
     },
     {
@@ -229,30 +229,30 @@
     },
     {
       "origem_sigra": "SAXOFONE",
-      "destino_estrutura": "MUSICA - SAXOFONE",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 13
     },
     {
       "origem_sigra": "VIOLINO",
-      "destino_estrutura": "MUSICA - VIOLINO",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 13
     },
     {
       "origem_sigra": "CANTO",
-      "destino_estrutura": "MUSICA - CANTO",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação instrumental/vocal no SIGRA vinculada à matriz de Música.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 12
     },
     {
       "origem_sigra": "PIANO",
-      "destino_estrutura": "MUSICA - PIANO",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 10
     },
     {
@@ -264,37 +264,37 @@
     },
     {
       "origem_sigra": "REGENCIA",
-      "destino_estrutura": "MUSICA - REGENCIA",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação em Regência no SIGRA vinculada à matriz de Música.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 9
     },
     {
       "origem_sigra": "CONTRABAIXO",
-      "destino_estrutura": "MUSICA - CONTRABAIXO",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 7
     },
     {
       "origem_sigra": "TROMBONE",
-      "destino_estrutura": "MUSICA - TROMBONE",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 6
     },
     {
       "origem_sigra": "TROMPETE",
-      "destino_estrutura": "MUSICA - TROMPETE",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 5
     },
     {
       "origem_sigra": "VIOLA",
-      "destino_estrutura": "MUSICA - VIOLA",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 5
     },
     {
@@ -306,37 +306,37 @@
     },
     {
       "origem_sigra": "VIOLONCELO",
-      "destino_estrutura": "MUSICA - VIOLONCELO",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 4
     },
     {
       "origem_sigra": "OBOE",
-      "destino_estrutura": "MUSICA - OBOE",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 4
     },
     {
       "origem_sigra": "FAGOTE",
-      "destino_estrutura": "MUSICA - FAGOTE",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 4
     },
     {
       "origem_sigra": "FLAUTA",
-      "destino_estrutura": "MUSICA - FLAUTA",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 3
     },
     {
       "origem_sigra": "CLARINETA",
-      "destino_estrutura": "MUSICA - CLARINETA",
+      "destino_estrutura": "MUSICA",
       "categoria": "Música e Instrumentos",
-      "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+      "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
       "discentes_impactados": 3
     },
     {
@@ -512,6 +512,41 @@
       "destino_estrutura": "COMUNICACAO SOCIAL - JORNALISMO",
       "categoria": "Comunicação",
       "justificativa": "Sigla do departamento (JOR) remanescente da extração do campo 'unidade' do PIBIC.",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "GRADUACAO EM CIENCIA POLITICA",
+      "destino_estrutura": "CIENCIA POLITICA",
+      "categoria": "Ciências Sociais",
+      "justificativa": "Variação verbosa do campo 'unidade' usada no cadastro de bolsistas de IC (PIBIC).",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "GRADUACAO EM ARQUITETURA E URBANISMO",
+      "destino_estrutura": "ARQUITETURA E URBANISMO",
+      "categoria": "Habilitação Legada",
+      "justificativa": "Variação verbosa do campo 'unidade' usada no cadastro de bolsistas de IC (PIBIC).",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "ARQUITETURA E URBANISMO / FACULDADE DE ARQUITETURA E URBANISMO",
+      "destino_estrutura": "ARQUITETURA E URBANISMO",
+      "categoria": "Habilitação Legada",
+      "justificativa": "Nome da faculdade remanescente da extração do campo 'unidade' do PIBIC.",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "GRADUACAO DE MEDICINA",
+      "destino_estrutura": "MEDICINA",
+      "categoria": "Habilitação Legada",
+      "justificativa": "Variação verbosa do campo 'unidade' usada no cadastro de bolsistas de IC (PIBIC).",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "INSTITUTO DE CIENCIAS BIOLOGICAS / BIOTECNOLOGIA",
+      "destino_estrutura": "CIENCIAS BIOLOGICAS",
+      "categoria": "Habilitação Legada",
+      "justificativa": "UnB não oferece graduação própria em Biotecnologia; subárea de pesquisa do Instituto de Ciências Biológicas, alocada no curso de Ciências Biológicas.",
       "discentes_impactados": 0
     }
   ]
