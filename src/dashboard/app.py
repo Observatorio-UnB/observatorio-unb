@@ -14,8 +14,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-from src.pipeline.build_gold import EXCLUDED_GENERIC_COURSES
+try:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+    from src.pipeline.build_gold import EXCLUDED_GENERIC_COURSES
+except (ImportError, ModuleNotFoundError):
+    EXCLUDED_GENERIC_COURSES = {"ENGENHARIA"}
 
 # Paleta institucional da UnB (verde e azul da marca, extraídas do símbolo oficial) aplicada como padrão dos gráficos
 UNB_GREEN = "#008940"
@@ -25,7 +28,16 @@ px.defaults.color_discrete_sequence = UNB_PALETTE
 
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 UNB_ICON_PATH = ASSETS_DIR / "unb_icon.png"
-UNB_ICON_B64 = base64.b64encode(UNB_ICON_PATH.read_bytes()).decode("ascii")
+if UNB_ICON_PATH.exists():
+    try:
+        UNB_ICON_B64 = base64.b64encode(UNB_ICON_PATH.read_bytes()).decode("ascii")
+        UNB_HEADER_IMG = f'<img src="data:image/png;base64,{UNB_ICON_B64}" style="height:2.1rem;vertical-align:-0.3rem;margin-right:0.6rem;">'
+    except Exception:
+        UNB_ICON_B64 = None
+        UNB_HEADER_IMG = "🎓 "
+else:
+    UNB_ICON_B64 = None
+    UNB_HEADER_IMG = "🎓 "
 
 # Rótulos legíveis para colunas técnicas que aparecem em eixos/legendas dos gráficos
 LABELS_PT = {
@@ -146,7 +158,10 @@ def load_gold_data(_version: float):
 df_gold, global_meta, join_meta, df_pibic, pibic_meta, regras_meta = load_gold_data(_gold_files_mtime())
 
 # Barra Lateral (Sidebar)
-st.sidebar.image(str(UNB_ICON_PATH), width=180)
+if UNB_ICON_PATH.exists():
+    st.sidebar.image(str(UNB_ICON_PATH), width=180)
+else:
+    st.sidebar.image("https://dados.unb.br/uploads/group/2019-11-01-175835.512234iconensino.png", width=180)
 st.sidebar.title("Painel UnB")
 st.sidebar.markdown("**Projeto**: Retenção e Formatura nos Cursos da UnB")
 taxa_join = join_meta.get('taxa_de_casamento_pct', 100.0) if join_meta else 100.0
@@ -169,8 +184,7 @@ tab_choice = st.sidebar.radio(
 if df_gold is not None:
     # Header Principal
     st.markdown(
-        f'<div class="main-header"><img src="data:image/png;base64,{UNB_ICON_B64}" '
-        f'style="height:2.1rem;vertical-align:-0.3rem;margin-right:0.6rem;">'
+        f'<div class="main-header">{UNB_HEADER_IMG}'
         f'Observatório de Retenção e Formatura da UnB</div>',
         unsafe_allow_html=True,
     )
