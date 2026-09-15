@@ -1,5 +1,5 @@
 {
-  "total_regras": 60,
+  "total_regras": 73,
   "total_discentes_harmonizados": 9278,
   "metodologia": "Entity Resolution e Harmonização Canônica (SIGRA -> Matrizes Curriculares Ativas)",
   "regras": [
@@ -421,6 +421,97 @@
       "destino_estrutura": "LETRAS - TRADUCAO - ESPANHOL",
       "categoria": "Letras e Línguas",
       "justificativa": "Habilitação em Tradução com prefixo de Letras.",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "LETRAS-TRADUCAO ESPANHOL",
+      "destino_estrutura": "LETRAS - TRADUCAO - ESPANHOL",
+      "categoria": "Letras e Línguas",
+      "justificativa": "Abreviação sem espaços usada no cadastro de bolsistas de IC (PIBIC).",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "TRADUCAO - FRANCES",
+      "destino_estrutura": "LETRAS - TRADUCAO - FRANCES",
+      "categoria": "Letras e Línguas",
+      "justificativa": "Nomenclatura sem prefixo 'LETRAS' usada no cadastro de bolsistas de IC (PIBIC).",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "LETRAS TRADUCAO - FRANCES",
+      "destino_estrutura": "LETRAS - TRADUCAO - FRANCES",
+      "categoria": "Letras e Línguas",
+      "justificativa": "Nomenclatura sem hífen após 'LETRAS' usada no cadastro de bolsistas de IC (PIBIC).",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "TRADUCAO-INGLES",
+      "destino_estrutura": "LETRAS - TRADUCAO - INGLES",
+      "categoria": "Letras e Línguas",
+      "justificativa": "Abreviação sem espaços usada no cadastro de bolsistas de IC (PIBIC).",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "LINGUA DE SINAIS BRASILEIRA/PORTUGUES COMO SEGUNDA LINGUA",
+      "destino_estrutura": "LINGUA DE SINAIS BRASILEIRA -PORTUGUES COMO SEGUNDA LINGUA",
+      "categoria": "Correção de Typo no Portal",
+      "justificativa": "Variante com barra em vez de hífen, usada no cadastro de bolsistas de IC (PIBIC).",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "EDUCACAO DO CAMPO - LINGUAGENS",
+      "destino_estrutura": "EDUCACAO DO CAMPO - LINGUAGENS, ARTES E LITERATURA",
+      "categoria": "Educação do Campo (FUP)",
+      "justificativa": "Nome abreviado da ênfase, usado no cadastro de bolsistas de IC (PIBIC).",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "MUSICA: LICENCIATURA",
+      "destino_estrutura": "MUSICA",
+      "categoria": "Música e Instrumentos",
+      "justificativa": "Nomenclatura usada no cadastro de bolsistas de IC (PIBIC).",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "BIOLOGIA",
+      "destino_estrutura": "CIENCIAS BIOLOGICAS",
+      "categoria": "Habilitação Legada",
+      "justificativa": "Nome coloquial usado no cadastro de bolsistas de IC (PIBIC).",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "PSICOLOGIA-PSICOLOGO",
+      "destino_estrutura": "PSICOLOGIA",
+      "categoria": "Habilitação Legada",
+      "justificativa": "Sufixo de titulação concatenado ao nome, usado no cadastro de bolsistas de IC (PIBIC).",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "ENGENHARIA DE CONTROLE E AUTOMACAO",
+      "destino_estrutura": "ENGENHARIA MECATRONICA - CONTROLE E AUTOMACAO",
+      "categoria": "Engenharias",
+      "justificativa": "Nomenclatura alternativa usada no cadastro de bolsistas de IC (PIBIC).",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "DAP / COMUNICACAO SOCIAL - AUDIOVISUAL",
+      "destino_estrutura": "COMUNICACAO SOCIAL - AUDIOVISUAL",
+      "categoria": "Comunicação",
+      "justificativa": "Sigla do departamento (DAP) remanescente da extração do campo 'unidade' do PIBIC.",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "CIENCIAS BIOLOGICAS / DEPARTAMENTO DE ZOOLOGIA",
+      "destino_estrutura": "CIENCIAS BIOLOGICAS",
+      "categoria": "Habilitação Legada",
+      "justificativa": "Subunidade de pesquisa remanescente da extração do campo 'unidade' do PIBIC.",
+      "discentes_impactados": 0
+    },
+    {
+      "origem_sigra": "JOR / JORNALISMO",
+      "destino_estrutura": "COMUNICACAO SOCIAL - JORNALISMO",
+      "categoria": "Comunicação",
+      "justificativa": "Sigla do departamento (JOR) remanescente da extração do campo 'unidade' do PIBIC.",
       "discentes_impactados": 0
     }
   ]

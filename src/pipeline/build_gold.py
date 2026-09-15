@@ -386,10 +386,152 @@ CANONICAL_RULES_METADATA = [
         "categoria": "Letras e Línguas",
         "justificativa": "Habilitação em Tradução com prefixo de Letras.",
     },
+    # Variações de nomenclatura observadas no campo "unidade" da base de bolsistas de
+    # Iniciação Científica (PIBIC/PIVIC), que usa abreviações e formatações distintas do SIGRA.
+    {
+        "origem_sigra": "LETRAS-TRADUCAO ESPANHOL",
+        "destino_estrutura": "LETRAS - TRADUCAO - ESPANHOL",
+        "categoria": "Letras e Línguas",
+        "justificativa": "Abreviação sem espaços usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "TRADUCAO - FRANCES",
+        "destino_estrutura": "LETRAS - TRADUCAO - FRANCES",
+        "categoria": "Letras e Línguas",
+        "justificativa": "Nomenclatura sem prefixo 'LETRAS' usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "LETRAS TRADUCAO - FRANCES",
+        "destino_estrutura": "LETRAS - TRADUCAO - FRANCES",
+        "categoria": "Letras e Línguas",
+        "justificativa": "Nomenclatura sem hífen após 'LETRAS' usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "TRADUCAO-INGLES",
+        "destino_estrutura": "LETRAS - TRADUCAO - INGLES",
+        "categoria": "Letras e Línguas",
+        "justificativa": "Abreviação sem espaços usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "LINGUA DE SINAIS BRASILEIRA/PORTUGUES COMO SEGUNDA LINGUA",
+        "destino_estrutura": "LINGUA DE SINAIS BRASILEIRA -PORTUGUES COMO SEGUNDA LINGUA",
+        "categoria": "Correção de Typo no Portal",
+        "justificativa": "Variante com barra em vez de hífen, usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "EDUCACAO DO CAMPO - LINGUAGENS",
+        "destino_estrutura": "EDUCACAO DO CAMPO - LINGUAGENS, ARTES E LITERATURA",
+        "categoria": "Educação do Campo (FUP)",
+        "justificativa": "Nome abreviado da ênfase, usado no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "MUSICA: LICENCIATURA",
+        "destino_estrutura": "MUSICA",
+        "categoria": "Música e Instrumentos",
+        "justificativa": "Nomenclatura usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "BIOLOGIA",
+        "destino_estrutura": "CIENCIAS BIOLOGICAS",
+        "categoria": "Habilitação Legada",
+        "justificativa": "Nome coloquial usado no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "PSICOLOGIA-PSICOLOGO",
+        "destino_estrutura": "PSICOLOGIA",
+        "categoria": "Habilitação Legada",
+        "justificativa": "Sufixo de titulação concatenado ao nome, usado no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "ENGENHARIA DE CONTROLE E AUTOMACAO",
+        "destino_estrutura": "ENGENHARIA MECATRONICA - CONTROLE E AUTOMACAO",
+        "categoria": "Engenharias",
+        "justificativa": "Nomenclatura alternativa usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "DAP / COMUNICACAO SOCIAL - AUDIOVISUAL",
+        "destino_estrutura": "COMUNICACAO SOCIAL - AUDIOVISUAL",
+        "categoria": "Comunicação",
+        "justificativa": "Sigla do departamento (DAP) remanescente da extração do campo 'unidade' do PIBIC.",
+    },
+    {
+        "origem_sigra": "CIENCIAS BIOLOGICAS / DEPARTAMENTO DE ZOOLOGIA",
+        "destino_estrutura": "CIENCIAS BIOLOGICAS",
+        "categoria": "Habilitação Legada",
+        "justificativa": "Subunidade de pesquisa remanescente da extração do campo 'unidade' do PIBIC.",
+    },
+    {
+        "origem_sigra": "JOR / JORNALISMO",
+        "destino_estrutura": "COMUNICACAO SOCIAL - JORNALISMO",
+        "categoria": "Comunicação",
+        "justificativa": "Sigla do departamento (JOR) remanescente da extração do campo 'unidade' do PIBIC.",
+    },
 ]
 
 # Dicionário dinâmico de mapeamento rápido
 COURSE_ALIASES = {rule["origem_sigra"]: rule["destino_estrutura"] for rule in CANONICAL_RULES_METADATA}
+
+# Cursos-tronco de ingresso comum (ex.: Engenharia na FGA/FT), onde o discente ainda não
+# escolheu a habilitação terminal. Não são cursos válidos para análise de retenção/evasão.
+EXCLUDED_GENERIC_COURSES = {"ENGENHARIA"}
+
+
+def normalize_turno_grupo(turno_norm: str) -> str:
+    """Unifica matutino/vespertino em Diurno; preserva Noturno e Integral."""
+    valor = turno_norm or ""
+    if "NOTURNO" in valor:
+        return "NOTURNO"
+    if "INTEGRAL" in valor:
+        return "INTEGRAL"
+    return "DIURNO"
+
+
+def normalize_categoria_grau(grau_norm: str) -> str:
+    """Agrupa a titulação conferida em Bacharelado ou Licenciatura para fins de análise."""
+    valor = grau_norm or ""
+    if "LICENCIAD" in valor:
+        return "LICENCIATURA"
+    return "BACHARELADO"
+
+
+def normalize_campus_nome(campus_raw: str) -> str:
+    """Unifica os nomes de campus entre as bases SIGRA e PIBIC (grafias distintas na origem).
+
+    FGA e FCE são renomeadas para suas denominações institucionais atuais
+    (Faculdade de Ciências e Tecnologias em Engenharia / em Saúde); Darcy Ribeiro
+    e Planaltina (FUP) mantêm a mesma identidade, apenas com grafia padronizada.
+    """
+    valor = campus_raw or ""
+    if "GAMA" in valor:
+        return "FACULDADE DE CIENCIAS E TECNOLOGIAS EM ENGENHARIA (FCTE)"
+    if "CEILANDIA" in valor:
+        return "FACULDADE DE CIENCIAS E TECNOLOGIAS EM SAUDE (FCTS)"
+    if "PLANALTINA" in valor:
+        return "FACULDADE DE PLANALTINA (FUP)"
+    return "DARCY RIBEIRO"
+
+
+def build_area_por_curso(df_cur: pd.DataFrame, cursos_canonicos) -> Dict[str, str]:
+    """Mapa nome_curso_norm -> Grande Área oficial (CNPq/MEC), a partir do catálogo de cursos.
+
+    Cursos-tronco sem entrada própria no catálogo (ex.: "COMUNICACAO SOCIAL", cujas
+    habilitações — Jornalismo, Publicidade e Propaganda, Audiovisual etc. — são cadastradas
+    separadamente) herdam a área de suas habilitações, quando todas concordam na mesma
+    Grande Área. Compartilhado entre a tabela de retenção (SIGRA) e a de PIBIC.
+    """
+    area_por_curso = (
+        df_cur.dropna(subset=["area_conhecimento_norm"])
+        .groupby("nome_curso_norm")["area_conhecimento_norm"]
+        .agg(lambda s: s.mode().iloc[0])
+    )
+    area_dict = area_por_curso.to_dict()
+    for nome_base in cursos_canonicos:
+        if not nome_base or nome_base in area_dict:
+            continue
+        candidatas = area_por_curso[area_por_curso.index.str.startswith(f"{nome_base} - ")]
+        if not candidatas.empty and candidatas.nunique() == 1:
+            area_dict[nome_base] = candidatas.iloc[0]
+    return area_dict
 
 
 def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
@@ -404,12 +546,25 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     df_sig = pd.read_csv(sig_path)
     df_est = pd.read_csv(est_path)
     df_cur = pd.read_csv(cur_path)
-    
+
     total_discentes = len(df_sig)
-    
+
     # 2. Aplicar mapeamento canônico de cursos
     df_sig["curso_canonico"] = df_sig["curso_norm"].replace(COURSE_ALIASES)
-    
+
+    # 2.1 Cursos com oferta dupla: o mesmo nome de curso no catálogo (cursos_graduacao_silver)
+    # tem entradas tanto de Bacharelado quanto de Licenciatura (ex.: Química, Física, Letras).
+    # O catálogo não traz uma chave que ligue o código de "opcao" do SIGRA ao grau conferido, e
+    # essa correspondência não foi encontrada em nenhuma fonte pública (ver docs/dicionario_dados_gold.md).
+    # Em vez de arriscar uma separação por aluno não verificável — o que pode atribuir discentes
+    # ao grau errado, como visto quando o menor código de opção de Física isolou um subgrupo
+    # minoritário sem nenhum formado —, esses cursos são mantidos como uma única linha na Gold,
+    # com o grau explicitamente marcado como "MISTO" em vez de assumir Bacharelado ou Licenciatura.
+    df_cur["categoria_grau"] = df_cur["grau_academico_norm"].apply(normalize_categoria_grau)
+    mixed_courses = set(
+        df_cur.groupby("nome_curso_norm")["categoria_grau"].nunique().loc[lambda s: s > 1].index
+    )
+
     # 3. Join com Estrutura Curricular
     df_merged = pd.merge(
         df_sig,
@@ -419,7 +574,7 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
         how="left",
         suffixes=("", "_est"),
     )
-    
+
     # 4. Join com Cursos de Graduação (metadados de campus, turno e unidade)
     # Deduplica catálogo de cursos por nome canônico
     cur_dedup = df_cur.groupby("nome_curso_norm", as_index=False).first()
@@ -430,7 +585,13 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
         right_on="nome_curso_norm",
         how="left",
     )
-    
+    # Cursos-tronco (ex.: "COMUNICACAO SOCIAL") não têm entrada própria no catálogo e
+    # ficam sem área após o merge acima — completa com a área herdada das habilitações.
+    area_lookup = build_area_por_curso(df_cur, df_sig["curso_canonico"].unique())
+    df_merged["area_conhecimento_norm"] = df_merged["area_conhecimento_norm"].fillna(
+        df_merged["curso_canonico"].map(area_lookup)
+    )
+
     # 5. Auditoria da Taxa de Casamento (Join Match Rate) e Governança de Entidades
     matched_mask = df_merged["semestre_conclusao_ideal"].notna()
     matched_count = int(matched_mask.sum())
@@ -493,7 +654,10 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
 
     # 6. Cálculo de Indicadores no Nível Individual
     df_valid = df_merged[matched_mask].copy()
-    
+    # Descarta cursos-tronco de ingresso comum (ex.: Engenharia genérica) de toda a análise,
+    # não só da tabela por curso: não são cursos terminais válidos para retenção/evasão.
+    df_valid = df_valid[~df_valid["curso_canonico"].isin(EXCLUDED_GENERIC_COURSES)].copy()
+
     is_formado = df_valid["tipo_saida_grupo"] == "FORMATURA"
     df_valid["is_formado"] = is_formado
     df_valid["is_evadido"] = df_valid["tipo_saida_grupo"] == "EVASAO_DESLIGAMENTO"
@@ -564,19 +728,28 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
         ch_total = grp["ch_total_minima"].iloc[0]
         
         # Metadados
-        campus = grp["campus_norm"].dropna().iloc[0] if grp["campus_norm"].notna().any() else "DARCY RIBEIRO"
-        turno = grp["turno_norm"].dropna().iloc[0] if grp["turno_norm"].notna().any() else "DIURNO"
+        campus_raw = grp["campus_norm"].dropna().iloc[0] if grp["campus_norm"].notna().any() else "DARCY RIBEIRO"
+        campus = normalize_campus_nome(campus_raw)
+        turno_raw = grp["turno_norm"].dropna().iloc[0] if grp["turno_norm"].notna().any() else "DIURNO"
+        turno = normalize_turno_grupo(turno_raw)
         area = grp["area_conhecimento_norm"].dropna().iloc[0] if grp["area_conhecimento_norm"].notna().any() else "OUTRA"
-        grau = grp["grau_academico_norm"].dropna().iloc[0] if grp["grau_academico_norm"].notna().any() else "BACHAREL"
+        grau_raw = grp["grau_academico_norm"].dropna().iloc[0] if grp["grau_academico_norm"].notna().any() else "BACHAREL"
+        categoria_grau = normalize_categoria_grau(grau_raw)
+        if curso in mixed_courses:
+            # Curso com Bacharelado e Licenciatura sob o mesmo nome, mas sem forma confiável de
+            # separar os discentes (ver comentário 2.1) — não assume um grau único arbitrário.
+            grau_raw = "MISTO (BACHARELADO + LICENCIATURA)"
+            categoria_grau = "MISTO"
         depto = grp["departamento_norm"].dropna().iloc[0] if grp["departamento_norm"].notna().any() else "UNB"
-        
+
         gold_rows.append({
             "curso": curso,
             "departamento": depto,
             "campus": campus,
             "turno": turno,
             "area_conhecimento": area,
-            "grau_academico": grau,
+            "grau_academico": grau_raw,
+            "categoria_grau": categoria_grau,
             "semestre_minimo_previsto": sem_min,
             "semestre_ideal_previsto": sem_ideal,
             "semestre_maximo_previsto": sem_max,
@@ -630,6 +803,9 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     pibic_silver_path = SILVER_DIR / "pibic_bolsistas_silver.csv"
     if pibic_silver_path.exists():
         df_pibic_raw = pd.read_csv(pibic_silver_path)
+        # Canonicaliza antes de agregar, para não perder projetos por causa de grafias
+        # inconsistentes no campo "unidade" de origem (ver comentário em build_pibic_gold).
+        df_pibic_raw["curso_pibic_norm"] = df_pibic_raw["curso_pibic_norm"].replace(COURSE_ALIASES)
         pibic_course_agg = df_pibic_raw.groupby("curso_pibic_norm").agg(
             pibic_total_projetos=("ano", "count"),
             pibic_bolsas_remuneradas=("tipo_bolsa_norm", lambda s: (s == "REMUNERADA").sum()),
@@ -698,7 +874,27 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
         
     df_pibic = pd.read_csv(pibic_silver_path)
     total_registros = len(df_pibic)
-    
+
+    # Campus: mesma normalização usada na tabela de retenção, para os nomes baterem
+    # entre as duas fontes (a base de bolsistas grava "FGA - GAMA"/"FCE - CEILANDIA").
+    df_pibic["campus"] = df_pibic["campus"].apply(normalize_campus_nome)
+
+    # 0. Canonicalização do curso e Grande Área oficial (CNPq/MEC)
+    # O campo "unidade" da base de bolsistas gera grafias inconsistentes para o mesmo curso
+    # (ex.: variações de "Letras - Tradução"), por isso passa pela mesma harmonização canônica
+    # usada para o SIGRA. A "Grande Área" exibida não usa o campo "linha_pesquisa" (autodeclarado
+    # pela própria base de IC, que classifica cursos como Farmácia em "ARTES E HUMANIDADE"),
+    # e sim `area_conhecimento_norm` do catálogo oficial de cursos.
+    df_pibic["curso_canonico"] = df_pibic["curso_pibic_norm"].replace(COURSE_ALIASES)
+
+    cur_path = SILVER_DIR / "cursos_graduacao_silver.csv"
+    if cur_path.exists():
+        df_cur_cat = pd.read_csv(cur_path)
+        area_dict = build_area_por_curso(df_cur_cat, df_pibic["curso_canonico"].unique())
+        df_pibic["area_conhecimento"] = df_pibic["curso_canonico"].map(area_dict).fillna("OUTRA")
+    else:
+        df_pibic["area_conhecimento"] = df_pibic["linha_pesquisa_norm"]
+
     # 1. Indicadores Financeiros e Totais
     total_remuneradas = int((df_pibic["tipo_bolsa_norm"] == "REMUNERADA").sum())
     total_voluntarias = int((df_pibic["tipo_bolsa_norm"] == "VOLUNTARIA").sum())
@@ -729,7 +925,7 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
     dist_campi = campi_agg.to_dict(orient="records")
     
     # Distribuição por Grande Área
-    area_agg = df_pibic.groupby("linha_pesquisa_norm").agg(
+    area_agg = df_pibic.groupby("area_conhecimento").agg(
         total_projetos=("ano", "count"),
         total_remuneradas=("tipo_bolsa_norm", lambda s: (s == "REMUNERADA").sum()),
         total_cotistas=("is_cotista", "sum"),
@@ -750,7 +946,9 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
     dist_ano = ano_agg.to_dict(orient="records")
     
     # 3. Tabela Analítica Agregada por Curso / Unidade (com k-anônimo >= 5)
-    curso_agg = df_pibic.groupby(["curso_pibic_norm", "campus", "linha_pesquisa_norm"]).agg(
+    # Agrupa pelo curso canônico (não o nome bruto extraído do campo "unidade"), para não
+    # espalhar o mesmo curso em várias linhas por causa de grafias inconsistentes na origem.
+    curso_agg = df_pibic.groupby(["curso_canonico", "campus", "area_conhecimento"]).agg(
         total_projetos=("ano", "count"),
         total_remuneradas=("tipo_bolsa_norm", lambda s: (s == "REMUNERADA").sum()),
         total_voluntarias_pivic=("tipo_bolsa_norm", lambda s: (s == "VOLUNTARIA").sum()),
@@ -758,8 +956,8 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
         total_cotistas_ppi=("perfil_social_macro", lambda s: (s == "PPI / ETNICO-RACIAL").sum()),
         total_baixa_renda=("faixa_renda", lambda s: (s == "BAIXA RENDA (<= 1.5 SM)").sum()),
         valor_total_investido=("valor_bolsa_anual_estimado", "sum"),
-    ).reset_index()
-    
+    ).reset_index().rename(columns={"curso_canonico": "curso_pibic_norm"})
+
     # Exclui registros sem nome de curso e aplica supressão ética k < 5
     curso_agg = curso_agg[(curso_agg["curso_pibic_norm"] != "") & (curso_agg["total_projetos"] >= 5)].copy()
     curso_agg["taxa_cotistas_pct"] = (curso_agg["total_cotistas"] / curso_agg["total_projetos"] * 100).round(1)

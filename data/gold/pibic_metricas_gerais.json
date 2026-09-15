@@ -26,16 +26,7 @@
       "pct_cotistas": 39.05
     },
     {
-      "campus": "FCE - CEILANDIA",
-      "total_projetos": 1380,
-      "total_remuneradas": 931,
-      "total_cotistas": 561,
-      "valor_investido": 4551600.0,
-      "pct_projetos": 10.79,
-      "pct_cotistas": 40.65
-    },
-    {
-      "campus": "FGA - GAMA",
+      "campus": "FACULDADE DE CIENCIAS E TECNOLOGIAS EM ENGENHARIA (FCTE)",
       "total_projetos": 539,
       "total_remuneradas": 387,
       "total_cotistas": 163,
@@ -44,7 +35,16 @@
       "pct_cotistas": 30.24
     },
     {
-      "campus": "FUP - PLANALTINA",
+      "campus": "FACULDADE DE CIENCIAS E TECNOLOGIAS EM SAUDE (FCTS)",
+      "total_projetos": 1380,
+      "total_remuneradas": 931,
+      "total_cotistas": 561,
+      "valor_investido": 4551600.0,
+      "pct_projetos": 10.79,
+      "pct_cotistas": 40.65
+    },
+    {
+      "campus": "FACULDADE DE PLANALTINA (FUP)",
       "total_projetos": 225,
       "total_remuneradas": 166,
       "total_cotistas": 94,
@@ -55,31 +55,85 @@
   ],
   "distribuicao_grande_area": [
     {
-      "linha_pesquisa_norm": "ARTES E HUMANIDADE",
-      "total_projetos": 4834,
-      "total_remuneradas": 3150,
-      "total_cotistas": 2032,
-      "valor_investido": 15447600.0,
-      "pct_projetos": 37.79,
-      "pct_cotistas": 42.04
+      "area_conhecimento": "CIENCIAS AGRARIAS",
+      "total_projetos": 875,
+      "total_remuneradas": 637,
+      "total_cotistas": 353,
+      "valor_investido": 3169200.0,
+      "pct_projetos": 6.84,
+      "pct_cotistas": 40.34
     },
     {
-      "linha_pesquisa_norm": "EXATAS E TECNOLOGICAS",
-      "total_projetos": 3064,
-      "total_remuneradas": 2144,
-      "total_cotistas": 930,
-      "valor_investido": 10622400.0,
-      "pct_projetos": 23.95,
-      "pct_cotistas": 30.35
+      "area_conhecimento": "CIENCIAS BIOLOGICAS",
+      "total_projetos": 830,
+      "total_remuneradas": 590,
+      "total_cotistas": 291,
+      "valor_investido": 2871600.0,
+      "pct_projetos": 6.49,
+      "pct_cotistas": 35.06
     },
     {
-      "linha_pesquisa_norm": "SAUDE E VIDA",
-      "total_projetos": 4895,
-      "total_remuneradas": 3447,
-      "total_cotistas": 2014,
-      "valor_investido": 16999200.0,
-      "pct_projetos": 38.26,
-      "pct_cotistas": 41.14
+      "area_conhecimento": "CIENCIAS DA SAUDE",
+      "total_projetos": 3126,
+      "total_remuneradas": 2170,
+      "total_cotistas": 1380,
+      "valor_investido": 10722000.0,
+      "pct_projetos": 24.44,
+      "pct_cotistas": 44.15
+    },
+    {
+      "area_conhecimento": "CIENCIAS EXATAS E DA TERRA",
+      "total_projetos": 1321,
+      "total_remuneradas": 877,
+      "total_cotistas": 384,
+      "valor_investido": 4443600.0,
+      "pct_projetos": 10.33,
+      "pct_cotistas": 29.07
+    },
+    {
+      "area_conhecimento": "CIENCIAS HUMANAS",
+      "total_projetos": 2004,
+      "total_remuneradas": 1377,
+      "total_cotistas": 920,
+      "valor_investido": 6728400.0,
+      "pct_projetos": 15.66,
+      "pct_cotistas": 45.91
+    },
+    {
+      "area_conhecimento": "CIENCIAS SOCIAIS APLICADAS",
+      "total_projetos": 1994,
+      "total_remuneradas": 1289,
+      "total_cotistas": 804,
+      "valor_investido": 6306000.0,
+      "pct_projetos": 15.59,
+      "pct_cotistas": 40.32
+    },
+    {
+      "area_conhecimento": "ENGENHARIAS",
+      "total_projetos": 1518,
+      "total_remuneradas": 1107,
+      "total_cotistas": 470,
+      "valor_investido": 5421600.0,
+      "pct_projetos": 11.87,
+      "pct_cotistas": 30.96
+    },
+    {
+      "area_conhecimento": "LINGUISTICA, LETRAS E ARTES",
+      "total_projetos": 1003,
+      "total_remuneradas": 620,
+      "total_cotistas": 372,
+      "valor_investido": 3051600.0,
+      "pct_projetos": 7.84,
+      "pct_cotistas": 37.09
+    },
+    {
+      "area_conhecimento": "OUTRA",
+      "total_projetos": 122,
+      "total_remuneradas": 74,
+      "total_cotistas": 2,
+      "valor_investido": 355200.0,
+      "pct_projetos": 0.95,
+      "pct_cotistas": 1.64
     }
   ],
   "evolucao_anual": [

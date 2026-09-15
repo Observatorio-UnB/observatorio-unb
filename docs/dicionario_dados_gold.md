@@ -6,10 +6,10 @@ Este documento descreve a semântica, os tipos de dados e os métodos de cálcul
 
 ## 1. Metadados do Artefato
 - **Arquivo**: `data/gold/retencao_cursos_unb.csv`
-- **Granularidade**: 1 linha por curso canônico de graduação da UnB.
-- **Total de Cursos Consolidados**: 76 cursos.
+- **Granularidade**: 1 linha por curso canônico de graduação da UnB. Cursos com oferta dupla de Bacharelado e Licenciatura sob o mesmo nome no catálogo (ex. Química, Física, Matemática — ver seção 3) permanecem em uma única linha, com `categoria_grau = "MISTO"`.
+- **Total de Cursos Consolidados**: 93 cursos. O curso-tronco de ingresso comum `ENGENHARIA` (habilitação escolhida posteriormente pelo discente, ex. modelo FGA/FT) é excluído de toda a análise por não ser um curso terminal válido para métricas de retenção/evasão.
 - **Fontes Primárias**: `sigra_discentes.csv` (24.5 MB) + `estrutura_curricular.csv` (76 KB) + `cursos_graduacao.csv` (45 KB).
-- **Taxa de Casamento dos Joins**: 97.54%.
+- **Taxa de Casamento dos Joins**: 100.00%.
 
 ---
 
@@ -20,9 +20,10 @@ Este documento descreve a semântica, os tipos de dados e os métodos de cálcul
 | `curso` | String | `CIENCIA DA COMPUTACAO` | Nome canônico e normalizado do curso de graduação da UnB (sem acentos, uppercase). |
 | `departamento` | String | `DEPTO CIENCIA DA COMPUTACAO` | Departamento acadêmico de vinculação principal da matriz. |
 | `campus` | String | `DARCY RIBEIRO` | Campus de oferta (Darcy Ribeiro, FGA - Gama, FCE - Ceilândia, FUP - Planaltina). |
-| `turno` | String | `DIURNO` | Turno de oferta cadastrado no catálogo de graduação (Diurno, Noturno, Integral). |
+| `turno` | String | `DIURNO` | Turno de oferta, normalizado para `DIURNO`, `NOTURNO` ou `INTEGRAL`. Cursos autodesignados como `MATUTINO`, `VESPERTINO` ou `MATUTINO E VESPERTINO` no catálogo bruto são unificados em `DIURNO`, já que juntos cobrem o período diurno completo. |
 | `area_conhecimento` | String | `CIENCIAS EXATAS E DA TERRA` | Grande área de conhecimento do CNPq/MEC. |
-| `grau_academico` | String | `BACHAREL` | Titulação conferida ao egresso (Bacharel, Licenciado, Engenheiro). |
+| `grau_academico` | String | `BACHAREL` | Titulação literal conferida ao egresso, conforme cadastrada (Bacharel, Licenciado, Engenheiro Civil, Médico etc.). |
+| `categoria_grau` | String | `BACHARELADO` | Agrupamento de `grau_academico` em três classes de análise: `LICENCIATURA` (titulações de Licenciado), `BACHARELADO` (Bacharel e todas as titulações profissionais — Engenheiro\*, Médico, Enfermeiro, Nutricionista, Geólogo, Arquiteto e Urbanista, Cirurgião Dentista, Médico Veterinário) e `MISTO` para os 15 cursos com oferta dupla sob o mesmo nome (ver seção 3). |
 | `semestre_minimo_previsto` | Float | `8.0` | Quantidade mínima regulamentar de semestres para conclusão cadastrada na estrutura curricular. |
 | `semestre_ideal_previsto` | Float | `9.0` | Duração padrão/ideal em semestres para integralização da matriz curricular. |
 | `semestre_maximo_previsto` | Float | `16.0` | Prazo máximo de permanência antes da abertura de processo de jubilamento. |
@@ -41,3 +42,13 @@ Este documento descreve a semântica, os tipos de dados e os métodos de cálcul
 | `desvio_medio_semestres` | Float | `3.37` | Diferença média em semestres: $\text{tempo\_medio\_real} - \text{semestre\_ideal\_previsto}$. |
 | `indice_retencao_critica` | Float (0-100) | `59.7` | Índice composto normalizado: $0.5 \times \text{norm}(desvio) + 0.5 \times \text{norm}(evasao)$. |
 | `classificacao_retencao` | String | `RETENÇÃO CRÍTICA` | Nível de urgência institucional: `RETENÇÃO CRÍTICA` (Top 25%), `ALTA`, `MÉDIA`, `BAIXA`. |
+
+---
+
+## 3. Cursos com Oferta Dupla (Bacharelado e Licenciatura) — `categoria_grau = "MISTO"`
+
+15 cursos da UnB oferecem, sob o mesmo nome no catálogo (`cursos_graduacao_silver.csv`), tanto uma habilitação de Bacharelado quanto uma de Licenciatura: `QUIMICA`, `FISICA`, `MATEMATICA`, `ARTES VISUAIS`, `CIENCIAS BIOLOGICAS`, `CIENCIAS SOCIAIS`, `EDUCACAO FISICA`, `FILOSOFIA`, `GEOGRAFIA`, `HISTORIA`, `MUSICA`, `PSICOLOGIA` e 3 habilitações de Letras (Francesa, Inglesa, Portuguesa). O catálogo de cursos não traz uma coluna que ligue o código de `opcao` do SIGRA (identificador da opção de ingresso do discente) ao grau conferido, e essa tabela de correspondência não foi localizada em nenhum dataset aberto da UnB (`dados.unb.br`) nem em documentos institucionais públicos (editais de mudança de curso, guias de vestibular) acessíveis no momento da construção deste pipeline.
+
+Uma primeira tentativa separou esses cursos usando o código `opcao` do SIGRA como proxy (o menor código observado por curso = Bacharelado, os demais = Licenciatura). Isso funciona de forma limpa apenas quando o curso tem exatamente 2 códigos de `opcao` distintos — o caso de Química (1449/1503). Nos outros 14 cursos há 3 a 6 códigos distintos (entradas por vestibular, SiSU, transferência, mudança de curso etc. registradas em anos diferentes), e não há como saber quais códigos pertencem a qual grau: aplicar a mesma regra em Física, por exemplo, isolava um subgrupo minoritário de 55 discentes (código de opção mais baixo) como "Bacharelado" com 0% de formatura — um resultado claramente incorreto, não apenas incompleto.
+
+**Decisão final**: em vez de dividir apenas os cursos onde a heurística funciona (criando uma experiência inconsistente — alguns cursos duplos separados, outros não) ou arriscar atribuições erradas nos demais, todos os 15 cursos permanecem como uma única linha na Gold, com `grau_academico = "MISTO (BACHARELADO + LICENCIATURA)"` e `categoria_grau = "MISTO"`. As métricas de retenção/evasão dessa linha somam as duas habilitações. Caso uma tabela oficial `opcao → curso/grau` do SIGRA seja obtida no futuro, essa lógica em `src/pipeline/build_gold.py` (função `build_gold_layer`, comentário "2.1") pode ser refeita para separar os discentes com uma correspondência real.

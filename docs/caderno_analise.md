@@ -31,19 +31,21 @@
 ### **GQ 3: Qual a proporção de saídas por formatura versus desligamentos críticos?**
 - **Evidência Global**:
   - Do total de 59.202 discentes analisados com registros de saída concluídos no SIGRA, **42.05%** saíram por *Formatura* e **53.8%** saíram por *Evasão/Desligamento* (abandono de curso, não cumprimento de condição ou jubilamento).
-- **Cursos com Maior Evasão Crítica**:
+- **Cursos com Maior Evasão Crítica** (a habilitação genérica de ingresso comum "Engenharia" — onde a habilitação terminal ainda não foi escolhida — foi excluída da análise por não ser um curso válido; ver `docs/dicionario_dados_gold.md`):
   - *Física Computacional*: 76.19% de evasão.
-  - *Engenharia*: 74.00% de evasão.
   - *Computação*: 73.47% de evasão.
-  - *Ciência da Computação*: 59.14% de evasão.
+  - *Letras - Língua e Literatura Japonesa*: 71.80% de evasão.
+  - *Teoria, Crítica e História da Arte*: 68.05% de evasão.
 
 ---
 
 ### **GQ 4: Cursos noturnos apresentam desvio de tempo significativamente maior que os diurnos?**
+- **Metodologia de Turno**: Cursos que se autodesignam no catálogo bruto como `MATUTINO`, `VESPERTINO` ou `MATUTINO E VESPERTINO` são unificados em **Diurno** (juntos cobrem o período diurno completo), restando apenas a comparação Diurno (78 cursos) vs. Noturno (15 cursos).
 - **Evidência Comparativa**:
-  - *Desvio de tempo em relação à matriz*: Cursos noturnos possuem matrizes curriculares que já preveem semestres adicionais em seu desenho curricular (ex: 12 semestres). Por isso, o desvio em relação à sua própria matriz não é maior que o diurno.
-  - *Impacto na Taxa de Evasão*: Cursos noturnos apresentam taxa média de evasão de **52.54%**, comparada a **29.43%** nos cursos estritamente diurnos.
-  - **Veredito**: A dificuldade no noturno se manifesta prioritariamente na **permanência e evasão** (abandono por conciliação de trabalho/estudo), e não apenas no atraso de semestres de quem consegue formar.
+  - *Desvio de tempo em relação à matriz*: Cursos noturnos possuem matrizes curriculares que já preveem semestres adicionais em seu desenho curricular (tempo ideal médio de 11.3 semestres vs. 10.5 no diurno). Por isso, o desvio médio em relação à própria matriz é levemente negativo no noturno (**-0.47 semestres**) contra **+0.51 semestres** no diurno — quem se forma no noturno tende a cumprir (ou até antecipar) o prazo já estendido da sua matriz.
+  - *Impacto na Taxa de Evasão*: Cursos noturnos apresentam taxa média de evasão de **52.55%**, comparada a **45.81%** nos cursos diurnos (matutino + vespertino unificados).
+  - **Veredito**: A dificuldade no noturno se manifesta prioritariamente na **permanência e evasão** (abandono por conciliação de trabalho/estudo), e não no atraso de semestres de quem consegue formar — cuja matriz já prevê prazo mais longo.
+- **Recorte Complementar por Grau Acadêmico (Bacharelado vs. Licenciatura)**: cursos de Licenciatura (21) apresentam evasão média de **55.16%**, acima dos **44.48%** dos cursos de Bacharelado (72, incluindo habilitações profissionais como Engenharia, Medicina e Arquitetura).
 
 ---
 

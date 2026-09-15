@@ -1,40 +1,40 @@
 {
-  "total_discentes_analisados": 60695,
-  "total_formados_unb": 25591,
-  "taxa_conclusao_tempo_ideal_global_pct": 62.4,
-  "taxa_conclusao_acima_ideal_global_pct": 37.6,
+  "total_discentes_analisados": 59168,
+  "total_formados_unb": 25551,
+  "taxa_conclusao_tempo_ideal_global_pct": 62.49,
+  "taxa_conclusao_acima_ideal_global_pct": 37.51,
   "tempo_medio_formatura_global_semestres": 10.84,
-  "desvio_medio_global_semestres": -0.04,
+  "desvio_medio_global_semestres": -0.05,
   "top_5_cursos_maior_retencao": [
-    {
-      "curso": "ENGENHARIA",
-      "tempo_medio_real_semestres": 12.48,
-      "taxa_evasao_pct": 74.0,
-      "indice_retencao_critica": 98.4
-    },
     {
       "curso": "FISICA COMPUTACIONAL",
       "tempo_medio_real_semestres": 13.25,
       "taxa_evasao_pct": 76.19,
-      "indice_retencao_critica": 78.4
+      "indice_retencao_critica": 94.3
     },
     {
       "curso": "MUSICA - TROMBONE",
       "tempo_medio_real_semestres": 12.0,
       "taxa_evasao_pct": 66.67,
-      "indice_retencao_critica": 69.6
+      "indice_retencao_critica": 84.5
     },
     {
       "curso": "MUSICA - PIANO",
       "tempo_medio_real_semestres": 12.8,
       "taxa_evasao_pct": 50.0,
-      "indice_retencao_critica": 62.4
+      "indice_retencao_critica": 80.3
     },
     {
       "curso": "MUSICA - VIOLAO",
       "tempo_medio_real_semestres": 11.5,
       "taxa_evasao_pct": 60.0,
-      "indice_retencao_critica": 61.2
+      "indice_retencao_critica": 74.3
+    },
+    {
+      "curso": "CIENCIA DA COMPUTACAO",
+      "tempo_medio_real_semestres": 12.37,
+      "taxa_evasao_pct": 59.14,
+      "indice_retencao_critica": 72.3
     }
   ],
   "top_5_cursos_maior_pontualidade": [
