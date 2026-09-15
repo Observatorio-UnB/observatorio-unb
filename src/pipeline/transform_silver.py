@@ -163,7 +163,35 @@ def process_cursos_graduacao() -> pd.DataFrame:
     df["grau_academico_norm"] = df["grau_academico"].apply(normalize_text)
     df["area_conhecimento_norm"] = df["area_conhecimento"].apply(normalize_text)
     df["unidade_responsavel_norm"] = df["unidade_responsavel"].apply(normalize_text)
-    
+
+    # O catálogo bruto da UnB classifica 13 cursos como "Outra", que não existe na
+    # taxonomia oficial CNPq/MEC de Grande Área. Mapeamos manualmente para a área correta
+    # de cada um (conferida contra a classificação oficial CNPq/MEC, não a de um curso
+    # "irmão" na base bruta, já que esta também tem inconsistências — ex.: Ciências
+    # Sociais aparece ora como "Ciências Sociais Aplicadas", ora como "Ciências Humanas").
+    AREA_CONHECIMENTO_OVERRIDES = {
+        "ARQUITETURA E URBANISMO": "CIENCIAS SOCIAIS APLICADAS",
+        "CIENCIAS NATURAIS": "CIENCIAS HUMANAS",
+        "CIENCIAS SOCIAIS": "CIENCIAS HUMANAS",
+        "EDUCACAO DO CAMPO - MATEMATICA": "CIENCIAS HUMANAS",
+        "EDUCACAO FISICA": "CIENCIAS DA SAUDE",
+        "ENGENHARIA": "ENGENHARIAS",
+        "ENGENHARIA AUTOMOTIVA": "ENGENHARIAS",
+        "LETRAS - LINGUA INGLESA E RESPECTIVA LITERATURA": "LINGUISTICA, LETRAS E ARTES",
+        "MUSEOLOGIA": "CIENCIAS SOCIAIS APLICADAS",
+        "MUSICA": "LINGUISTICA, LETRAS E ARTES",
+        "TEATRO": "LINGUISTICA, LETRAS E ARTES",
+    }
+    mask_outra = df["area_conhecimento_norm"] == "OUTRA"
+    df.loc[mask_outra, "area_conhecimento_norm"] = (
+        df.loc[mask_outra, "nome_curso_norm"].map(AREA_CONHECIMENTO_OVERRIDES).fillna("OUTRA")
+    )
+    ainda_outra = df.loc[df["area_conhecimento_norm"] == "OUTRA", "nome_curso_norm"].unique()
+    if len(ainda_outra):
+        logger.warning(
+            f"Cursos sem Grande Área mapeada, adicione a AREA_CONHECIMENTO_OVERRIDES: {list(ainda_outra)}"
+        )
+
     # Substituir literais NULL por NaN
     df = df.replace(["NULL", "NONE", "NAN", ""], np.nan)
     
@@ -259,11 +287,23 @@ def process_pibic() -> pd.DataFrame:
     df["campus"] = df["unidade_norm"].apply(parse_campus_pibic)
     
     # 6. Extração de Curso e Departamento
+    # Prefixos genéricos usados de forma inconsistente no campo "unidade" do PIBIC
+    # (ex.: "BACHARELADO EM FISICA" vs. "FISICA" no restante da base) e que impedem o
+    # casamento com o nome canônico do curso se não forem removidos.
+    CURSO_PREFIXOS_GENERICOS = re.compile(
+        r"^(BACHARELADO EM |LICENCIATURA EM |GRADUACAO EM |GRADUACAO DE |CURSO DE |CURSO )",
+        flags=re.IGNORECASE,
+    )
+
     def parse_curso_pibic(u_raw):
         if pd.isna(u_raw) or "/" not in str(u_raw):
             return ""
         part = str(u_raw).split("/", 1)[1]
-        part = re.sub(r"-?\s*ALUNO:\s*ATIVO", "", part, flags=re.IGNORECASE)
+        # Remove sufixo de situação do discente ("- ALUNO: ATIVO", "- ALUNO: TRANCADO" etc.)
+        # e o marcador final "- FORMANDO", em qualquer combinação.
+        part = re.sub(r"-?\s*ALUNO:\s*\S+", "", part, flags=re.IGNORECASE)
+        part = re.sub(r"-\s*FORMANDO\s*$", "", part, flags=re.IGNORECASE).strip()
+        part = CURSO_PREFIXOS_GENERICOS.sub("", part.strip())
         return normalize_text(part)
         
     def parse_depto_pibic(u_raw):

@@ -50,8 +50,11 @@ bd2/
 
 ### A. Instalação do Ambiente
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
+Todos os comandos abaixo assumem o `.venv` ativado (`deactivate` para sair).
 
 ### B. Execução do Pipeline de Dados (Bronze $\rightarrow$ Silver $\rightarrow$ Gold)
 ```bash

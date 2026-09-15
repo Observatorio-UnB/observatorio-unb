@@ -36,11 +36,18 @@ Entre 2018 e 2023, a Universidade de Brasília registrou **12.793 planos de trab
 * **Hipótese**: O acesso à Iniciação Científica na UnB reflete uma democratização homogênea entre todas as áreas do saber.
 * **Evidência Empírica**:
   * No cômputo global, **38,9% dos bolsistas (4.976 discentes)** ingressaram por cotas sociais ou raciais (Escola Pública Baixa Renda, PPI - Pretos, Pardos e Indígenas, Negros, Indígenas e PCD).
-  * **Disparidade por Grande Área**:
-    * *Artes e Humanidades*: **42,04%** de cotistas;
-    * *Saúde e Vida*: **41,14%** de cotistas;
-    * *Exatas e Tecnológicas*: apenas **30,35%** de cotistas.
-* **Veredito**: **Refutada Parcialmente**. Existe expressiva adesão de cotistas em Humanas e Saúde, mas as áreas de Ciência, Tecnologia, Engenharia e Matemática (STEM) ainda apresentam uma barreira de entrada para estudantes de ações afirmativas.
+  * **Disparidade por Grande Área** (classificação oficial CNPq/MEC do curso de origem, não a linha de pesquisa autodeclarada do projeto — ver nota metodológica ao final desta seção):
+    * *Ciências Humanas*: **45,89%** de cotistas;
+    * *Ciências da Saúde*: **44,15%** de cotistas;
+    * *Ciências Sociais Aplicadas*: **41,84%** de cotistas;
+    * *Ciências Agrárias*: **40,34%** de cotistas;
+    * *Linguística, Letras e Artes*: **35,71%** de cotistas;
+    * *Ciências Biológicas*: **35,06%** de cotistas;
+    * *Engenharias*: **31,12%** de cotistas;
+    * *Ciências Exatas e da Terra*: apenas **29,07%** de cotistas.
+* **Veredito**: **Refutada Parcialmente**. Existe expressiva adesão de cotistas em Humanas, Saúde e Sociais Aplicadas, mas as áreas de Ciência, Tecnologia, Engenharia e Matemática (STEM — Exatas e Engenharias) ainda apresentam uma barreira de entrada para estudantes de ações afirmativas.
+
+> **Nota metodológica**: a base bruta de bolsistas classifica cada projeto em apenas 3 "linhas de pesquisa" autodeclaradas (Artes e Humanidade, Saúde e Vida, Exatas e Tecnológicas), que não correspondem ao curso do discente — por exemplo, projetos de Farmácia (Ciências da Saúde) apareciam sob "Artes e Humanidade". A tabela Gold do PIBIC (`pibic_social_unb.csv`) usa em vez disso a Grande Área oficial (CNPq/MEC) do curso de graduação do discente, já presente no catálogo de cursos da UnB.
 
 ---
 

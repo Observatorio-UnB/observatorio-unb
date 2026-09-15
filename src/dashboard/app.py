@@ -4,13 +4,41 @@ Desenvolvido para o Decanato de Ensino de Graduação (DEG/UnB)
 Challenge de Dados Abertos da UnB - Metodologia CBL
 """
 
+import base64
 import json
+import sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from src.pipeline.build_gold import EXCLUDED_GENERIC_COURSES
+
+# Paleta institucional da UnB (verde e azul da marca, extraídas do símbolo oficial) aplicada como padrão dos gráficos
+UNB_GREEN = "#008940"
+UNB_NAVY = "#133E79"
+UNB_PALETTE = [UNB_GREEN, UNB_NAVY, "#F2B705", "#8AC24A", "#6B7280"]
+px.defaults.color_discrete_sequence = UNB_PALETTE
+
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+UNB_ICON_PATH = ASSETS_DIR / "unb_icon.png"
+UNB_ICON_B64 = base64.b64encode(UNB_ICON_PATH.read_bytes()).decode("ascii")
+
+# Rótulos legíveis para colunas técnicas que aparecem em eixos/legendas dos gráficos
+LABELS_PT = {
+    "turno": "Turno",
+    "categoria_grau": "Grau Acadêmico",
+    "taxa_evasao_pct": "Taxa de Evasão (%)",
+    "taxa_formatura_pct": "Taxa de Formatura (%)",
+    "tempo_medio_real_semestres": "Tempo Médio Real (semestres)",
+    "semestre_ideal_previsto": "Tempo Ideal Previsto (semestres)",
+    "desvio_medio_semestres": "Desvio Médio (semestres)",
+    "value": "Semestres",
+    "variable": "Métrica",
+}
 
 # Configuração da página
 st.set_page_config(
@@ -20,14 +48,14 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Estilização CSS customizada
+# Estilização CSS customizada (cores institucionais UnB: verde #008940 / azul #133E79)
 st.markdown(
     """
     <style>
     .main-header {
         font-size: 2.2rem;
         font-weight: 700;
-        color: #1E3A8A;
+        color: #008940;
         margin-bottom: 0.2rem;
     }
     .sub-header {
@@ -45,7 +73,7 @@ st.markdown(
     .metric-val {
         font-size: 1.8rem;
         font-weight: 700;
-        color: #1E40AF;
+        color: #133E79;
     }
     .metric-label {
         font-size: 0.9rem;
@@ -68,15 +96,29 @@ GOLD_DIR = BASE_DIR / "data" / "gold"
 DOCS_DIR = BASE_DIR / "docs"
 
 
+def _gold_files_mtime() -> float:
+    """Assinatura de versão dos arquivos Gold, para invalidar o cache quando o pipeline
+    regenera os dados (st.cache_data por si só não detecta mudança de conteúdo em disco)."""
+    paths = [
+        GOLD_DIR / "retencao_cursos_unb.csv",
+        GOLD_DIR / "metricas_gerais_unb.json",
+        GOLD_DIR / "relatorio_casamento_joins.json",
+        GOLD_DIR / "pibic_social_unb.csv",
+        GOLD_DIR / "pibic_metricas_gerais.json",
+        GOLD_DIR / "regras_harmonizacao_canonicas.json",
+    ]
+    return max((p.stat().st_mtime for p in paths if p.exists()), default=0.0)
+
+
 @st.cache_data
-def load_gold_data():
+def load_gold_data(_version: float):
     csv_path = GOLD_DIR / "retencao_cursos_unb.csv"
     json_path = GOLD_DIR / "metricas_gerais_unb.json"
     join_path = GOLD_DIR / "relatorio_casamento_joins.json"
     pibic_csv_path = GOLD_DIR / "pibic_social_unb.csv"
     pibic_json_path = GOLD_DIR / "pibic_metricas_gerais.json"
     regras_path = GOLD_DIR / "regras_harmonizacao_canonicas.json"
-    
+
     if not csv_path.exists():
         st.error(f"Arquivo {csv_path} não encontrado. Execute o pipeline primeiro.")
         return None, None, None, None, None, None
@@ -101,11 +143,11 @@ def load_gold_data():
     return df, meta, join_meta, df_pibic, pibic_meta, regras_meta
 
 
-df_gold, global_meta, join_meta, df_pibic, pibic_meta, regras_meta = load_gold_data()
+df_gold, global_meta, join_meta, df_pibic, pibic_meta, regras_meta = load_gold_data(_gold_files_mtime())
 
 # Barra Lateral (Sidebar)
-st.sidebar.image("https://dados.unb.br/uploads/group/2019-11-01-175835.512234iconensino.png", width=180)
-st.sidebar.title("🎓 Painel UnB")
+st.sidebar.image(str(UNB_ICON_PATH), width=180)
+st.sidebar.title("Painel UnB")
 st.sidebar.markdown("**Projeto**: Retenção e Formatura nos Cursos da UnB")
 taxa_join = join_meta.get('taxa_de_casamento_pct', 100.0) if join_meta else 100.0
 st.sidebar.markdown(f"**Taxa de Casamento**: `{taxa_join:.2f}% (Harmonização Ativa)`")
@@ -126,10 +168,19 @@ tab_choice = st.sidebar.radio(
 
 if df_gold is not None:
     # Header Principal
-    st.markdown('<div class="main-header">🎓 Observatório de Retenção e Formatura da UnB</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="main-header"><img src="data:image/png;base64,{UNB_ICON_B64}" '
+        f'style="height:2.1rem;vertical-align:-0.3rem;margin-right:0.6rem;">'
+        f'Observatório de Retenção e Formatura da UnB</div>',
+        unsafe_allow_html=True,
+    )
     st.markdown('<div class="sub-header">Mapeamento do tempo real de integralização curricular, retenção crítica e evasão baseado nos Dados Abertos da UnB.</div>', unsafe_allow_html=True)
 
     if tab_choice == "📊 Visão Executiva (DEG)":
+        # Cursos-tronco de ingresso comum (ex.: Engenharia genérica) não são cursos terminais
+        # e distorcem rankings/scatter de retenção por curso — ficam de fora só nesta visão.
+        df_gold = df_gold[~df_gold["curso"].isin(EXCLUDED_GENERIC_COURSES)]
+
         # KPIs Globais
         c1, c2, c3, c4 = st.columns(4)
         with c1:
@@ -200,8 +251,8 @@ if df_gold is not None:
         # Ranking dos Cursos
         col_left, col_right = st.columns(2)
         with col_left:
-            st.subheader("🚨 Top 10 Cursos com Maior Retenção Crítica (IRC)")
-            top_retencao = df_gold.head(10)[
+            st.subheader("🚨 Top 25 Cursos com Maior Retenção Crítica (IRC)")
+            top_retencao = df_gold.head(25)[
                 ["curso", "tempo_medio_real_semestres", "desvio_medio_semestres", "taxa_evasao_pct", "indice_retencao_critica"]
             ].rename(
                 columns={
@@ -215,8 +266,8 @@ if df_gold is not None:
             st.dataframe(top_retencao, use_container_width=True, hide_index=True)
 
         with col_right:
-            st.subheader("⭐ Top 10 Cursos com Maior Formatura no Prazo Ideal")
-            top_pontuais = df_gold.sort_values(by="formados_tempo_ideal_pct", ascending=False).head(10)[
+            st.subheader("⭐ Top 25 Cursos com Maior Formatura no Prazo Ideal")
+            top_pontuais = df_gold.sort_values(by="formados_tempo_ideal_pct", ascending=False).head(25)[
                 ["curso", "semestre_ideal_previsto", "formados_tempo_ideal_pct", "taxa_formatura_pct"]
             ].rename(
                 columns={
@@ -231,8 +282,14 @@ if df_gold is not None:
     elif tab_choice == "🔍 Detalhe por Curso":
         st.subheader("🔍 Raio-X Acadêmico por Curso")
         
-        course_list = sorted(df_gold["curso"].unique())
+        # Cursos-tronco de ingresso comum (ex.: Engenharia genérica) não têm habilitação
+        # terminal e não fazem sentido num raio-x individual — ficam de fora só nesta tela.
+        course_list = sorted(df_gold[~df_gold["curso"].isin(EXCLUDED_GENERIC_COURSES)]["curso"].unique())
         selected_course = st.selectbox("Selecione o Curso para detalhamento:", course_list)
+        st.caption(
+            "ℹ️ Cursos com menos de 5 discentes registrados não aparecem nesta lista — "
+            "supressão ética (k-anonimato) para proteger a identidade de alunos em turmas pequenas."
+        )
         
         row_course = df_gold[df_gold["curso"] == selected_course].iloc[0]
         
@@ -298,11 +355,11 @@ if df_gold is not None:
 
     elif tab_choice == "⚖️ Noturno vs. Diurno & Turnos":
         st.subheader("⚖️ Comparativo de Formatura e Evasão por Turno (GQ 4)")
-        
+
         st.markdown(
             "Análise do impacto do turno na permanência estudantil. *Nota: Cursos noturnos já têm prazos ideais maiores em suas matrizes.*"
         )
-        
+
         df_turno = df_gold.groupby("turno").agg({
             "tempo_medio_real_semestres": "mean",
             "semestre_ideal_previsto": "mean",
@@ -320,22 +377,78 @@ if df_gold is not None:
                 y="taxa_evasao_pct",
                 title="Taxa Média de Evasão por Turno (%)",
                 color="turno",
+                labels=LABELS_PT,
                 text_auto=".1f",
                 height=380,
             )
             st.plotly_chart(fig_turno_evas, use_container_width=True)
-            
+
         with c2:
+            df_turno_tempo = df_turno.rename(columns={
+                "semestre_ideal_previsto": "Tempo Ideal",
+                "tempo_medio_real_semestres": "Tempo Real",
+            })
             fig_turno_tempo = px.bar(
-                df_turno,
+                df_turno_tempo,
                 x="turno",
-                y=["semestre_ideal_previsto", "tempo_medio_real_semestres"],
+                y=["Tempo Ideal", "Tempo Real"],
                 barmode="group",
                 title="Tempo Ideal Previsto vs. Tempo Médio Real (Semestres)",
-                labels={"value": "Semestres", "variable": "Métrica"},
+                labels=LABELS_PT,
                 height=380,
             )
+            fig_turno_tempo.update_layout(legend_title_text="")
+            fig_turno_tempo.update_traces(hovertemplate="<b>%{fullData.name}</b>: %{y:.1f} sem.<extra></extra>")
             st.plotly_chart(fig_turno_tempo, use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("🎓 Comparativo de Formatura e Evasão por Grau Acadêmico")
+        st.markdown(
+            "Separação dos cursos por titulação: **Bacharelado** (inclui habilitações profissionais como Engenheiro, Médico, Arquiteto etc.) vs. **Licenciatura**."
+        )
+
+        # "MISTO" (cursos com Bacharelado e Licenciatura sob o mesmo nome, sem forma confiável
+        # de separar os discentes) não é uma categoria de grau real — fora desta comparação.
+        df_grau = df_gold[df_gold["categoria_grau"] != "MISTO"].groupby("categoria_grau").agg({
+            "tempo_medio_real_semestres": "mean",
+            "semestre_ideal_previsto": "mean",
+            "desvio_medio_semestres": "mean",
+            "taxa_evasao_pct": "mean",
+            "taxa_formatura_pct": "mean",
+            "total_discentes_registrados": "sum",
+        }).reset_index()
+
+        c3, c4 = st.columns(2)
+        with c3:
+            fig_grau_evas = px.bar(
+                df_grau,
+                x="categoria_grau",
+                y="taxa_evasao_pct",
+                title="Taxa Média de Evasão por Grau Acadêmico (%)",
+                color="categoria_grau",
+                labels=LABELS_PT,
+                text_auto=".1f",
+                height=380,
+            )
+            st.plotly_chart(fig_grau_evas, use_container_width=True)
+
+        with c4:
+            df_grau_tempo = df_grau.rename(columns={
+                "semestre_ideal_previsto": "Tempo Ideal",
+                "tempo_medio_real_semestres": "Tempo Real",
+            })
+            fig_grau_tempo = px.bar(
+                df_grau_tempo,
+                x="categoria_grau",
+                y=["Tempo Ideal", "Tempo Real"],
+                barmode="group",
+                title="Tempo Ideal Previsto vs. Tempo Médio Real (Semestres)",
+                labels=LABELS_PT,
+                height=380,
+            )
+            fig_grau_tempo.update_layout(legend_title_text="")
+            fig_grau_tempo.update_traces(hovertemplate="<b>%{fullData.name}</b>: %{y:.1f} sem.<extra></extra>")
+            st.plotly_chart(fig_grau_tempo, use_container_width=True)
 
     elif tab_choice == "🔬 PIBIC & Inclusão Social na Ciência":
         st.subheader("🔬 Iniciação Científica & Democratização da Ciência na UnB (PIBIC / PIVIC)")
@@ -389,11 +502,11 @@ if df_gold is not None:
                 df_area = pd.DataFrame(pibic_meta["distribuicao_grande_area"])
                 fig_area = px.bar(
                     df_area,
-                    x="linha_pesquisa_norm",
+                    x="area_conhecimento",
                     y=["pct_cotistas"],
                     title="Taxa de Inclusão de Cotistas por Área (%)",
-                    labels={"linha_pesquisa_norm": "Grande Área", "value": "% de Cotistas"},
-                    color="linha_pesquisa_norm",
+                    labels={"area_conhecimento": "Grande Área", "value": "% de Cotistas"},
+                    color="area_conhecimento",
                     text_auto=".1f",
                     height=380,
                 )
@@ -413,6 +526,24 @@ if df_gold is not None:
                     color_discrete_sequence=px.colors.qualitative.Safe,
                 )
                 st.plotly_chart(fig_campi, use_container_width=True)
+
+            # "% Cotistas" acima mede a composição interna do programa de IC (quem, entre os
+            # bolsistas, é cotista); esta segunda métrica mede penetração real na área (quantos
+            # dos alunos matriculados têm bolsa de IC) — perguntas distintas e complementares.
+            st.markdown("##### 🎓 Taxa de Participação em IC por Área (% dos alunos matriculados)")
+            df_area_part = df_area[df_area["area_conhecimento"] != "OUTRA"]
+            fig_participacao = px.bar(
+                df_area_part,
+                x="area_conhecimento",
+                y="taxa_participacao_pibic_pct",
+                title="Projetos PIBIC / Total de Discentes Matriculados na Área (%)",
+                labels={"area_conhecimento": "Grande Área", "taxa_participacao_pibic_pct": "% Participação"},
+                color="area_conhecimento",
+                text_auto=".1f",
+                height=380,
+            )
+            fig_participacao.update_layout(showlegend=False)
+            st.plotly_chart(fig_participacao, use_container_width=True)
 
             # Linha 2: O Fator "PIBIC vs. Evasão" (A Dinâmica da 'Correlação Suspeita')
             st.markdown("---")
@@ -486,7 +617,7 @@ if df_gold is not None:
                 df_pibic_view[[
                     "curso_pibic_norm",
                     "campus",
-                    "linha_pesquisa_norm",
+                    "area_conhecimento",
                     "total_projetos",
                     "total_remuneradas",
                     "total_voluntarias_pivic",
@@ -495,7 +626,7 @@ if df_gold is not None:
                     "valor_total_investido_formatado",
                 ]].rename(columns={
                     "curso_pibic_norm": "Curso / Habilitação",
-                    "linha_pesquisa_norm": "Grande Área",
+                    "area_conhecimento": "Grande Área",
                     "total_projetos": "Total Projetos",
                     "total_remuneradas": "Bolsas Pagas",
                     "total_voluntarias_pivic": "Voluntários (PIVIC)",
@@ -669,7 +800,7 @@ if df_gold is not None:
                 barmode="group",
                 text_auto=".1f",
                 height=380,
-                color_discrete_map={"Cenário Atual": "#94A3B8", "Cenário Projetado": "#1E40AF"},
+                color_discrete_map={"Cenário Atual": "#94A3B8", "Cenário Projetado": UNB_GREEN},
             )
             st.plotly_chart(fig_comp, use_container_width=True)
 

@@ -26,16 +26,7 @@
       "pct_cotistas": 39.05
     },
     {
-      "campus": "FCE - CEILANDIA",
-      "total_projetos": 1380,
-      "total_remuneradas": 931,
-      "total_cotistas": 561,
-      "valor_investido": 4551600.0,
-      "pct_projetos": 10.79,
-      "pct_cotistas": 40.65
-    },
-    {
-      "campus": "FGA - GAMA",
+      "campus": "FACULDADE DE CIENCIAS E TECNOLOGIAS EM ENGENHARIA (FCTE)",
       "total_projetos": 539,
       "total_remuneradas": 387,
       "total_cotistas": 163,
@@ -44,7 +35,16 @@
       "pct_cotistas": 30.24
     },
     {
-      "campus": "FUP - PLANALTINA",
+      "campus": "FACULDADE DE CIENCIAS E TECNOLOGIAS EM SAUDE (FCTS)",
+      "total_projetos": 1380,
+      "total_remuneradas": 931,
+      "total_cotistas": 561,
+      "valor_investido": 4551600.0,
+      "pct_projetos": 10.79,
+      "pct_cotistas": 40.65
+    },
+    {
+      "campus": "FACULDADE DE PLANALTINA (FUP)",
       "total_projetos": 225,
       "total_remuneradas": 166,
       "total_cotistas": 94,
@@ -55,31 +55,103 @@
   ],
   "distribuicao_grande_area": [
     {
-      "linha_pesquisa_norm": "ARTES E HUMANIDADE",
-      "total_projetos": 4834,
-      "total_remuneradas": 3150,
-      "total_cotistas": 2032,
-      "valor_investido": 15447600.0,
-      "pct_projetos": 37.79,
-      "pct_cotistas": 42.04
+      "area_conhecimento": "CIENCIAS AGRARIAS",
+      "total_projetos": 875,
+      "total_remuneradas": 637,
+      "total_cotistas": 353,
+      "valor_investido": 3169200.0,
+      "pct_projetos": 6.84,
+      "pct_cotistas": 40.34,
+      "total_discentes_area": 2131,
+      "taxa_participacao_pibic_pct": 41.06
     },
     {
-      "linha_pesquisa_norm": "EXATAS E TECNOLOGICAS",
-      "total_projetos": 3064,
-      "total_remuneradas": 2144,
-      "total_cotistas": 930,
-      "valor_investido": 10622400.0,
-      "pct_projetos": 23.95,
-      "pct_cotistas": 30.35
+      "area_conhecimento": "CIENCIAS BIOLOGICAS",
+      "total_projetos": 831,
+      "total_remuneradas": 591,
+      "total_cotistas": 291,
+      "valor_investido": 2876400.0,
+      "pct_projetos": 6.5,
+      "pct_cotistas": 35.02,
+      "total_discentes_area": 1995,
+      "taxa_participacao_pibic_pct": 41.65
     },
     {
-      "linha_pesquisa_norm": "SAUDE E VIDA",
-      "total_projetos": 4895,
-      "total_remuneradas": 3447,
-      "total_cotistas": 2014,
-      "valor_investido": 16999200.0,
-      "pct_projetos": 38.26,
-      "pct_cotistas": 41.14
+      "area_conhecimento": "CIENCIAS DA SAUDE",
+      "total_projetos": 3127,
+      "total_remuneradas": 2171,
+      "total_cotistas": 1380,
+      "valor_investido": 10726800.0,
+      "pct_projetos": 24.44,
+      "pct_cotistas": 44.13,
+      "total_discentes_area": 8441,
+      "taxa_participacao_pibic_pct": 37.05
+    },
+    {
+      "area_conhecimento": "CIENCIAS EXATAS E DA TERRA",
+      "total_projetos": 1321,
+      "total_remuneradas": 877,
+      "total_cotistas": 384,
+      "valor_investido": 4443600.0,
+      "pct_projetos": 10.33,
+      "pct_cotistas": 29.07,
+      "total_discentes_area": 7538,
+      "taxa_participacao_pibic_pct": 17.52
+    },
+    {
+      "area_conhecimento": "CIENCIAS HUMANAS",
+      "total_projetos": 1914,
+      "total_remuneradas": 1315,
+      "total_cotistas": 872,
+      "valor_investido": 6430800.0,
+      "pct_projetos": 14.96,
+      "pct_cotistas": 45.56,
+      "total_discentes_area": 10691,
+      "taxa_participacao_pibic_pct": 17.9
+    },
+    {
+      "area_conhecimento": "CIENCIAS SOCIAIS APLICADAS",
+      "total_projetos": 2087,
+      "total_remuneradas": 1353,
+      "total_cotistas": 853,
+      "valor_investido": 6613200.0,
+      "pct_projetos": 16.31,
+      "pct_cotistas": 40.87,
+      "total_discentes_area": 14736,
+      "taxa_participacao_pibic_pct": 14.16
+    },
+    {
+      "area_conhecimento": "ENGENHARIAS",
+      "total_projetos": 1518,
+      "total_remuneradas": 1107,
+      "total_cotistas": 470,
+      "valor_investido": 5421600.0,
+      "pct_projetos": 11.87,
+      "pct_cotistas": 30.96,
+      "total_discentes_area": 7643,
+      "taxa_participacao_pibic_pct": 19.86
+    },
+    {
+      "area_conhecimento": "LINGUISTICA, LETRAS E ARTES",
+      "total_projetos": 1003,
+      "total_remuneradas": 620,
+      "total_cotistas": 372,
+      "valor_investido": 3051600.0,
+      "pct_projetos": 7.84,
+      "pct_cotistas": 37.09,
+      "total_discentes_area": 7520,
+      "taxa_participacao_pibic_pct": 13.34
+    },
+    {
+      "area_conhecimento": "OUTRA",
+      "total_projetos": 117,
+      "total_remuneradas": 70,
+      "total_cotistas": 1,
+      "valor_investido": 336000.0,
+      "pct_projetos": 0.91,
+      "pct_cotistas": 0.85,
+      "total_discentes_area": 0,
+      "taxa_participacao_pibic_pct": null
     }
   ],
   "evolucao_anual": [

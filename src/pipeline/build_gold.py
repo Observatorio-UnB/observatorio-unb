@@ -88,9 +88,9 @@ CANONICAL_RULES_METADATA = [
     },
     {
         "origem_sigra": "COMPOSICAO",
-        "destino_estrutura": "MUSICA - COMPOSICAO",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação em Composição Musical vinculada ao catálogo oficial com prefixo 'MUSICA'.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "MATEMATICA - SEGUNDA LICENCIATURA",
@@ -118,93 +118,93 @@ CANONICAL_RULES_METADATA = [
     },
     {
         "origem_sigra": "VIOLAO",
-        "destino_estrutura": "MUSICA - VIOLAO",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "SAXOFONE",
-        "destino_estrutura": "MUSICA - SAXOFONE",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "VIOLINO",
-        "destino_estrutura": "MUSICA - VIOLINO",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "CANTO",
-        "destino_estrutura": "MUSICA - CANTO",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação instrumental/vocal no SIGRA vinculada à matriz de Música.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "PIANO",
-        "destino_estrutura": "MUSICA - PIANO",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "REGENCIA",
-        "destino_estrutura": "MUSICA - REGENCIA",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação em Regência no SIGRA vinculada à matriz de Música.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "CONTRABAIXO",
-        "destino_estrutura": "MUSICA - CONTRABAIXO",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "TROMBONE",
-        "destino_estrutura": "MUSICA - TROMBONE",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "TROMPETE",
-        "destino_estrutura": "MUSICA - TROMPETE",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "VIOLA",
-        "destino_estrutura": "MUSICA - VIOLA",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "VIOLONCELO",
-        "destino_estrutura": "MUSICA - VIOLONCELO",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "OBOE",
-        "destino_estrutura": "MUSICA - OBOE",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "FAGOTE",
-        "destino_estrutura": "MUSICA - FAGOTE",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "FLAUTA",
-        "destino_estrutura": "MUSICA - FLAUTA",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "CLARINETA",
-        "destino_estrutura": "MUSICA - CLARINETA",
+        "destino_estrutura": "MUSICA",
         "categoria": "Música e Instrumentos",
-        "justificativa": "Habilitação instrumental no SIGRA vinculada à matriz de Música.",
+        "justificativa": "Habilitação instrumental isolada tem poucos discentes para análise própria (k pequeno); agregada ao curso-tronco de Música.",
     },
     {
         "origem_sigra": "TROMPA",
@@ -267,22 +267,28 @@ CANONICAL_RULES_METADATA = [
         "justificativa": "Prefixo formal 'LETRAS' adicionado pela matriz curricular.",
     },
     {
-        "origem_sigra": "COMUNICACAO ORGANIZACIONAL",
-        "destino_estrutura": "COMUNICACAO SOCIAL",
+        "origem_sigra": "JORNALISMO",
+        "destino_estrutura": "COMUNICACAO SOCIAL - JORNALISMO",
         "categoria": "Comunicação",
-        "justificativa": "Habilitação de Comunicação Organizacional alocada na matriz tronco de Comunicação Social.",
+        "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco (nome padronizado com o prefixo do catálogo oficial).",
+    },
+    {
+        "origem_sigra": "COMUNICACAO ORGANIZACIONAL",
+        "destino_estrutura": "COMUNICACAO SOCIAL - COMUNICACAO ORGANIZACIONAL",
+        "categoria": "Comunicação",
+        "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
     },
     {
         "origem_sigra": "PUBLICIDADE E PROPAGANDA",
-        "destino_estrutura": "COMUNICACAO SOCIAL",
+        "destino_estrutura": "COMUNICACAO SOCIAL - PUBLICIDADE E PROPAGANDA",
         "categoria": "Comunicação",
-        "justificativa": "Habilitação de Publicidade alocada na matriz tronco de Comunicação Social.",
+        "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
     },
     {
         "origem_sigra": "AUDIOVISUAL",
-        "destino_estrutura": "COMUNICACAO SOCIAL",
+        "destino_estrutura": "COMUNICACAO SOCIAL - AUDIOVISUAL",
         "categoria": "Comunicação",
-        "justificativa": "Habilitação de Audiovisual alocada na matriz tronco de Comunicação Social.",
+        "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
     },
     {
         "origem_sigra": "ADMINISTRACAO PUBLICA",
@@ -304,21 +310,15 @@ CANONICAL_RULES_METADATA = [
     },
     {
         "origem_sigra": "SOCIOLOGIA",
-        "destino_estrutura": "CIENCIAS SOCIAIS",
+        "destino_estrutura": "CIENCIAS SOCIAIS - SOCIOLOGIA",
         "categoria": "Ciências Sociais",
-        "justificativa": "Habilitação de Sociologia vinculada à matriz de Ciências Sociais.",
+        "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
     },
     {
         "origem_sigra": "ANTROPOLOGIA",
-        "destino_estrutura": "CIENCIAS SOCIAIS",
+        "destino_estrutura": "CIENCIAS SOCIAIS - ANTROPOLOGIA",
         "categoria": "Ciências Sociais",
-        "justificativa": "Habilitação de Antropologia vinculada à matriz de Ciências Sociais.",
-    },
-    {
-        "origem_sigra": "CIENCIA POLITICA",
-        "destino_estrutura": "CIENCIAS SOCIAIS",
-        "categoria": "Ciências Sociais",
-        "justificativa": "Habilitação de Ciência Política vinculada à matriz de Ciências Sociais.",
+        "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
     },
     {
         "origem_sigra": "LICENCIATURA EM ARTES VISUAIS",
@@ -386,10 +386,184 @@ CANONICAL_RULES_METADATA = [
         "categoria": "Letras e Línguas",
         "justificativa": "Habilitação em Tradução com prefixo de Letras.",
     },
+    # Variações de nomenclatura observadas no campo "unidade" da base de bolsistas de
+    # Iniciação Científica (PIBIC/PIVIC), que usa abreviações e formatações distintas do SIGRA.
+    {
+        "origem_sigra": "LETRAS-TRADUCAO ESPANHOL",
+        "destino_estrutura": "LETRAS - TRADUCAO - ESPANHOL",
+        "categoria": "Letras e Línguas",
+        "justificativa": "Abreviação sem espaços usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "TRADUCAO - FRANCES",
+        "destino_estrutura": "LETRAS - TRADUCAO - FRANCES",
+        "categoria": "Letras e Línguas",
+        "justificativa": "Nomenclatura sem prefixo 'LETRAS' usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "LETRAS TRADUCAO - FRANCES",
+        "destino_estrutura": "LETRAS - TRADUCAO - FRANCES",
+        "categoria": "Letras e Línguas",
+        "justificativa": "Nomenclatura sem hífen após 'LETRAS' usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "TRADUCAO-INGLES",
+        "destino_estrutura": "LETRAS - TRADUCAO - INGLES",
+        "categoria": "Letras e Línguas",
+        "justificativa": "Abreviação sem espaços usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "LINGUA DE SINAIS BRASILEIRA/PORTUGUES COMO SEGUNDA LINGUA",
+        "destino_estrutura": "LINGUA DE SINAIS BRASILEIRA -PORTUGUES COMO SEGUNDA LINGUA",
+        "categoria": "Correção de Typo no Portal",
+        "justificativa": "Variante com barra em vez de hífen, usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "EDUCACAO DO CAMPO - LINGUAGENS",
+        "destino_estrutura": "EDUCACAO DO CAMPO - LINGUAGENS, ARTES E LITERATURA",
+        "categoria": "Educação do Campo (FUP)",
+        "justificativa": "Nome abreviado da ênfase, usado no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "MUSICA: LICENCIATURA",
+        "destino_estrutura": "MUSICA",
+        "categoria": "Música e Instrumentos",
+        "justificativa": "Nomenclatura usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "BIOLOGIA",
+        "destino_estrutura": "CIENCIAS BIOLOGICAS",
+        "categoria": "Habilitação Legada",
+        "justificativa": "Nome coloquial usado no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "PSICOLOGIA-PSICOLOGO",
+        "destino_estrutura": "PSICOLOGIA",
+        "categoria": "Habilitação Legada",
+        "justificativa": "Sufixo de titulação concatenado ao nome, usado no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "ENGENHARIA DE CONTROLE E AUTOMACAO",
+        "destino_estrutura": "ENGENHARIA MECATRONICA - CONTROLE E AUTOMACAO",
+        "categoria": "Engenharias",
+        "justificativa": "Nomenclatura alternativa usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "DAP / COMUNICACAO SOCIAL - AUDIOVISUAL",
+        "destino_estrutura": "COMUNICACAO SOCIAL - AUDIOVISUAL",
+        "categoria": "Comunicação",
+        "justificativa": "Sigla do departamento (DAP) remanescente da extração do campo 'unidade' do PIBIC.",
+    },
+    {
+        "origem_sigra": "CIENCIAS BIOLOGICAS / DEPARTAMENTO DE ZOOLOGIA",
+        "destino_estrutura": "CIENCIAS BIOLOGICAS",
+        "categoria": "Habilitação Legada",
+        "justificativa": "Subunidade de pesquisa remanescente da extração do campo 'unidade' do PIBIC.",
+    },
+    {
+        "origem_sigra": "JOR / JORNALISMO",
+        "destino_estrutura": "COMUNICACAO SOCIAL - JORNALISMO",
+        "categoria": "Comunicação",
+        "justificativa": "Sigla do departamento (JOR) remanescente da extração do campo 'unidade' do PIBIC.",
+    },
+    {
+        "origem_sigra": "GRADUACAO EM CIENCIA POLITICA",
+        "destino_estrutura": "CIENCIA POLITICA",
+        "categoria": "Ciências Sociais",
+        "justificativa": "Variação verbosa do campo 'unidade' usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "GRADUACAO EM ARQUITETURA E URBANISMO",
+        "destino_estrutura": "ARQUITETURA E URBANISMO",
+        "categoria": "Habilitação Legada",
+        "justificativa": "Variação verbosa do campo 'unidade' usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "ARQUITETURA E URBANISMO / FACULDADE DE ARQUITETURA E URBANISMO",
+        "destino_estrutura": "ARQUITETURA E URBANISMO",
+        "categoria": "Habilitação Legada",
+        "justificativa": "Nome da faculdade remanescente da extração do campo 'unidade' do PIBIC.",
+    },
+    {
+        "origem_sigra": "GRADUACAO DE MEDICINA",
+        "destino_estrutura": "MEDICINA",
+        "categoria": "Habilitação Legada",
+        "justificativa": "Variação verbosa do campo 'unidade' usada no cadastro de bolsistas de IC (PIBIC).",
+    },
+    {
+        "origem_sigra": "INSTITUTO DE CIENCIAS BIOLOGICAS / BIOTECNOLOGIA",
+        "destino_estrutura": "CIENCIAS BIOLOGICAS",
+        "categoria": "Habilitação Legada",
+        "justificativa": "UnB não oferece graduação própria em Biotecnologia; subárea de pesquisa do Instituto de Ciências Biológicas, alocada no curso de Ciências Biológicas.",
+    },
 ]
 
 # Dicionário dinâmico de mapeamento rápido
 COURSE_ALIASES = {rule["origem_sigra"]: rule["destino_estrutura"] for rule in CANONICAL_RULES_METADATA}
+
+# Cursos-tronco de ingresso comum (ex.: Engenharia na FGA/FT), onde o discente ainda não
+# escolheu a habilitação terminal. Permanecem na tabela Gold (compõem o panorama geral da
+# UnB), mas são descartados pelo dashboard nas telas de Visão Executiva e Detalhe por Curso,
+# que exigem um curso terminal para o raio-x individual — ver uso em src/dashboard/app.py.
+EXCLUDED_GENERIC_COURSES = {"ENGENHARIA"}
+
+
+def normalize_turno_grupo(turno_norm: str) -> str:
+    """Unifica matutino/vespertino em Diurno; preserva Noturno e Integral."""
+    valor = turno_norm or ""
+    if "NOTURNO" in valor:
+        return "NOTURNO"
+    if "INTEGRAL" in valor:
+        return "INTEGRAL"
+    return "DIURNO"
+
+
+def normalize_categoria_grau(grau_norm: str) -> str:
+    """Agrupa a titulação conferida em Bacharelado ou Licenciatura para fins de análise."""
+    valor = grau_norm or ""
+    if "LICENCIAD" in valor:
+        return "LICENCIATURA"
+    return "BACHARELADO"
+
+
+def normalize_campus_nome(campus_raw: str) -> str:
+    """Unifica os nomes de campus entre as bases SIGRA e PIBIC (grafias distintas na origem).
+
+    FGA e FCE são renomeadas para suas denominações institucionais atuais
+    (Faculdade de Ciências e Tecnologias em Engenharia / em Saúde); Darcy Ribeiro
+    e Planaltina (FUP) mantêm a mesma identidade, apenas com grafia padronizada.
+    """
+    valor = campus_raw or ""
+    if "GAMA" in valor:
+        return "FACULDADE DE CIENCIAS E TECNOLOGIAS EM ENGENHARIA (FCTE)"
+    if "CEILANDIA" in valor:
+        return "FACULDADE DE CIENCIAS E TECNOLOGIAS EM SAUDE (FCTS)"
+    if "PLANALTINA" in valor:
+        return "FACULDADE DE PLANALTINA (FUP)"
+    return "DARCY RIBEIRO"
+
+
+def build_area_por_curso(df_cur: pd.DataFrame, cursos_canonicos) -> Dict[str, str]:
+    """Mapa nome_curso_norm -> Grande Área oficial (CNPq/MEC), a partir do catálogo de cursos.
+
+    Cursos-tronco sem entrada própria no catálogo (ex.: "COMUNICACAO SOCIAL", cujas
+    habilitações — Jornalismo, Publicidade e Propaganda, Audiovisual etc. — são cadastradas
+    separadamente) herdam a área de suas habilitações, quando todas concordam na mesma
+    Grande Área. Compartilhado entre a tabela de retenção (SIGRA) e a de PIBIC.
+    """
+    area_por_curso = (
+        df_cur.dropna(subset=["area_conhecimento_norm"])
+        .groupby("nome_curso_norm")["area_conhecimento_norm"]
+        .agg(lambda s: s.mode().iloc[0])
+    )
+    area_dict = area_por_curso.to_dict()
+    for nome_base in cursos_canonicos:
+        if not nome_base or nome_base in area_dict:
+            continue
+        candidatas = area_por_curso[area_por_curso.index.str.startswith(f"{nome_base} - ")]
+        if not candidatas.empty and candidatas.nunique() == 1:
+            area_dict[nome_base] = candidatas.iloc[0]
+    return area_dict
 
 
 def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
@@ -404,12 +578,25 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     df_sig = pd.read_csv(sig_path)
     df_est = pd.read_csv(est_path)
     df_cur = pd.read_csv(cur_path)
-    
+
     total_discentes = len(df_sig)
-    
+
     # 2. Aplicar mapeamento canônico de cursos
     df_sig["curso_canonico"] = df_sig["curso_norm"].replace(COURSE_ALIASES)
-    
+
+    # 2.1 Cursos com oferta dupla: o mesmo nome de curso no catálogo (cursos_graduacao_silver)
+    # tem entradas tanto de Bacharelado quanto de Licenciatura (ex.: Química, Física, Letras).
+    # O catálogo não traz uma chave que ligue o código de "opcao" do SIGRA ao grau conferido, e
+    # essa correspondência não foi encontrada em nenhuma fonte pública (ver docs/dicionario_dados_gold.md).
+    # Em vez de arriscar uma separação por aluno não verificável — o que pode atribuir discentes
+    # ao grau errado, como visto quando o menor código de opção de Física isolou um subgrupo
+    # minoritário sem nenhum formado —, esses cursos são mantidos como uma única linha na Gold,
+    # com o grau explicitamente marcado como "MISTO" em vez de assumir Bacharelado ou Licenciatura.
+    df_cur["categoria_grau"] = df_cur["grau_academico_norm"].apply(normalize_categoria_grau)
+    mixed_courses = set(
+        df_cur.groupby("nome_curso_norm")["categoria_grau"].nunique().loc[lambda s: s > 1].index
+    )
+
     # 3. Join com Estrutura Curricular
     df_merged = pd.merge(
         df_sig,
@@ -419,7 +606,7 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
         how="left",
         suffixes=("", "_est"),
     )
-    
+
     # 4. Join com Cursos de Graduação (metadados de campus, turno e unidade)
     # Deduplica catálogo de cursos por nome canônico
     cur_dedup = df_cur.groupby("nome_curso_norm", as_index=False).first()
@@ -430,7 +617,13 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
         right_on="nome_curso_norm",
         how="left",
     )
-    
+    # Cursos-tronco (ex.: "COMUNICACAO SOCIAL") não têm entrada própria no catálogo e
+    # ficam sem área após o merge acima — completa com a área herdada das habilitações.
+    area_lookup = build_area_por_curso(df_cur, df_sig["curso_canonico"].unique())
+    df_merged["area_conhecimento_norm"] = df_merged["area_conhecimento_norm"].fillna(
+        df_merged["curso_canonico"].map(area_lookup)
+    )
+
     # 5. Auditoria da Taxa de Casamento (Join Match Rate) e Governança de Entidades
     matched_mask = df_merged["semestre_conclusao_ideal"].notna()
     matched_count = int(matched_mask.sum())
@@ -492,8 +685,12 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     logger.info(f"Taxa de Casamento dos Joins: {match_rate_pct:.2f}% ({matched_count:,}/{total_discentes:,} discentes)")
 
     # 6. Cálculo de Indicadores no Nível Individual
+    # Cursos-tronco de ingresso comum (ex.: Engenharia genérica) permanecem na tabela e nas
+    # métricas globais; são descartados apenas nas telas de Visão Executiva e Detalhe por Curso
+    # do dashboard (ver EXCLUDED_GENERIC_COURSES em src/dashboard/app.py), pois não são cursos
+    # terminais válidos para um raio-x individual, mas ainda compõem o panorama geral da UnB.
     df_valid = df_merged[matched_mask].copy()
-    
+
     is_formado = df_valid["tipo_saida_grupo"] == "FORMATURA"
     df_valid["is_formado"] = is_formado
     df_valid["is_evadido"] = df_valid["tipo_saida_grupo"] == "EVASAO_DESLIGAMENTO"
@@ -564,19 +761,28 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
         ch_total = grp["ch_total_minima"].iloc[0]
         
         # Metadados
-        campus = grp["campus_norm"].dropna().iloc[0] if grp["campus_norm"].notna().any() else "DARCY RIBEIRO"
-        turno = grp["turno_norm"].dropna().iloc[0] if grp["turno_norm"].notna().any() else "DIURNO"
+        campus_raw = grp["campus_norm"].dropna().iloc[0] if grp["campus_norm"].notna().any() else "DARCY RIBEIRO"
+        campus = normalize_campus_nome(campus_raw)
+        turno_raw = grp["turno_norm"].dropna().iloc[0] if grp["turno_norm"].notna().any() else "DIURNO"
+        turno = normalize_turno_grupo(turno_raw)
         area = grp["area_conhecimento_norm"].dropna().iloc[0] if grp["area_conhecimento_norm"].notna().any() else "OUTRA"
-        grau = grp["grau_academico_norm"].dropna().iloc[0] if grp["grau_academico_norm"].notna().any() else "BACHAREL"
+        grau_raw = grp["grau_academico_norm"].dropna().iloc[0] if grp["grau_academico_norm"].notna().any() else "BACHAREL"
+        categoria_grau = normalize_categoria_grau(grau_raw)
+        if curso in mixed_courses:
+            # Curso com Bacharelado e Licenciatura sob o mesmo nome, mas sem forma confiável de
+            # separar os discentes (ver comentário 2.1) — não assume um grau único arbitrário.
+            grau_raw = "MISTO (BACHARELADO + LICENCIATURA)"
+            categoria_grau = "MISTO"
         depto = grp["departamento_norm"].dropna().iloc[0] if grp["departamento_norm"].notna().any() else "UNB"
-        
+
         gold_rows.append({
             "curso": curso,
             "departamento": depto,
             "campus": campus,
             "turno": turno,
             "area_conhecimento": area,
-            "grau_academico": grau,
+            "grau_academico": grau_raw,
+            "categoria_grau": categoria_grau,
             "semestre_minimo_previsto": sem_min,
             "semestre_ideal_previsto": sem_ideal,
             "semestre_maximo_previsto": sem_max,
@@ -598,16 +804,23 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     df_gold = pd.DataFrame(gold_rows)
     
     # 8. Cálculo do Índice de Retenção Crítica (IRC) e Classificação de Dificuldade
-    # IRC combina atraso médio (desvio) e taxa de evasão
-    # Normalização min-max
+    # IRC combina atraso médio (desvio) e taxa de evasão.
     desv_clean = df_gold["desvio_medio_semestres"].fillna(0).clip(lower=0)
     evas_clean = df_gold["taxa_evasao_pct"].fillna(0)
-    
-    norm_desv = (desv_clean - desv_clean.min()) / (desv_clean.max() - desv_clean.min() + 1e-6)
-    norm_evas = (evas_clean - evas_clean.min()) / (evas_clean.max() - evas_clean.min() + 1e-6)
-    
-    # Score ponderado: 50% desvio de tempo + 50% taxa de evasão
-    df_gold["indice_retencao_critica"] = (0.5 * norm_desv + 0.5 * norm_evas) * 100
+
+    # Normalização min-max robusta: satura nos percentis 5/95 antes de normalizar, para que um
+    # único curso outlier (ex.: Engenharia com 74% de evasão) não comprima a escala dos demais.
+    def norm_robusto(serie: pd.Series) -> pd.Series:
+        p05, p95 = serie.quantile(0.05), serie.quantile(0.95)
+        serie_sat = serie.clip(lower=p05, upper=p95)
+        return (serie_sat - serie_sat.min()) / (serie_sat.max() - serie_sat.min() + 1e-6)
+
+    norm_desv = norm_robusto(desv_clean)
+    norm_evas = norm_robusto(evas_clean)
+
+    # Score ponderado: evasão pesa mais que atraso — perder o aluno (evasão) é mais grave para o
+    # DEG do que ele se formar mais devagar (atraso), que ainda é uma conclusão bem-sucedida.
+    df_gold["indice_retencao_critica"] = (0.3 * norm_desv + 0.7 * norm_evas) * 100
     df_gold["indice_retencao_critica"] = df_gold["indice_retencao_critica"].round(1)
     
     # Classificação em quartis
@@ -630,6 +843,9 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     pibic_silver_path = SILVER_DIR / "pibic_bolsistas_silver.csv"
     if pibic_silver_path.exists():
         df_pibic_raw = pd.read_csv(pibic_silver_path)
+        # Canonicaliza antes de agregar, para não perder projetos por causa de grafias
+        # inconsistentes no campo "unidade" de origem (ver comentário em build_pibic_gold).
+        df_pibic_raw["curso_pibic_norm"] = df_pibic_raw["curso_pibic_norm"].replace(COURSE_ALIASES)
         pibic_course_agg = df_pibic_raw.groupby("curso_pibic_norm").agg(
             pibic_total_projetos=("ano", "count"),
             pibic_bolsas_remuneradas=("tipo_bolsa_norm", lambda s: (s == "REMUNERADA").sum()),
@@ -698,7 +914,27 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
         
     df_pibic = pd.read_csv(pibic_silver_path)
     total_registros = len(df_pibic)
-    
+
+    # Campus: mesma normalização usada na tabela de retenção, para os nomes baterem
+    # entre as duas fontes (a base de bolsistas grava "FGA - GAMA"/"FCE - CEILANDIA").
+    df_pibic["campus"] = df_pibic["campus"].apply(normalize_campus_nome)
+
+    # 0. Canonicalização do curso e Grande Área oficial (CNPq/MEC)
+    # O campo "unidade" da base de bolsistas gera grafias inconsistentes para o mesmo curso
+    # (ex.: variações de "Letras - Tradução"), por isso passa pela mesma harmonização canônica
+    # usada para o SIGRA. A "Grande Área" exibida não usa o campo "linha_pesquisa" (autodeclarado
+    # pela própria base de IC, que classifica cursos como Farmácia em "ARTES E HUMANIDADE"),
+    # e sim `area_conhecimento_norm` do catálogo oficial de cursos.
+    df_pibic["curso_canonico"] = df_pibic["curso_pibic_norm"].replace(COURSE_ALIASES)
+
+    cur_path = SILVER_DIR / "cursos_graduacao_silver.csv"
+    if cur_path.exists():
+        df_cur_cat = pd.read_csv(cur_path)
+        area_dict = build_area_por_curso(df_cur_cat, df_pibic["curso_canonico"].unique())
+        df_pibic["area_conhecimento"] = df_pibic["curso_canonico"].map(area_dict).fillna("OUTRA")
+    else:
+        df_pibic["area_conhecimento"] = df_pibic["linha_pesquisa_norm"]
+
     # 1. Indicadores Financeiros e Totais
     total_remuneradas = int((df_pibic["tipo_bolsa_norm"] == "REMUNERADA").sum())
     total_voluntarias = int((df_pibic["tipo_bolsa_norm"] == "VOLUNTARIA").sum())
@@ -729,7 +965,7 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
     dist_campi = campi_agg.to_dict(orient="records")
     
     # Distribuição por Grande Área
-    area_agg = df_pibic.groupby("linha_pesquisa_norm").agg(
+    area_agg = df_pibic.groupby("area_conhecimento").agg(
         total_projetos=("ano", "count"),
         total_remuneradas=("tipo_bolsa_norm", lambda s: (s == "REMUNERADA").sum()),
         total_cotistas=("is_cotista", "sum"),
@@ -737,6 +973,22 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
     ).reset_index()
     area_agg["pct_projetos"] = (area_agg["total_projetos"] / total_registros * 100).round(2)
     area_agg["pct_cotistas"] = (area_agg["total_cotistas"] / area_agg["total_projetos"] * 100).round(2)
+
+    # Taxa de participação: projetos PIBIC / total de alunos matriculados na área (não só
+    # % de composição do programa). Requer a tabela de retenção (roda antes no __main__).
+    retencao_path = GOLD_DIR / "retencao_cursos_unb.csv"
+    if retencao_path.exists():
+        df_retencao = pd.read_csv(retencao_path)
+        alunos_por_area = df_retencao.groupby("area_conhecimento")["total_discentes_registrados"].sum()
+        area_agg["total_discentes_area"] = area_agg["area_conhecimento"].map(alunos_por_area).fillna(0).astype(int)
+        area_agg["taxa_participacao_pibic_pct"] = (
+            area_agg["total_projetos"] / area_agg["total_discentes_area"].replace(0, np.nan) * 100
+        ).round(2)
+        # "OUTRA" (curso não classificado) não tem alunos associados na área; NaN quebraria o
+        # JSON estrito, então vira null explícito em vez do valor incorreto de 0%.
+        area_agg["taxa_participacao_pibic_pct"] = area_agg["taxa_participacao_pibic_pct"].astype(object).where(
+            area_agg["taxa_participacao_pibic_pct"].notna(), None
+        )
     dist_area = area_agg.to_dict(orient="records")
     
     # Evolução Anual
@@ -750,7 +1002,9 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
     dist_ano = ano_agg.to_dict(orient="records")
     
     # 3. Tabela Analítica Agregada por Curso / Unidade (com k-anônimo >= 5)
-    curso_agg = df_pibic.groupby(["curso_pibic_norm", "campus", "linha_pesquisa_norm"]).agg(
+    # Agrupa pelo curso canônico (não o nome bruto extraído do campo "unidade"), para não
+    # espalhar o mesmo curso em várias linhas por causa de grafias inconsistentes na origem.
+    curso_agg = df_pibic.groupby(["curso_canonico", "campus", "area_conhecimento"]).agg(
         total_projetos=("ano", "count"),
         total_remuneradas=("tipo_bolsa_norm", lambda s: (s == "REMUNERADA").sum()),
         total_voluntarias_pivic=("tipo_bolsa_norm", lambda s: (s == "VOLUNTARIA").sum()),
@@ -758,8 +1012,8 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
         total_cotistas_ppi=("perfil_social_macro", lambda s: (s == "PPI / ETNICO-RACIAL").sum()),
         total_baixa_renda=("faixa_renda", lambda s: (s == "BAIXA RENDA (<= 1.5 SM)").sum()),
         valor_total_investido=("valor_bolsa_anual_estimado", "sum"),
-    ).reset_index()
-    
+    ).reset_index().rename(columns={"curso_canonico": "curso_pibic_norm"})
+
     # Exclui registros sem nome de curso e aplica supressão ética k < 5
     curso_agg = curso_agg[(curso_agg["curso_pibic_norm"] != "") & (curso_agg["total_projetos"] >= 5)].copy()
     curso_agg["taxa_cotistas_pct"] = (curso_agg["total_cotistas"] / curso_agg["total_projetos"] * 100).round(1)

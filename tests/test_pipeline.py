@@ -5,6 +5,7 @@ e conformidade com as regras metodológicas do Challenge.
 """
 
 import json
+import sys
 from pathlib import Path
 import unittest
 import pandas as pd
@@ -13,6 +14,54 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 BRONZE_DIR = BASE_DIR / "data" / "bronze"
 SILVER_DIR = BASE_DIR / "data" / "silver"
 GOLD_DIR = BASE_DIR / "data" / "gold"
+
+sys.path.insert(0, str(BASE_DIR))
+from src.pipeline.build_gold import normalize_turno_grupo, normalize_categoria_grau, build_area_por_curso
+
+
+class TestCanonicalNormalization(unittest.TestCase):
+    """Testes offline (sem dependência de dados brutos) das regras de normalização."""
+
+    def test_turno_unifica_matutino_vespertino_em_diurno(self):
+        self.assertEqual(normalize_turno_grupo("MATUTINO E VESPERTINO"), "DIURNO")
+        self.assertEqual(normalize_turno_grupo("MATUTINO"), "DIURNO")
+        self.assertEqual(normalize_turno_grupo("VESPERTINO"), "DIURNO")
+        self.assertEqual(normalize_turno_grupo("DIURNO"), "DIURNO")
+
+    def test_turno_preserva_noturno_e_integral(self):
+        self.assertEqual(normalize_turno_grupo("NOTURNO"), "NOTURNO")
+        self.assertEqual(normalize_turno_grupo("INTEGRAL"), "INTEGRAL")
+
+    def test_categoria_grau_licenciatura(self):
+        self.assertEqual(normalize_categoria_grau("LICENCIADO"), "LICENCIATURA")
+
+    def test_categoria_grau_bacharelado_inclui_titulacoes_profissionais(self):
+        for grau in ["BACHAREL", "ENGENHEIRO CIVIL", "MEDICO", "ARQUITETO E URBANISTA"]:
+            self.assertEqual(normalize_categoria_grau(grau), "BACHARELADO")
+
+    def test_build_area_por_curso_usa_entrada_propria_do_catalogo(self):
+        df_cur = pd.DataFrame({
+            "nome_curso_norm": ["FISICA", "QUIMICA"],
+            "area_conhecimento_norm": ["CIENCIAS EXATAS E DA TERRA", "CIENCIAS EXATAS E DA TERRA"],
+        })
+        area_dict = build_area_por_curso(df_cur, ["FISICA"])
+        self.assertEqual(area_dict["FISICA"], "CIENCIAS EXATAS E DA TERRA")
+
+    def test_build_area_por_curso_herda_area_das_habilitacoes(self):
+        df_cur = pd.DataFrame({
+            "nome_curso_norm": ["COMUNICACAO SOCIAL - JORNALISMO", "COMUNICACAO SOCIAL - AUDIOVISUAL"],
+            "area_conhecimento_norm": ["CIENCIAS SOCIAIS APLICADAS", "CIENCIAS SOCIAIS APLICADAS"],
+        })
+        area_dict = build_area_por_curso(df_cur, ["COMUNICACAO SOCIAL"])
+        self.assertEqual(area_dict["COMUNICACAO SOCIAL"], "CIENCIAS SOCIAIS APLICADAS")
+
+    def test_build_area_por_curso_nao_herda_quando_habilitacoes_divergem(self):
+        df_cur = pd.DataFrame({
+            "nome_curso_norm": ["CURSO X - A", "CURSO X - B"],
+            "area_conhecimento_norm": ["CIENCIAS EXATAS E DA TERRA", "LINGUISTICA, LETRAS E ARTES"],
+        })
+        area_dict = build_area_por_curso(df_cur, ["CURSO X"])
+        self.assertNotIn("CURSO X", area_dict)
 
 
 class TestDataPipeline(unittest.TestCase):
@@ -67,7 +116,30 @@ class TestDataPipeline(unittest.TestCase):
         
         df_gold = pd.read_csv(gold_path)
         self.assertGreater(len(df_gold), 50, "Quantidade de cursos na Gold muito reduzida")
-        
+
+        # Turno deve estar unificado (matutino/vespertino colapsados em Diurno)
+        turnos_inesperados = set(df_gold["turno"].unique()) - {"DIURNO", "NOTURNO", "INTEGRAL"}
+        self.assertFalse(turnos_inesperados, f"Valores de turno não normalizados encontrados: {turnos_inesperados}")
+
+        # Curso genérico de ingresso comum (ex. Engenharia sem habilitação) permanece na tabela
+        # Gold (compõe o panorama geral da UnB); é descartado só no dashboard, nas telas de
+        # Visão Executiva e Detalhe por Curso (ver EXCLUDED_GENERIC_COURSES em build_gold.py).
+        self.assertIn("ENGENHARIA", df_gold["curso"].values, "Curso genérico 'ENGENHARIA' deveria estar na tabela Gold")
+
+        # Cursos com oferta dupla (Bacharelado e Licenciatura sob o mesmo nome, ex. Química)
+        # aparecem como uma única linha marcada "MISTO", já que não há como atribuir cada
+        # discente ao grau correto sem uma tabela oficial de opção -> grau (ver docs).
+        quimica = df_gold[df_gold["curso"] == "QUIMICA"]
+        self.assertEqual(len(quimica), 1, "QUIMICA deveria ser uma única linha unificada")
+        self.assertEqual(quimica.iloc[0]["categoria_grau"], "MISTO")
+
+        # Categoria de grau deve estar presente e limitada às classes de análise conhecidas
+        # ("MISTO" cobre cursos com Bacharelado e Licenciatura sob o mesmo nome sem forma
+        # confiável de separar os discentes por aluno - ver docs/dicionario_dados_gold.md).
+        self.assertIn("categoria_grau", df_gold.columns)
+        categorias_inesperadas = set(df_gold["categoria_grau"].unique()) - {"BACHARELADO", "LICENCIATURA", "MISTO"}
+        self.assertFalse(categorias_inesperadas, f"Valores de categoria_grau inesperados: {categorias_inesperadas}")
+
         # Validar consistência matemática das métricas percentuais (0 <= pct <= 100)
         pct_cols = [
             "taxa_formatura_pct",
@@ -119,15 +191,36 @@ class TestDataPipeline(unittest.TestCase):
         # Validação Gold
         df_gold_pibic = pd.read_csv(gold_pibic)
         self.assertTrue((df_gold_pibic["total_projetos"] >= 5).all(), "Supressão ética k < 5 falhou no PIBIC Gold")
-        
+
+        # Grande Área deve vir do catálogo oficial de cursos (CNPq/MEC), não do campo
+        # autodeclarado "linha_pesquisa" da própria base de bolsistas — que classificava
+        # cursos biológicos/de saúde (ex. Farmácia) incorretamente como "Artes e Humanidade".
+        farmacia = df_gold_pibic[df_gold_pibic["curso_pibic_norm"] == "FARMACIA"]
+        self.assertTrue((farmacia["area_conhecimento"] == "CIENCIAS DA SAUDE").all())
+
+        # Cursos com grafias inconsistentes no campo de origem devem ser unificados em uma
+        # única linha canônica (ex. Língua de Sinais Brasileira, antes duplicada no gráfico)
+        sinais = df_gold_pibic[df_gold_pibic["curso_pibic_norm"].str.contains("SINAIS", na=False)]
+        self.assertEqual(sinais["curso_pibic_norm"].nunique(), 1)
+
+        # "Outra" não é uma Grande Área da taxonomia oficial CNPq/MEC — nenhum curso deve
+        # cair nesse bucket residual (ver AREA_CONHECIMENTO_OVERRIDES/build_area_por_curso).
+        self.assertNotIn("OUTRA", df_gold_pibic["area_conhecimento"].values)
+
         with open(json_pibic, "r", encoding="utf-8") as f:
             pibic_meta = json.load(f)
-            
+
         self.assertGreater(pibic_meta["total_projetos_ic"], 10000, "Volume de projetos de IC inconsistente")
         self.assertGreater(pibic_meta["investimento_publico_total_estimado"], 40000000.0, "Investimento total calculado inconsistente")
         self.assertGreater(pibic_meta["taxa_inclusao_cotistas_pct"], 30.0, "Taxa de cotistas menor que 30%")
         self.assertLess(pibic_meta["taxa_inclusao_cotistas_pct"], 50.0, "Taxa de cotistas maior que 50%")
         self.assertGreater(pibic_meta["taxa_trabalho_voluntario_pct"], 20.0, "Taxa de voluntários PIVIC inconsistente")
+
+    def test_06_area_conhecimento_sem_bucket_residual_na_retencao(self):
+        """A tabela de retenção também não deve ter cursos com Grande Área não classificada."""
+        gold_path = GOLD_DIR / "retencao_cursos_unb.csv"
+        df_gold = pd.read_csv(gold_path)
+        self.assertNotIn("OUTRA", df_gold["area_conhecimento"].values)
 
 
 if __name__ == "__main__":
