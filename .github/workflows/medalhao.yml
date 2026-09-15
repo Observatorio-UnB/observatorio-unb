@@ -110,9 +110,10 @@ jobs:
 
       - name: "Monta _site/"
         run: |
-          mkdir -p _site/app/src/dashboard _site/app/data _site/app/docs
+          mkdir -p _site/app/src/dashboard/assets _site/app/data _site/app/docs
           cp site/index.html _site/index.html
           cp src/dashboard/app.py _site/app/src/dashboard/app.py
+          cp -r src/dashboard/assets/* _site/app/src/dashboard/assets/ 2>/dev/null || true
           cp -r artifact/data/gold _site/app/data/gold
           cp artifact/docs/*.md _site/app/docs/
 
