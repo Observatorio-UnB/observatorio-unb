@@ -99,7 +99,7 @@ sob demanda (`workflow_dispatch`):
    Gold agregada (k ≥ 5) e os relatórios em `docs/` são empacotados.
 2. **Job `deploy`** — publica o dashboard Streamlit completo no **GitHub Pages**
    via [`stlite`](https://github.com/whitphx/stlite) (Python roda no navegador do
-   usuário, sem servidor): **https://murilopbs.github.io/bd2/**
+   usuário, sem servidor): **https://observatorio-unb.github.io/observatorio-unb/**
 
 **Configuração única necessária:** em *Settings → Pages*, definir *Source* =
 **GitHub Actions**.
