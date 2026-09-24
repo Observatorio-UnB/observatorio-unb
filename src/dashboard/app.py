@@ -106,62 +106,71 @@ st.markdown(
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-GOLD_DIR = BASE_DIR / "data" / "gold"
 DOCS_DIR = BASE_DIR / "docs"
+# Export estático da gold, gerado pelo CI a partir do banco (src/db/exportar_gold.py). É o
+# que a versão do GitHub Pages lê: o stlite roda no navegador, sem acesso ao PostgreSQL.
+EXPORT_PATH = BASE_DIR / "export" / "gold.json"
 
 
-def _gold_files_mtime() -> float:
-    """Assinatura de versão dos arquivos Gold, para invalidar o cache quando o pipeline
-    regenera os dados (st.cache_data por si só não detecta mudança de conteúdo em disco)."""
-    paths = [
-        GOLD_DIR / "retencao_cursos_unb.csv",
-        GOLD_DIR / "metricas_gerais_unb.json",
-        GOLD_DIR / "relatorio_casamento_joins.json",
-        GOLD_DIR / "pibic_social_unb.csv",
-        GOLD_DIR / "pibic_metricas_gerais.json",
-        GOLD_DIR / "regras_harmonizacao_canonicas.json",
-        GOLD_DIR / "inep_benchmark_cursos_unb.csv",
-    ]
-    return max((p.stat().st_mtime for p in paths if p.exists()), default=0.0)
+def _versao_dos_dados() -> str:
+    """Assinatura de versão da gold, para invalidar o cache quando o pipeline a regrava
+    (st.cache_data por si só não detecta mudança no banco nem no arquivo)."""
+    try:
+        from src.db.tabelas import consultar
+
+        return str(consultar("SELECT max(_carregado_em) AS versao FROM gold.relatorios").iloc[0]["versao"])
+    except Exception:
+        return str(EXPORT_PATH.stat().st_mtime) if EXPORT_PATH.exists() else ""
+
+
+def _ler_dados_da_gold():
+    """Gold do PostgreSQL quando o banco responde; senão, o export estático (GitHub Pages)."""
+    try:
+        from src.db.exportar_gold import montar_snapshot
+
+        dados = montar_snapshot()
+        if dados["tabelas"]["retencao_cursos_unb"]:
+            return dados
+    except Exception:
+        pass  # sem psycopg (stlite) ou banco fora do ar
+    if EXPORT_PATH.exists():
+        return json.loads(EXPORT_PATH.read_text(encoding="utf-8"))
+    return None
 
 
 @st.cache_data
-def load_gold_data(_version: float):
-    csv_path = GOLD_DIR / "retencao_cursos_unb.csv"
-    json_path = GOLD_DIR / "metricas_gerais_unb.json"
-    join_path = GOLD_DIR / "relatorio_casamento_joins.json"
-    pibic_csv_path = GOLD_DIR / "pibic_social_unb.csv"
-    pibic_json_path = GOLD_DIR / "pibic_metricas_gerais.json"
-    regras_path = GOLD_DIR / "regras_harmonizacao_canonicas.json"
-    inep_csv_path = GOLD_DIR / "inep_benchmark_cursos_unb.csv"
-
-    if not csv_path.exists():
-        st.error(f"Arquivo {csv_path} não encontrado. Execute o pipeline primeiro.")
+def load_gold_data(versao: str):
+    # `versao` só existe para entrar na chave do cache (sem "_" na frente: o Streamlit
+    # ignora parâmetros com "_" ao montar a chave).
+    dados = _ler_dados_da_gold()
+    if dados is None:
+        st.error(
+            "Sem dados da gold. Suba o banco (`docker compose up -d db`) e rode o pipeline "
+            "(`bash scripts/rodar_pipeline.sh`)."
+        )
         return None, None, None, None, None, None, None
 
-    df = pd.read_csv(csv_path)
-    with open(json_path, "r", encoding="utf-8") as f:
-        meta = json.load(f)
-    with open(join_path, "r", encoding="utf-8") as f:
-        join_meta = json.load(f)
+    tabelas, relatorios = dados["tabelas"], dados["relatorios"]
+    df = pd.DataFrame(tabelas["retencao_cursos_unb"])
+    meta = relatorios.get("metricas_gerais_unb")
+    join_meta = relatorios.get("relatorio_casamento_joins")
 
-    df_pibic = pd.read_csv(pibic_csv_path) if pibic_csv_path.exists() else None
-    pibic_meta = None
-    if pibic_json_path.exists():
-        with open(pibic_json_path, "r", encoding="utf-8") as f:
-            pibic_meta = json.load(f)
+    df_pibic = pd.DataFrame(tabelas["pibic_social_unb"]) if tabelas.get("pibic_social_unb") else None
+    pibic_meta = relatorios.get("pibic_metricas_gerais")
 
     regras_meta = None
-    if regras_path.exists():
-        with open(regras_path, "r", encoding="utf-8") as f:
-            regras_meta = json.load(f)
+    if tabelas.get("regras_harmonizacao_canonicas"):
+        regras_meta = {
+            **relatorios.get("regras_harmonizacao_canonicas", {}),
+            "regras": tabelas["regras_harmonizacao_canonicas"],
+        }
 
-    df_inep = pd.read_csv(inep_csv_path) if inep_csv_path.exists() else None
+    df_inep = pd.DataFrame(tabelas["inep_benchmark_cursos_unb"]) if tabelas.get("inep_benchmark_cursos_unb") else None
 
     return df, meta, join_meta, df_pibic, pibic_meta, regras_meta, df_inep
 
 
-df_gold, global_meta, join_meta, df_pibic, pibic_meta, regras_meta, df_inep = load_gold_data(_gold_files_mtime())
+df_gold, global_meta, join_meta, df_pibic, pibic_meta, regras_meta, df_inep = load_gold_data(_versao_dos_dados())
 
 # Barra Lateral (Sidebar)
 if UNB_ICON_PATH.exists():

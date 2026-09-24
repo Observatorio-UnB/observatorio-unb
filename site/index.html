@@ -31,12 +31,8 @@
         files: {
           "src/dashboard/app.py": { url: "./app/src/dashboard/app.py" },
           "src/dashboard/assets/unb_icon.png": { url: "./app/src/dashboard/assets/unb_icon.png" },
-          "data/gold/retencao_cursos_unb.csv": { url: "./app/data/gold/retencao_cursos_unb.csv" },
-          "data/gold/metricas_gerais_unb.json": { url: "./app/data/gold/metricas_gerais_unb.json" },
-          "data/gold/relatorio_casamento_joins.json": { url: "./app/data/gold/relatorio_casamento_joins.json" },
-          "data/gold/pibic_social_unb.csv": { url: "./app/data/gold/pibic_social_unb.csv" },
-          "data/gold/pibic_metricas_gerais.json": { url: "./app/data/gold/pibic_metricas_gerais.json" },
-          "data/gold/regras_harmonizacao_canonicas.json": { url: "./app/data/gold/regras_harmonizacao_canonicas.json" },
+          // Gold exportada do banco pelo CI (src/db/exportar_gold.py): o navegador não acessa o PostgreSQL.
+          "export/gold.json": { url: "./app/export/gold.json" },
           "docs/relatorio_qualidade.md": { url: "./app/docs/relatorio_qualidade.md" },
           "docs/analise_social_pibic.md": { url: "./app/docs/analise_social_pibic.md" },
         },
