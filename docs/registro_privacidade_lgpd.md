@@ -1,7 +1,7 @@
 # Registro de Risco de Privacidade e Avaliação LGPD (Dia 5 - Semana 1)
 
 **Projeto**: Análise de Retenção e Formatura nos Cursos da UnB
-**Base Analisada**: `data/bronze/sigra_discentes.csv` (Graduação)
+**Base Analisada**: `bronze.sigra_discentes` (Graduação)
 
 ---
 
