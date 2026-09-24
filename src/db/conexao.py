@@ -29,4 +29,6 @@ def database_url() -> str:
 
 def conectar(**kwargs) -> psycopg.Connection:
     """Abre uma conexão nova com o banco da plataforma."""
+    # Sem banco no ar, o painel cai no export estático em segundos, e não trava esperando.
+    kwargs.setdefault("connect_timeout", 5)
     return psycopg.connect(database_url(), **kwargs)
