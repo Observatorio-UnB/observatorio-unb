@@ -6,7 +6,7 @@ venv
 .env
 __pycache__
 *.pyc
-data/bronze/*.csv
-data/silver/*.csv
+data
+export
 site
 *.pdf

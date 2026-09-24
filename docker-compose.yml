@@ -23,18 +23,16 @@ services:
       timeout: 3s
       retries: 20
 
-  # Roda o medalhão do zero (API CKAN -> bronze -> silver -> gold -> banco ->
-  # vetorização) e termina. Os dados ficam no volume `dados`, e não na pasta do
-  # host, porque bronze e silver contêm dado pessoal (ver docs/registro_privacidade_lgpd.md).
+  # Roda o medalhão do zero (API CKAN e INEP -> bronze -> silver -> gold ->
+  # vetorização) e termina. Cada camada vai direto para o banco: nenhum dado,
+  # inclusive o pessoal da bronze e da silver, é gravado na pasta do host.
   pipeline:
     build: .
     command: ["bash", "scripts/rodar_pipeline.sh"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-observatorio}:${POSTGRES_PASSWORD:-observatorio}@db:5432/${POSTGRES_DB:-observatorio}
-      SKIP_DATASETS: sigaa
       FASTEMBED_CACHE_PATH: /cache/fastembed
     volumes:
-      - dados:/app/data
       - modelos:/cache
     depends_on:
       db:
@@ -49,7 +47,6 @@ services:
     ports:
       - "${PAINEL_PORT:-8501}:8501"
     volumes:
-      - dados:/app/data
       - modelos:/cache
     depends_on:
       pipeline:
@@ -57,5 +54,4 @@ services:
 
 volumes:
   pgdata:
-  dados:
   modelos:
