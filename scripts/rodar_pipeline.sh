@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Pipeline completo, do portal ao banco: ingestão -> silver -> gold -> auditoria ->
-# privacidade -> carga no PostgreSQL -> vetorização -> dicionário do banco.
+# Pipeline completo, do portal ao banco. Cada etapa lê a camada anterior do
+# PostgreSQL e grava a sua nele: migrações -> bronze (CKAN e INEP) -> silver -> gold
+# -> auditoria -> privacidade -> vetorização -> dicionário do banco.
 #
 # Requer o banco no ar (docker compose up -d db) ou DATABASE_URL apontando para ele.
 # Uso: bash scripts/rodar_pipeline.sh
@@ -14,8 +15,14 @@ fi
 
 etapa() { echo; echo "=== $1 ==="; }
 
+etapa "Banco: migrações do esquema"
+"$PYTHON" src/db/migrar.py
+
 etapa "Bronze: ingestão via API CKAN"
 "$PYTHON" src/ingestion/ckan_client.py
+
+etapa "Bronze: Censo da Educação Superior (INEP)"
+"$PYTHON" src/ingestion/inep_censo_superior.py
 
 etapa "Silver: limpeza, tipagem e normalização"
 "$PYTHON" src/pipeline/transform_silver.py
@@ -28,9 +35,6 @@ etapa "Auditoria de qualidade"
 
 etapa "Privacidade: k-anonimato"
 "$PYTHON" src/privacy/lgpd_check.py
-
-etapa "Banco: migrações e carga das camadas"
-"$PYTHON" src/db/carregar.py
 
 etapa "Busca semântica: vetorização"
 "$PYTHON" src/busca/vetorizar.py

@@ -4,8 +4,8 @@ Avalia analiticamente a presença de quase-identificadores na base do SIGRA,
 mede o nível de k-anonimato e unicidade e documenta as salvaguardas éticas.
 """
 
-import csv
 import logging
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Dict, Tuple
@@ -18,32 +18,35 @@ logging.basicConfig(
 logger = logging.getLogger("lgpd_check")
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-BRONZE_DIR = BASE_DIR / "data" / "bronze"
 DOCS_DIR = BASE_DIR / "docs"
+sys.path.insert(0, str(BASE_DIR))
+from src.db.conexao import conectar  # noqa: E402
 
 
 def analyze_quasi_identifiers() -> Tuple[Dict, str]:
     """Calcula estatísticas de unicidade e k-anonimato sobre os dados de discentes."""
-    sig_file = BRONZE_DIR / "sigra_discentes.csv"
-    if not sig_file.exists():
-        raise FileNotFoundError(f"Arquivo não encontrado: {sig_file}")
-        
+    # Direto do cursor: nulo chega como None, como o campo vazio chegava do csv.DictReader.
+    with conectar() as conn:
+        linhas = conn.execute(
+            "SELECT nivel, curso, data_nascimento, sexo, raca_cor FROM bronze.sigra_discentes"
+        ).fetchall()
+    if not linhas:
+        raise RuntimeError("bronze.sigra_discentes está vazia. Rode a ingestão (src/ingestion/ckan_client.py).")
+
     total_records = 0
     # Quase-identificadores: (curso, data_nascimento, sexo, raca_cor)
     comb_counter = Counter()
-    
-    with open(sig_file, "r", encoding="utf-8", errors="replace") as f:
-        reader = csv.DictReader(f, delimiter=";")
-        for row in reader:
-            if (row.get("nivel") or "").strip() == "Graduação":
-                total_records += 1
-                curso = (row.get("curso") or "").strip().upper()
-                dt_nasc = (row.get("data_nascimento") or "").strip()
-                sexo = (row.get("sexo") or "").strip()
-                raca = (row.get("raca_cor") or "").strip()
-                
-                key = (curso, dt_nasc, sexo, raca)
-                comb_counter[key] += 1
+
+    for nivel, curso, dt_nasc, sexo, raca in linhas:
+        if (nivel or "").strip() == "Graduação":
+            total_records += 1
+            curso = (curso or "").strip().upper()
+            dt_nasc = (dt_nasc or "").strip()
+            sexo = (sexo or "").strip()
+            raca = (raca or "").strip()
+
+            key = (curso, dt_nasc, sexo, raca)
+            comb_counter[key] += 1
                 
     unique_count = sum(1 for count in comb_counter.values() if count == 1)
     k_min = min(comb_counter.values()) if comb_counter else 0
@@ -63,7 +66,7 @@ def analyze_quasi_identifiers() -> Tuple[Dict, str]:
     md = []
     md.append("# Registro de Risco de Privacidade e Avaliação LGPD (Dia 5 - Semana 1)")
     md.append("\n**Projeto**: Análise de Retenção e Formatura nos Cursos da UnB")
-    md.append("**Base Analisada**: `data/bronze/sigra_discentes.csv` (Graduação)")
+    md.append("**Base Analisada**: `bronze.sigra_discentes` (Graduação)")
     md.append("\n---\n")
     
     md.append("## 1. Avaliação Analítica de Quase-Identificadores e k-Anonimato\n")

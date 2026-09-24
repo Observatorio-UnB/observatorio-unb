@@ -1,6 +1,7 @@
 pandas>=2.0.0
 numpy>=1.24.0
 requests>=2.31.0
+certifi>=2023.7.22
 streamlit>=1.30.0
 plotly>=5.18.0
 duckdb>=0.9.0

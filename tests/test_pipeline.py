@@ -2,20 +2,22 @@
 Suíte de Testes Automatizados - Pipeline de Retenção e Formatura UnB
 Valida integridade de esquema, contratos de dados, taxa de casamento de joins
 e conformidade com as regras metodológicas do Challenge.
+
+As camadas são lidas do PostgreSQL (o pipeline grava cada uma direto no banco).
+Sem banco acessível, os testes de dados são pulados.
 """
 
-import json
 import sys
 from pathlib import Path
 import unittest
 import pandas as pd
+import psycopg
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-BRONZE_DIR = BASE_DIR / "data" / "bronze"
-SILVER_DIR = BASE_DIR / "data" / "silver"
-GOLD_DIR = BASE_DIR / "data" / "gold"
 
 sys.path.insert(0, str(BASE_DIR))
+from src.db.conexao import conectar
+from src.db.tabelas import ler, ler_relatorio, tem_linhas
 from src.pipeline.build_gold import normalize_turno_grupo, normalize_categoria_grau, build_area_por_curso
 
 
@@ -65,56 +67,55 @@ class TestCanonicalNormalization(unittest.TestCase):
 
 
 class TestDataPipeline(unittest.TestCase):
-    
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            conectar(connect_timeout=3).close()
+        except psycopg.OperationalError as erro:
+            raise unittest.SkipTest(f"Banco indisponível ({erro}). Suba com: docker compose up -d db")
+        try:
+            carregado = tem_linhas("gold.retencao_cursos_unb")
+        except Exception:
+            carregado = False
+        if not carregado:
+            raise unittest.SkipTest("Banco sem dados. Rode: bash scripts/rodar_pipeline.sh")
+
     def test_01_bronze_datasets_exist(self):
         """Verifica se os datasets brutos foram baixados corretamente via API."""
-        required_files = [
-            "sigra_discentes.csv",
-            "estrutura_curricular.csv",
-            "cursos_graduacao.csv",
+        required_tables = [
+            "bronze.sigra_discentes",
+            "bronze.estrutura_curricular",
+            "bronze.cursos_graduacao",
         ]
-        for fname in required_files:
-            fpath = BRONZE_DIR / fname
-            self.assertTrue(fpath.exists(), f"Arquivo Bronze ausente: {fname}")
-            self.assertGreater(fpath.stat().st_size, 1000, f"Arquivo Bronze vazio ou corrompido: {fname}")
+        for tabela in required_tables:
+            self.assertGreater(len(ler(tabela)), 100, f"Tabela Bronze vazia ou incompleta: {tabela}")
 
     def test_02_silver_transformation_integrity(self):
         """Verifica a limpeza, tipagem e decodificação na camada Silver."""
-        sig_path = SILVER_DIR / "sigra_graduacao_silver.csv"
-        est_path = SILVER_DIR / "estrutura_curricular_silver.csv"
-        cur_path = SILVER_DIR / "cursos_graduacao_silver.csv"
-        
-        self.assertTrue(sig_path.exists(), "sigra_graduacao_silver.csv ausente")
-        self.assertTrue(est_path.exists(), "estrutura_curricular_silver.csv ausente")
-        self.assertTrue(cur_path.exists(), "cursos_graduacao_silver.csv ausente")
-        
-        df_sig = pd.read_csv(sig_path)
+        for tabela in ("silver.sigra_graduacao", "silver.estrutura_curricular", "silver.cursos_graduacao"):
+            self.assertTrue(tem_linhas(tabela), f"{tabela} vazia")
+
+        df_sig = ler("silver.sigra_graduacao")
         self.assertIn("semestres_permanencia_valida", df_sig.columns)
         self.assertIn("tipo_saida_grupo", df_sig.columns)
         self.assertTrue((df_sig["nivel_norm"] == "GRADUACAO").all(), "Registros de pós-graduação presentes indevidamente")
         
-        df_est = pd.read_csv(est_path)
+        df_est = ler("silver.estrutura_curricular")
         self.assertIn("semestre_conclusao_ideal", df_est.columns)
         self.assertTrue(df_est["semestre_conclusao_ideal"].notna().any(), "Prazos ideais nulos na estrutura")
 
     def test_03_gold_layer_and_join_match_rate(self):
         """Verifica se a camada Gold atinge taxa de casamento superior a 90% e métricas consistentes."""
-        gold_path = GOLD_DIR / "retencao_cursos_unb.csv"
-        join_meta_path = GOLD_DIR / "relatorio_casamento_joins.json"
-        
-        self.assertTrue(gold_path.exists(), "retencao_cursos_unb.csv ausente")
-        self.assertTrue(join_meta_path.exists(), "relatorio_casamento_joins.json ausente")
-        
-        with open(join_meta_path, "r", encoding="utf-8") as f:
-            join_meta = json.load(f)
-            
+        join_meta = ler_relatorio("relatorio_casamento_joins")
+        self.assertIsNotNone(join_meta, "relatório relatorio_casamento_joins ausente")
+
         taxa = join_meta.get("taxa_de_casamento_pct", 0)
         self.assertEqual(taxa, 100.0, f"Taxa de casamento abaixo de 100%: {taxa}%")
-        
-        regras_path = GOLD_DIR / "regras_harmonizacao_canonicas.json"
-        self.assertTrue(regras_path.exists(), "regras_harmonizacao_canonicas.json ausente na Gold")
-        
-        df_gold = pd.read_csv(gold_path)
+
+        self.assertTrue(tem_linhas("gold.regras_harmonizacao_canonicas"), "Regras de harmonização ausentes na Gold")
+
+        df_gold = ler("gold.retencao_cursos_unb")
         self.assertGreater(len(df_gold), 50, "Quantidade de cursos na Gold muito reduzida")
 
         # Turno deve estar unificado (matutino/vespertino colapsados em Diurno)
@@ -158,9 +159,8 @@ class TestDataPipeline(unittest.TestCase):
 
     def test_04_privacy_safeguards(self):
         """Garante que a tabela Gold não expõe quase-identificadores sensíveis de discentes."""
-        gold_path = GOLD_DIR / "retencao_cursos_unb.csv"
-        df_gold = pd.read_csv(gold_path)
-        
+        df_gold = ler("gold.retencao_cursos_unb")
+
         forbidden_cols = ["nome", "cpf", "data_nascimento", "sexo", "raca_cor", "cota_ingresso", "aluno"]
         for fcol in forbidden_cols:
             self.assertNotIn(fcol, df_gold.columns, f"Dado pessoal '{fcol}' exposto indevidamente na camada Gold")
@@ -170,18 +170,14 @@ class TestDataPipeline(unittest.TestCase):
 
     def test_05_pibic_pipeline_and_social_metrics(self):
         """Verifica a integridade da ingestão, camada Silver e métricas sociais da Iniciação Científica (PIBIC)."""
-        bronze_pibic = BRONZE_DIR / "bolsistas_iniciacao_cientifica.csv"
-        silver_pibic = SILVER_DIR / "pibic_bolsistas_silver.csv"
-        gold_pibic = GOLD_DIR / "pibic_social_unb.csv"
-        json_pibic = GOLD_DIR / "pibic_metricas_gerais.json"
-        
-        self.assertTrue(bronze_pibic.exists(), "bolsistas_iniciacao_cientifica.csv ausente na Bronze")
-        self.assertTrue(silver_pibic.exists(), "pibic_bolsistas_silver.csv ausente na Silver")
-        self.assertTrue(gold_pibic.exists(), "pibic_social_unb.csv ausente na Gold")
-        self.assertTrue(json_pibic.exists(), "pibic_metricas_gerais.json ausente na Gold")
-        
+        self.assertTrue(tem_linhas("bronze.bolsistas_iniciacao_cientifica"), "PIBIC ausente na Bronze")
+        self.assertTrue(tem_linhas("silver.pibic_bolsistas"), "PIBIC ausente na Silver")
+        self.assertTrue(tem_linhas("gold.pibic_social_unb"), "PIBIC ausente na Gold")
+        pibic_meta = ler_relatorio("pibic_metricas_gerais")
+        self.assertIsNotNone(pibic_meta, "relatório pibic_metricas_gerais ausente na Gold")
+
         # Validação Silver
-        df_sil = pd.read_csv(silver_pibic)
+        df_sil = ler("silver.pibic_bolsistas")
         self.assertIn("matricula_mascarada", df_sil.columns)
         self.assertIn("perfil_social_macro", df_sil.columns)
         self.assertIn("tipo_bolsa_norm", df_sil.columns)
@@ -189,7 +185,7 @@ class TestDataPipeline(unittest.TestCase):
         self.assertTrue(df_sil["matricula_mascarada"].str.contains(r"\*\*\*").all(), "Matrícula não foi devidamente mascarada")
         
         # Validação Gold
-        df_gold_pibic = pd.read_csv(gold_pibic)
+        df_gold_pibic = ler("gold.pibic_social_unb")
         self.assertTrue((df_gold_pibic["total_projetos"] >= 5).all(), "Supressão ética k < 5 falhou no PIBIC Gold")
 
         # Grande Área deve vir do catálogo oficial de cursos (CNPq/MEC), não do campo
@@ -207,9 +203,6 @@ class TestDataPipeline(unittest.TestCase):
         # cair nesse bucket residual (ver AREA_CONHECIMENTO_OVERRIDES/build_area_por_curso).
         self.assertNotIn("OUTRA", df_gold_pibic["area_conhecimento"].values)
 
-        with open(json_pibic, "r", encoding="utf-8") as f:
-            pibic_meta = json.load(f)
-
         self.assertGreater(pibic_meta["total_projetos_ic"], 10000, "Volume de projetos de IC inconsistente")
         self.assertGreater(pibic_meta["investimento_publico_total_estimado"], 40000000.0, "Investimento total calculado inconsistente")
         self.assertGreater(pibic_meta["taxa_inclusao_cotistas_pct"], 30.0, "Taxa de cotistas menor que 30%")
@@ -218,8 +211,7 @@ class TestDataPipeline(unittest.TestCase):
 
     def test_06_area_conhecimento_sem_bucket_residual_na_retencao(self):
         """A tabela de retenção também não deve ter cursos com Grande Área não classificada."""
-        gold_path = GOLD_DIR / "retencao_cursos_unb.csv"
-        df_gold = pd.read_csv(gold_path)
+        df_gold = ler("gold.retencao_cursos_unb")
         self.assertNotIn("OUTRA", df_gold["area_conhecimento"].values)
 
 

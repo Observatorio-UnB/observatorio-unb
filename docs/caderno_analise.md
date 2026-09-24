@@ -2,7 +2,7 @@
 
 **Projeto**: Retenção, Tempo Real de Formatura e Evasão nos Cursos de Graduação da UnB  
 **Stakeholder**: Decanato de Ensino de Graduação (DEG/DAA)  
-**Base Analítica**: Camada Gold (`data/gold/retencao_cursos_unb.csv`)  
+**Base Analítica**: Camada Gold (`gold.retencao_cursos_unb`, no PostgreSQL)  
 
 ---
 

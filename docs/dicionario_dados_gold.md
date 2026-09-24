@@ -1,11 +1,11 @@
-# Dicionário de Dados da Tabela Gold: `retencao_cursos_unb.csv`
+# Dicionário de Dados da Tabela Gold: `gold.retencao_cursos_unb`
 
-Este documento descreve a semântica, os tipos de dados e os métodos de cálculo de todas as colunas da tabela analítica da camada Gold (`data/gold/retencao_cursos_unb.csv`), gerada para suportar a tomada de decisão do Decanato de Ensino de Graduação (DEG).
+Este documento descreve a semântica, os tipos de dados e os métodos de cálculo de todas as colunas da tabela analítica da camada Gold (`gold.retencao_cursos_unb`), gerada para suportar a tomada de decisão do Decanato de Ensino de Graduação (DEG).
 
 ---
 
 ## 1. Metadados do Artefato
-- **Arquivo**: `data/gold/retencao_cursos_unb.csv`
+- **Tabela**: `gold.retencao_cursos_unb` (PostgreSQL). O dicionário de todas as tabelas do banco, gerado do esquema, está em [dicionario_dados_banco.md](dicionario_dados_banco.md).
 - **Granularidade**: 1 linha por curso canônico de graduação da UnB. Cursos com oferta dupla de Bacharelado e Licenciatura sob o mesmo nome no catálogo (ex. Química, Física, Matemática — ver seção 3) permanecem em uma única linha, com `categoria_grau = "MISTO"`.
 - **Total de Cursos Consolidados**: 88 cursos. O curso-tronco de ingresso comum `ENGENHARIA` (habilitação escolhida posteriormente pelo discente, ex. modelo FGA/FT) permanece na tabela e nas métricas globais — compõe o panorama geral da UnB — mas é descartado apenas nas telas de Visão Executiva e Detalhe por Curso do dashboard (`EXCLUDED_GENERIC_COURSES` em `src/dashboard/app.py`), por não ser um curso terminal válido para um raio-x individual.
 - **Fontes Primárias**: `sigra_discentes.csv` (24.5 MB) + `estrutura_curricular.csv` (76 KB) + `cursos_graduacao.csv` (45 KB).
@@ -47,7 +47,7 @@ Este documento descreve a semântica, os tipos de dados e os métodos de cálcul
 
 ## 3. Cursos com Oferta Dupla (Bacharelado e Licenciatura) — `categoria_grau = "MISTO"`
 
-15 cursos da UnB oferecem, sob o mesmo nome no catálogo (`cursos_graduacao_silver.csv`), tanto uma habilitação de Bacharelado quanto uma de Licenciatura: `QUIMICA`, `FISICA`, `MATEMATICA`, `ARTES VISUAIS`, `CIENCIAS BIOLOGICAS`, `CIENCIAS SOCIAIS`, `EDUCACAO FISICA`, `FILOSOFIA`, `GEOGRAFIA`, `HISTORIA`, `MUSICA`, `PSICOLOGIA` e 3 habilitações de Letras (Francesa, Inglesa, Portuguesa). O catálogo de cursos não traz uma coluna que ligue o código de `opcao` do SIGRA (identificador da opção de ingresso do discente) ao grau conferido, e essa tabela de correspondência não foi localizada em nenhum dataset aberto da UnB (`dados.unb.br`) nem em documentos institucionais públicos (editais de mudança de curso, guias de vestibular) acessíveis no momento da construção deste pipeline.
+15 cursos da UnB oferecem, sob o mesmo nome no catálogo (`silver.cursos_graduacao`), tanto uma habilitação de Bacharelado quanto uma de Licenciatura: `QUIMICA`, `FISICA`, `MATEMATICA`, `ARTES VISUAIS`, `CIENCIAS BIOLOGICAS`, `CIENCIAS SOCIAIS`, `EDUCACAO FISICA`, `FILOSOFIA`, `GEOGRAFIA`, `HISTORIA`, `MUSICA`, `PSICOLOGIA` e 3 habilitações de Letras (Francesa, Inglesa, Portuguesa). O catálogo de cursos não traz uma coluna que ligue o código de `opcao` do SIGRA (identificador da opção de ingresso do discente) ao grau conferido, e essa tabela de correspondência não foi localizada em nenhum dataset aberto da UnB (`dados.unb.br`) nem em documentos institucionais públicos (editais de mudança de curso, guias de vestibular) acessíveis no momento da construção deste pipeline.
 
 Uma primeira tentativa separou esses cursos usando o código `opcao` do SIGRA como proxy (o menor código observado por curso = Bacharelado, os demais = Licenciatura). Isso funciona de forma limpa apenas quando o curso tem exatamente 2 códigos de `opcao` distintos — o caso de Química (1449/1503). Nos outros 14 cursos há 3 a 6 códigos distintos (entradas por vestibular, SiSU, transferência, mudança de curso etc. registradas em anos diferentes), e não há como saber quais códigos pertencem a qual grau: aplicar a mesma regra em Física, por exemplo, isolava um subgrupo minoritário de 55 discentes (código de opção mais baixo) como "Bacharelado" com 0% de formatura — um resultado claramente incorreto, não apenas incompleto.
 
