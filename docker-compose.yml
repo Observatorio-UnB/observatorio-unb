@@ -1,0 +1,61 @@
+# Plataforma do Observatório UnB.
+#
+#   docker compose up -d db        -> só o banco (para rodar o pipeline pelo .venv)
+#   docker compose up --build      -> banco + pipeline completo + painel em http://localhost:8501
+#
+# O banco é PostgreSQL 16 com a extensão pgvector (busca semântica). A porta do
+# host é 5435 por padrão para não colidir com um PostgreSQL local na 5432.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-observatorio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-observatorio}
+      POSTGRES_DB: ${POSTGRES_DB:-observatorio}
+    ports:
+      - "${POSTGRES_PORT:-5435}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Roda o medalhão do zero (API CKAN -> bronze -> silver -> gold -> banco ->
+  # vetorização) e termina. Os dados ficam no volume `dados`, e não na pasta do
+  # host, porque bronze e silver contêm dado pessoal (ver docs/registro_privacidade_lgpd.md).
+  pipeline:
+    build: .
+    command: ["bash", "scripts/rodar_pipeline.sh"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-observatorio}:${POSTGRES_PASSWORD:-observatorio}@db:5432/${POSTGRES_DB:-observatorio}
+      SKIP_DATASETS: sigaa
+      FASTEMBED_CACHE_PATH: /cache/fastembed
+    volumes:
+      - dados:/app/data
+      - modelos:/cache
+    depends_on:
+      db:
+        condition: service_healthy
+
+  painel:
+    build: .
+    command: ["streamlit", "run", "src/dashboard/app.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-observatorio}:${POSTGRES_PASSWORD:-observatorio}@db:5432/${POSTGRES_DB:-observatorio}
+      FASTEMBED_CACHE_PATH: /cache/fastembed
+    ports:
+      - "${PAINEL_PORT:-8501}:8501"
+    volumes:
+      - dados:/app/data
+      - modelos:/cache
+    depends_on:
+      pipeline:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
+  dados:
+  modelos:

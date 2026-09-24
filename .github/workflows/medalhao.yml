@@ -23,6 +23,23 @@ concurrency:
 jobs:
   pipeline:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: observatorio
+          POSTGRES_PASSWORD: observatorio
+          POSTGRES_DB: observatorio
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U observatorio -d observatorio"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://observatorio:observatorio@localhost:5432/observatorio
+      FASTEMBED_CACHE_PATH: ${{ github.workspace }}/.cache/fastembed
     steps:
       - uses: actions/checkout@v4
 
@@ -49,6 +66,24 @@ jobs:
 
       - name: "Privacidade — k-anonimato (LGPD)"
         run: python src/privacy/lgpd_check.py
+
+      - name: "Banco — migrações e carga das camadas (PostgreSQL)"
+        run: python src/db/carregar.py
+
+      - name: "Cache do modelo de embedding"
+        uses: actions/cache@v4
+        with:
+          path: .cache/fastembed
+          key: fastembed-paraphrase-multilingual-MiniLM-L12-v2
+
+      - name: "Busca semântica — vetorização (pgvector)"
+        env:
+          # Os ~12,5 mil planos de IC levam vários minutos em CPU; no CI basta provar o fluxo.
+          VETORIZAR_TIPOS: curso,documentacao
+        run: python src/busca/vetorizar.py
+
+      - name: "Dicionário de dados do banco"
+        run: python src/db/gerar_dicionario.py
 
       - name: "Verificação determinística (contratos da Gold)"
         run: python -m unittest discover -s tests -p "test_*.py" -v
