@@ -4,3 +4,4 @@ requests>=2.31.0
 streamlit>=1.30.0
 plotly>=5.18.0
 duckdb>=0.9.0
+psycopg[binary]>=3.1

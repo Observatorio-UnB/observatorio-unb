@@ -28,3 +28,7 @@ data/silver/*.csv
 .vscode/
 .idea/
 *.log
+
+# Configuração local e cache do modelo de embedding (~240 MB)
+.env
+.cache/
