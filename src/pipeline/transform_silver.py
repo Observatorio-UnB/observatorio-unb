@@ -2,11 +2,14 @@
 Pipeline de Transformação - Camada Bronze -> Camada Silver
 Realiza limpeza, decodificação de encodings, remoção de padding,
 padronização semântica, cálculo de permanência e tipagem de dados.
+
+Lê as tabelas bronze.* e grava as silver.* no PostgreSQL, numa transação só.
 """
 
 import logging
 import os
 import re
+import sys
 import unicodedata
 from pathlib import Path
 from typing import Optional
@@ -21,8 +24,8 @@ logging.basicConfig(
 logger = logging.getLogger("transform_silver")
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-BRONZE_DIR = BASE_DIR / "data" / "bronze"
-SILVER_DIR = BASE_DIR / "data" / "silver"
+sys.path.insert(0, str(BASE_DIR))
+from src.db.tabelas import gravar_varias, ler, ler_bronze, tem_linhas  # noqa: E402
 
 
 def normalize_text(text: Optional[str]) -> str:
@@ -53,10 +56,9 @@ def categorize_forma_saida(forma: str) -> str:
 
 def process_sigra() -> pd.DataFrame:
     """Processa a base bruta do SIGRA e gera a versão Silver de discentes de graduação."""
-    raw_path = BRONZE_DIR / "sigra_discentes.csv"
-    logger.info(f"Processando {raw_path.name}...")
-    
-    df = pd.read_csv(raw_path, sep=";", encoding="utf-8", on_bad_lines="skip", dtype=str)
+    logger.info("Processando bronze.sigra_discentes...")
+
+    df = ler_bronze("bronze.sigra_discentes")
     
     # 1. Filtrar apenas discentes de graduação
     df["nivel_norm"] = df["nivel"].apply(normalize_text)
@@ -100,18 +102,16 @@ def process_sigra() -> pd.DataFrame:
         lambda x: x if (pd.notna(x) and 1 <= x <= 30) else np.nan
     )
     
-    out_path = SILVER_DIR / "sigra_graduacao_silver.csv"
-    df_grad.to_csv(out_path, index=False, encoding="utf-8")
-    logger.info(f"Salvo {out_path.name} com {len(df_grad):,} registros de graduação.")
+    logger.info(f"Silver do SIGRA com {len(df_grad):,} registros de graduação.")
     return df_grad
 
 
 def process_estrutura_curricular() -> pd.DataFrame:
     """Processa a base bruta de estrutura curricular (resolvendo encoding latin-1)."""
-    raw_path = BRONZE_DIR / "estrutura_curricular.csv"
-    logger.info(f"Processando {raw_path.name}...")
-    
-    df = pd.read_csv(raw_path, sep=";", encoding="latin-1", on_bad_lines="skip", dtype=str)
+    logger.info("Processando bronze.estrutura_curricular...")
+
+    # O Latin-1 da fonte é decodificado na ingestão (ver bronze.ingestoes).
+    df = ler_bronze("bronze.estrutura_curricular")
     
     # Normalização de nomes de cursos
     df["nome_curso_norm"] = df["nome_curso"].apply(normalize_text)
@@ -144,18 +144,15 @@ def process_estrutura_curricular() -> pd.DataFrame:
     }
     df_consolidado = df_clean.groupby("nome_curso_norm", as_index=False).agg(agg_dict)
     
-    out_path = SILVER_DIR / "estrutura_curricular_silver.csv"
-    df_consolidado.to_csv(out_path, index=False, encoding="utf-8")
-    logger.info(f"Salvo {out_path.name} com {len(df_consolidado):,} estruturas curriculares consolidadas.")
+    logger.info(f"Silver da estrutura curricular com {len(df_consolidado):,} estruturas consolidadas.")
     return df_consolidado
 
 
 def process_cursos_graduacao() -> pd.DataFrame:
     """Processa a base de cursos de graduação (resolvendo 'NULL' literais e metadados)."""
-    raw_path = BRONZE_DIR / "cursos_graduacao.csv"
-    logger.info(f"Processando {raw_path.name}...")
-    
-    df = pd.read_csv(raw_path, sep=",", encoding="utf-8", on_bad_lines="skip", dtype=str)
+    logger.info("Processando bronze.cursos_graduacao...")
+
+    df = ler_bronze("bronze.cursos_graduacao")
     
     df["nome_curso_norm"] = df["nome"].apply(normalize_text)
     df["turno_norm"] = df["turno"].apply(normalize_text)
@@ -195,9 +192,7 @@ def process_cursos_graduacao() -> pd.DataFrame:
     # Substituir literais NULL por NaN
     df = df.replace(["NULL", "NONE", "NAN", ""], np.nan)
     
-    out_path = SILVER_DIR / "cursos_graduacao_silver.csv"
-    df.to_csv(out_path, index=False, encoding="utf-8")
-    logger.info(f"Salvo {out_path.name} com {len(df):,} cursos cadastrados.")
+    logger.info(f"Silver do catálogo com {len(df):,} cursos cadastrados.")
     return df
 
 
@@ -211,13 +206,12 @@ def process_inep_censo() -> pd.DataFrame:
     Superior (INEP), calculando as taxas por curso que permitem comparar a UnB com as demais
     federais (ver docs/fonte_inep_censo_superior.md).
     """
-    raw_path = BRONZE_DIR / "inep_censo_superior_federais.csv"
-    if not raw_path.exists():
-        logger.warning(f"Arquivo {raw_path.name} não encontrado na camada Bronze. Pulando Censo INEP.")
+    if not tem_linhas("bronze.inep_censo_superior_federais"):
+        logger.warning("bronze.inep_censo_superior_federais está vazia. Pulando Censo INEP.")
         return pd.DataFrame()
 
-    logger.info(f"Processando {raw_path.name} (Censo da Educação Superior - INEP)...")
-    df = pd.read_csv(raw_path)
+    logger.info("Processando bronze.inep_censo_superior_federais (Censo da Educação Superior - INEP)...")
+    df = ler("bronze.inep_censo_superior_federais")
 
     df["curso_inep_norm"] = df["NO_CURSO"].apply(normalize_text)
     df["is_unb"] = df["CO_IES"] == CO_IES_UNB
@@ -253,10 +247,8 @@ def process_inep_censo() -> pd.DataFrame:
     ]
     df_silver = df[cols_silver].copy()
 
-    out_path = SILVER_DIR / "inep_censo_superior_silver.csv"
-    df_silver.to_csv(out_path, index=False, encoding="utf-8")
     logger.info(
-        f"Salvo {out_path.name} com {len(df_silver):,} cursos de federais "
+        f"Silver do Censo INEP com {len(df_silver):,} cursos de federais "
         f"({int(df_silver['is_unb'].sum())} da UnB)."
     )
     return df_silver
@@ -267,13 +259,12 @@ def process_pibic() -> pd.DataFrame:
     Processa a base bruta de bolsistas de iniciação científica (PIBIC/PIVIC),
     aplicando sanitização LGPD, categorização social e mapeamento territorial.
     """
-    raw_path = BRONZE_DIR / "bolsistas_iniciacao_cientifica.csv"
-    if not raw_path.exists():
-        logger.warning(f"Arquivo {raw_path.name} não encontrado na camada Bronze. Pulando PIBIC.")
+    if not tem_linhas("bronze.bolsistas_iniciacao_cientifica"):
+        logger.warning("bronze.bolsistas_iniciacao_cientifica está vazia. Pulando PIBIC.")
         return pd.DataFrame()
-        
-    logger.info(f"Processando {raw_path.name} (Iniciação Científica & Análise Social)...")
-    df = pd.read_csv(raw_path, sep=",", encoding="latin-1", on_bad_lines="skip", dtype=str)
+
+    logger.info("Processando bronze.bolsistas_iniciacao_cientifica (Iniciação Científica & Análise Social)...")
+    df = ler_bronze("bronze.bolsistas_iniciacao_cientifica")
     
     # 1. Normalização de textos
     df["titulo_norm"] = df["titulo"].apply(normalize_text)
@@ -410,21 +401,27 @@ def process_pibic() -> pd.DataFrame:
     ]
     df_pibic_silver = df[cols_silver].copy()
     
-    out_path = SILVER_DIR / "pibic_bolsistas_silver.csv"
-    df_pibic_silver.to_csv(out_path, index=False, encoding="utf-8")
-    logger.info(f"Salvo {out_path.name} com {len(df_pibic_silver):,} planos de pesquisa de IC tratados.")
+    logger.info(f"Silver do PIBIC com {len(df_pibic_silver):,} planos de pesquisa de IC tratados.")
     return df_pibic_silver
 
 
 def run_silver_pipeline():
     """Executa o pipeline completo Bronze -> Silver."""
-    SILVER_DIR.mkdir(parents=True, exist_ok=True)
     logger.info("=== Iniciando Pipeline de Transformação (Camada Silver) ===")
     df_sigra = process_sigra()
     df_est = process_estrutura_curricular()
     df_cursos = process_cursos_graduacao()
     df_pibic = process_pibic()
     df_inep = process_inep_censo()
+    # Uma transação para a camada inteira: quem lê a silver nunca a vê pela metade.
+    # O catálogo vem antes da estrutura curricular, que tem chave estrangeira para ele.
+    gravar_varias({
+        "silver.cursos_graduacao": df_cursos,
+        "silver.estrutura_curricular": df_est,
+        "silver.sigra_graduacao": df_sigra,
+        "silver.pibic_bolsistas": df_pibic,
+        "silver.inep_censo_superior": df_inep,
+    })
     logger.info("=== Camada Silver Gerada com Sucesso ===")
     return df_sigra, df_est, df_cursos, df_pibic, df_inep
 

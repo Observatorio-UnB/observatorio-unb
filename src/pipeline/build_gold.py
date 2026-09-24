@@ -3,10 +3,13 @@ Pipeline de Construção da Camada Gold
 Realiza a integração heterogênea entre discentes, estruturas curriculares e metadados de cursos.
 Mede a taxa de casamento de joins e calcula as métricas consolidadas de retenção,
 tempo real de conclusão e taxas de evasão por curso.
+
+Lê as tabelas silver.* e grava as gold.* no PostgreSQL; os relatórios JSON vão para
+gold.relatorios.
 """
 
-import json
 import logging
+import sys
 from pathlib import Path
 from typing import Dict, Tuple
 import numpy as np
@@ -20,8 +23,8 @@ logging.basicConfig(
 logger = logging.getLogger("build_gold")
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-SILVER_DIR = BASE_DIR / "data" / "silver"
-GOLD_DIR = BASE_DIR / "data" / "gold"
+sys.path.insert(0, str(BASE_DIR))
+from src.db.tabelas import gravar, gravar_relatorio, ler, tem_linhas  # noqa: E402
 
 # Mapeamento detalhado e auditável de Harmonização Canônica (Entity Resolution)
 # Converte nomenclaturas legadas/abreviadas do SIGRA para as matrizes formais da Estrutura Curricular
@@ -574,16 +577,10 @@ def build_area_por_curso(df_cur: pd.DataFrame, cursos_canonicos) -> Dict[str, st
 
 def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     """Executa o merge heterogêneo e a agregação analítica da camada Gold."""
-    GOLD_DIR.mkdir(parents=True, exist_ok=True)
-    
     # 1. Carregar datasets da camada Silver
-    sig_path = SILVER_DIR / "sigra_graduacao_silver.csv"
-    est_path = SILVER_DIR / "estrutura_curricular_silver.csv"
-    cur_path = SILVER_DIR / "cursos_graduacao_silver.csv"
-    
-    df_sig = pd.read_csv(sig_path)
-    df_est = pd.read_csv(est_path)
-    df_cur = pd.read_csv(cur_path)
+    df_sig = ler("silver.sigra_graduacao")
+    df_est = ler("silver.estrutura_curricular")
+    df_cur = ler("silver.cursos_graduacao")
 
     total_discentes = len(df_sig)
 
@@ -660,13 +657,12 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
         })
     regras_auditadas.sort(key=lambda r: r["discentes_impactados"], reverse=True)
 
-    with open(GOLD_DIR / "regras_harmonizacao_canonicas.json", "w", encoding="utf-8") as f:
-        json.dump({
-            "total_regras": len(regras_auditadas),
-            "total_discentes_harmonizados": total_discentes_harmonizados,
-            "metodologia": "Entity Resolution e Harmonização Canônica (SIGRA -> Matrizes Curriculares Ativas)",
-            "regras": regras_auditadas,
-        }, f, indent=2, ensure_ascii=False)
+    gravar(pd.DataFrame(regras_auditadas), "gold.regras_harmonizacao_canonicas")
+    gravar_relatorio("regras_harmonizacao_canonicas", {
+        "total_regras": len(regras_auditadas),
+        "total_discentes_harmonizados": total_discentes_harmonizados,
+        "metodologia": "Entity Resolution e Harmonização Canônica (SIGRA -> Matrizes Curriculares Ativas)",
+    })
 
     join_report = {
         "total_discentes_graduacao": total_discentes,
@@ -685,9 +681,8 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
         ),
     }
     
-    with open(GOLD_DIR / "relatorio_casamento_joins.json", "w", encoding="utf-8") as f:
-        json.dump(join_report, f, indent=2, ensure_ascii=False)
-        
+    gravar_relatorio("relatorio_casamento_joins", join_report)
+
     logger.info(f"Taxa de Casamento dos Joins: {match_rate_pct:.2f}% ({matched_count:,}/{total_discentes:,} discentes)")
 
     # 6. Cálculo de Indicadores no Nível Individual
@@ -846,9 +841,8 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     df_gold["classificacao_retencao"] = df_gold["indice_retencao_critica"].apply(classificar)
     
     # Enriquecimento com dados do PIBIC (Iniciação Científica) se disponível
-    pibic_silver_path = SILVER_DIR / "pibic_bolsistas_silver.csv"
-    if pibic_silver_path.exists():
-        df_pibic_raw = pd.read_csv(pibic_silver_path)
+    if tem_linhas("silver.pibic_bolsistas"):
+        df_pibic_raw = ler("silver.pibic_bolsistas")
         # Canonicaliza antes de agregar, para não perder projetos por causa de grafias
         # inconsistentes no campo "unidade" de origem (ver comentário em build_pibic_gold).
         df_pibic_raw["curso_pibic_norm"] = df_pibic_raw["curso_pibic_norm"].replace(COURSE_ALIASES)
@@ -879,9 +873,8 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     df_gold = df_gold.sort_values(by="indice_retencao_critica", ascending=False)
     
     # Salvar tabela Gold
-    gold_csv_path = GOLD_DIR / "retencao_cursos_unb.csv"
-    df_gold.to_csv(gold_csv_path, index=False, encoding="utf-8")
-    logger.info(f"Tabela analítica Gold salva em {gold_csv_path.name} com {len(df_gold)} cursos.")
+    gravar(df_gold, "gold.retencao_cursos_unb")
+    logger.info(f"Tabela analítica Gold gravada em gold.retencao_cursos_unb com {len(df_gold)} cursos.")
 
     # 8.1 Benchmark Nacional por Curso (Censo da Educação Superior / INEP)
     build_inep_benchmark_gold()
@@ -902,10 +895,8 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
         "top_5_cursos_maior_pontualidade": df_gold.sort_values("formados_tempo_ideal_pct", ascending=False).head(5)[["curso", "formados_tempo_ideal_pct", "tempo_medio_real_semestres"]].to_dict(orient="records"),
     }
     
-    with open(GOLD_DIR / "metricas_gerais_unb.json", "w", encoding="utf-8") as f:
-        json.dump(global_metrics, f, indent=2, ensure_ascii=False)
-        
-    logger.info(f"Métricas globais da UnB consolidadas em metricas_gerais_unb.json")
+    gravar_relatorio("metricas_gerais_unb", global_metrics)
+    logger.info("Métricas globais da UnB consolidadas em gold.relatorios (metricas_gerais_unb)")
     return df_gold, global_metrics
 
 
@@ -922,12 +913,12 @@ def build_inep_benchmark_gold() -> pd.DataFrame:
     diferente da taxa de evasão da tabela de retenção, que acompanha a coorte de ingresso ao
     longo do tempo no SIGRA. Ver docs/fonte_inep_censo_superior.md.
     """
-    inep_path = SILVER_DIR / "inep_censo_superior_silver.csv"
-    if not inep_path.exists():
-        logger.warning(f"Arquivo {inep_path.name} não encontrado. Pulando benchmark INEP.")
+    if not tem_linhas("silver.inep_censo_superior"):
+        logger.warning("silver.inep_censo_superior está vazia. Pulando benchmark INEP.")
+        gravar(pd.DataFrame(), "gold.inep_benchmark_cursos_unb")
         return pd.DataFrame()
 
-    df = pd.read_csv(inep_path)
+    df = ler("silver.inep_censo_superior")
 
     # Cursos muito pequenos produzem taxas instáveis (1 aluno move vários pontos percentuais).
     df = df[df["QT_MAT"] >= MIN_MATRICULAS_BENCHMARK].copy()
@@ -986,11 +977,10 @@ def build_inep_benchmark_gold() -> pd.DataFrame:
         "qt_matriculas_unb", ascending=False
     )
 
-    out_path = GOLD_DIR / "inep_benchmark_cursos_unb.csv"
-    df_bench.to_csv(out_path, index=False, encoding="utf-8")
+    gravar(df_bench, "gold.inep_benchmark_cursos_unb")
     comparaveis = int((df_bench["n_ies_comparadas"] >= MIN_IES_BENCHMARK).sum())
     logger.info(
-        f"Benchmark INEP salvo em {out_path.name}: {len(df_bench)} cursos da UnB, "
+        f"Benchmark INEP gravado em gold.inep_benchmark_cursos_unb: {len(df_bench)} cursos da UnB, "
         f"{comparaveis} com pelo menos {MIN_IES_BENCHMARK} federais comparáveis."
     )
     return df_bench
@@ -1001,14 +991,12 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
     Constrói a tabela analítica Gold do PIBIC (Iniciação Científica)
     e consolida os indicadores de custo total e inclusão social.
     """
-    GOLD_DIR.mkdir(parents=True, exist_ok=True)
-    pibic_silver_path = SILVER_DIR / "pibic_bolsistas_silver.csv"
-    
-    if not pibic_silver_path.exists():
-        logger.warning(f"Arquivo {pibic_silver_path.name} não encontrado. Pulando Gold do PIBIC.")
+    if not tem_linhas("silver.pibic_bolsistas"):
+        logger.warning("silver.pibic_bolsistas está vazia. Pulando Gold do PIBIC.")
+        gravar(pd.DataFrame(), "gold.pibic_social_unb")
         return pd.DataFrame(), {}
-        
-    df_pibic = pd.read_csv(pibic_silver_path)
+
+    df_pibic = ler("silver.pibic_bolsistas")
     total_registros = len(df_pibic)
 
     # Campus: mesma normalização usada na tabela de retenção, para os nomes baterem
@@ -1023,9 +1011,8 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
     # e sim `area_conhecimento_norm` do catálogo oficial de cursos.
     df_pibic["curso_canonico"] = df_pibic["curso_pibic_norm"].replace(COURSE_ALIASES)
 
-    cur_path = SILVER_DIR / "cursos_graduacao_silver.csv"
-    if cur_path.exists():
-        df_cur_cat = pd.read_csv(cur_path)
+    if tem_linhas("silver.cursos_graduacao"):
+        df_cur_cat = ler("silver.cursos_graduacao")
         area_dict = build_area_por_curso(df_cur_cat, df_pibic["curso_canonico"].unique())
         df_pibic["area_conhecimento"] = df_pibic["curso_canonico"].map(area_dict).fillna("OUTRA")
     else:
@@ -1072,9 +1059,8 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
 
     # Taxa de participação: projetos PIBIC / total de alunos matriculados na área (não só
     # % de composição do programa). Requer a tabela de retenção (roda antes no __main__).
-    retencao_path = GOLD_DIR / "retencao_cursos_unb.csv"
-    if retencao_path.exists():
-        df_retencao = pd.read_csv(retencao_path)
+    if tem_linhas("gold.retencao_cursos_unb"):
+        df_retencao = ler("gold.retencao_cursos_unb")
         alunos_por_area = df_retencao.groupby("area_conhecimento")["total_discentes_registrados"].sum()
         area_agg["total_discentes_area"] = area_agg["area_conhecimento"].map(alunos_por_area).fillna(0).astype(int)
         area_agg["taxa_participacao_pibic_pct"] = (
@@ -1117,8 +1103,7 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
     curso_agg = curso_agg.sort_values(by="total_projetos", ascending=False)
     
     # Salvar tabela Gold do PIBIC
-    pibic_gold_csv = GOLD_DIR / "pibic_social_unb.csv"
-    curso_agg.to_csv(pibic_gold_csv, index=False, encoding="utf-8")
+    gravar(curso_agg, "gold.pibic_social_unb")
     
     # 4. Consolidar JSON de Métricas
     pibic_metrics = {
@@ -1136,11 +1121,10 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
         "evolucao_anual": dist_ano,
     }
     
-    with open(GOLD_DIR / "pibic_metricas_gerais.json", "w", encoding="utf-8") as f:
-        json.dump(pibic_metrics, f, indent=2, ensure_ascii=False)
-        
-    logger.info(f"Tabela Gold PIBIC salva em {pibic_gold_csv.name} com {len(curso_agg)} cursos agregados.")
-    logger.info(f"Métricas gerais do PIBIC salvas em pibic_metricas_gerais.json (Investimento: R$ {total_investido:,.2f})")
+    gravar_relatorio("pibic_metricas_gerais", pibic_metrics)
+
+    logger.info(f"Tabela Gold PIBIC gravada em gold.pibic_social_unb com {len(curso_agg)} cursos agregados.")
+    logger.info(f"Métricas gerais do PIBIC gravadas em gold.relatorios (Investimento: R$ {total_investido:,.2f})")
     return curso_agg, pibic_metrics
 
 
