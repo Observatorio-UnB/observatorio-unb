@@ -201,6 +201,67 @@ def process_cursos_graduacao() -> pd.DataFrame:
     return df
 
 
+# Código da UnB no cadastro de IES do INEP (Censo da Educação Superior).
+CO_IES_UNB = 2
+
+
+def process_inep_censo() -> pd.DataFrame:
+    """
+    Processa o recorte de cursos presenciais de universidades federais do Censo da Educação
+    Superior (INEP), calculando as taxas por curso que permitem comparar a UnB com as demais
+    federais (ver docs/fonte_inep_censo_superior.md).
+    """
+    raw_path = BRONZE_DIR / "inep_censo_superior_federais.csv"
+    if not raw_path.exists():
+        logger.warning(f"Arquivo {raw_path.name} não encontrado na camada Bronze. Pulando Censo INEP.")
+        return pd.DataFrame()
+
+    logger.info(f"Processando {raw_path.name} (Censo da Educação Superior - INEP)...")
+    df = pd.read_csv(raw_path)
+
+    df["curso_inep_norm"] = df["NO_CURSO"].apply(normalize_text)
+    df["is_unb"] = df["CO_IES"] == CO_IES_UNB
+
+    # Taxas do próprio Censo: a situação da matrícula é apurada no ano-censo, e não pelo
+    # acompanhamento da coorte de ingresso - por isso estas taxas não são comparáveis com a
+    # taxa de evasão da tabela de retenção (construída sobre o histórico do SIGRA).
+    matriculas = df["QT_MAT"].replace(0, np.nan)
+    df["taxa_trancamento_pct"] = (df["QT_SIT_TRANCADA"] / matriculas * 100).round(2)
+    df["taxa_desvinculacao_pct"] = (df["QT_SIT_DESVINCULADO"] / matriculas * 100).round(2)
+
+    vagas = df["QT_VG_TOTAL"].replace(0, np.nan)
+    df["concorrencia_vestibular"] = (df["QT_INSCRITO_TOTAL"] / vagas).round(2)
+
+    cols_silver = [
+        "NU_ANO_CENSO",
+        "CO_IES",
+        "NO_IES",
+        "is_unb",
+        "CO_CURSO",
+        "NO_CURSO",
+        "curso_inep_norm",
+        "QT_VG_TOTAL",
+        "QT_INSCRITO_TOTAL",
+        "QT_ING",
+        "QT_MAT",
+        "QT_CONC",
+        "QT_SIT_TRANCADA",
+        "QT_SIT_DESVINCULADO",
+        "taxa_trancamento_pct",
+        "taxa_desvinculacao_pct",
+        "concorrencia_vestibular",
+    ]
+    df_silver = df[cols_silver].copy()
+
+    out_path = SILVER_DIR / "inep_censo_superior_silver.csv"
+    df_silver.to_csv(out_path, index=False, encoding="utf-8")
+    logger.info(
+        f"Salvo {out_path.name} com {len(df_silver):,} cursos de federais "
+        f"({int(df_silver['is_unb'].sum())} da UnB)."
+    )
+    return df_silver
+
+
 def process_pibic() -> pd.DataFrame:
     """
     Processa a base bruta de bolsistas de iniciação científica (PIBIC/PIVIC),
@@ -363,8 +424,9 @@ def run_silver_pipeline():
     df_est = process_estrutura_curricular()
     df_cursos = process_cursos_graduacao()
     df_pibic = process_pibic()
+    df_inep = process_inep_censo()
     logger.info("=== Camada Silver Gerada com Sucesso ===")
-    return df_sigra, df_est, df_cursos, df_pibic
+    return df_sigra, df_est, df_cursos, df_pibic, df_inep
 
 
 if __name__ == "__main__":

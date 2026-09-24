@@ -38,6 +38,9 @@ jobs:
           SKIP_DATASETS: sigaa # não é consumido por nenhuma etapa
         run: python src/ingestion/ckan_client.py
 
+      - name: "Bronze — Censo da Educação Superior (INEP)"
+        run: python src/ingestion/inep_censo_superior.py
+
       - name: "Silver — limpeza, tipagem e normalização"
         run: python src/pipeline/transform_silver.py
 
