@@ -2,8 +2,13 @@
 Cliente de Ingestão de Dados via API CKAN 2.11 - dados.unb.br
 Responsável por consultar os metadados dos pacotes e baixar os recursos
 brutos de forma automatizada e reproduzível para a camada Bronze.
+
+O arquivo baixado não vai para o disco: é lido com o dialeto da fonte (encoding e
+separador, que variam entre os conjuntos do portal) e gravado em bronze.* como
+texto, do jeito que veio. A procedência do download fica em bronze.ingestoes.
 """
 
+import io
 import json
 import logging
 import os
@@ -11,7 +16,15 @@ import sys
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
+
+import pandas as pd
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(BASE_DIR))
+from src.db.migrar import aplicar_migracoes  # noqa: E402
+from src.db.tabelas import gravar  # noqa: E402
+from src.ingestion.procedencia import registrar_ingestao  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,38 +34,40 @@ logging.basicConfig(
 logger = logging.getLogger("ckan_ingestion")
 
 BASE_URL = "https://dados.unb.br/api/3/action"
-DEFAULT_BRONZE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "bronze"
 
-# Mapeamento de pacotes e recursos prioritários para o projeto
+# Mapeamento de pacotes e recursos prioritários para o projeto. O conjunto "sigaa"
+# (mesmo pacote do SIGRA) saiu da lista: nenhuma etapa do pipeline o consumia.
 DATASETS_CONFIG = {
     "sigra": {
         "package_id": "dados-referente-aos-alunos-de-graduacao-pos-graduacao-latu-sensu-mestrado-e-doutorado",
         "resource_name_pattern": "sigra.csv",
-        "output_filename": "sigra_discentes.csv",
+        "tabela": "bronze.sigra_discentes",
+        "separador": ";",
+        "encoding": "utf-8",
         "description": "Histórico acadêmico de discentes, ano de ingresso e forma/período de saída.",
-    },
-    "sigaa": {
-        "package_id": "dados-referente-aos-alunos-de-graduacao-pos-graduacao-latu-sensu-mestrado-e-doutorado",
-        "resource_name_pattern": "sigaa.csv",
-        "output_filename": "sigaa_discentes.csv",
-        "description": "Dados de discentes e status de diploma no SIGAA.",
     },
     "estrutura_curricular": {
         "package_id": "estrutura-curricular",
         "resource_name_pattern": "estrutura-curricular.csv",
-        "output_filename": "estrutura_curricular.csv",
+        "tabela": "bronze.estrutura_curricular",
+        "separador": ";",
+        "encoding": "latin-1",
         "description": "Estruturas curriculares, semestres mínimo/ideal/máximo e carga horária por curso.",
     },
     "cursos_graduacao": {
         "package_id": "cursos-de-graduacao",
         "resource_name_pattern": "curso_graduacao.csv",
-        "output_filename": "cursos_graduacao.csv",
+        "tabela": "bronze.cursos_graduacao",
+        "separador": ",",
+        "encoding": "utf-8",
         "description": "Catálogo de cursos de graduação, turnos, campus e unidades acadêmicas responsáveis.",
     },
     "pibic": {
         "package_id": "bolsistas-de-iniciacao-cientifica",
         "resource_name_pattern": "bolsistas-de-iniciacao-cientifica.csv",
-        "output_filename": "bolsistas_iniciacao_cientifica.csv",
+        "tabela": "bronze.bolsistas_iniciacao_cientifica",
+        "separador": ",",
+        "encoding": "latin-1",
         "description": "Relação de bolsistas de Iniciação Científica (PIBIC/PIVIC), cotas sociais, bolsas remuneradas/voluntárias e linhas de pesquisa.",
     },
 }
@@ -73,39 +88,34 @@ def fetch_package_metadata(package_id: str) -> Dict:
         return data["result"]
 
 
-def download_resource(url: str, dest_path: Path) -> Path:
-    """Baixa um recurso do CKAN e salva no caminho de destino."""
-    dest_path.parent.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Baixando recurso de {url} -> {dest_path.name}...")
-    
+def download_resource(url: str) -> bytes:
+    """Baixa um recurso do CKAN e devolve o conteúdo em memória."""
+    logger.info(f"Baixando recurso de {url}...")
     req = urllib.request.Request(
         url,
         headers={"User-Agent": "UnB-CBL-Challenge/1.0 (Data Science Agent)"},
     )
-    with urllib.request.urlopen(req, timeout=60) as resp, open(dest_path, "wb") as f:
-        bytes_copied = 0
-        while True:
-            chunk = resp.read(1024 * 1024)
-            if not chunk:
-                break
-            f.write(chunk)
-            bytes_copied += len(chunk)
-            
-    size_mb = bytes_copied / (1024 * 1024)
-    logger.info(f"Download concluído: {dest_path.name} ({size_mb:.2f} MB)")
-    return dest_path
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        conteudo = resp.read()
+    logger.info(f"Download concluído ({len(conteudo) / (1024 * 1024):.2f} MB)")
+    return conteudo
 
 
-def run_ingestion(output_dir: Optional[Path] = None) -> Dict[str, Path]:
+def ler_csv_bruto(conteudo: bytes, separador: str, encoding: str) -> pd.DataFrame:
+    """Lê o CSV da fonte como texto, sem converter nada em nulo (bronze guarda o que veio)."""
+    return pd.read_csv(
+        io.BytesIO(conteudo), sep=separador, encoding=encoding,
+        dtype=str, keep_default_na=False, on_bad_lines="skip",
+    )
+
+
+def run_ingestion() -> Dict[str, int]:
     """
     Executa o processo completo de ingestão via API CKAN para a camada Bronze.
-    Salva os metadados brutos em JSON e os arquivos CSV brutos.
+    Grava cada recurso em sua tabela bronze e a procedência em bronze.ingestoes.
     """
-    out_dir = output_dir or DEFAULT_BRONZE_DIR
-    out_dir.mkdir(parents=True, exist_ok=True)
-    
-    downloaded_files = {}
-    metadata_summary = {}
+    aplicar_migracoes()
+    registros_por_tabela = {}
 
     # Permite pular datasets via env (ex.: SKIP_DATASETS=sigaa) — usado no CI,
     # onde 'sigaa' não é consumido por nenhuma etapa do pipeline.
@@ -117,13 +127,7 @@ def run_ingestion(output_dir: Optional[Path] = None) -> Dict[str, Path]:
             continue
         pkg_id = config["package_id"]
         meta = fetch_package_metadata(pkg_id)
-        metadata_summary[pkg_id] = meta
-        
-        # Salva o dump de metadados brutos da API
-        meta_file = out_dir / f"metadata_{pkg_id}.json"
-        with open(meta_file, "w", encoding="utf-8") as f:
-            json.dump(meta, f, indent=2, ensure_ascii=False)
-            
+
         # Localiza o recurso desejado
         pattern = config["resource_name_pattern"].lower()
         target_resource = None
@@ -143,14 +147,19 @@ def run_ingestion(output_dir: Optional[Path] = None) -> Dict[str, Path]:
                     
         if target_resource:
             res_url = target_resource["url"]
-            dest_file = out_dir / config["output_filename"]
-            download_resource(res_url, dest_file)
-            downloaded_files[key] = dest_file
+            conteudo = download_resource(res_url)
+            df = ler_csv_bruto(conteudo, config["separador"], config["encoding"])
+            registros_por_tabela[config["tabela"]] = gravar(df, config["tabela"])
+            registrar_ingestao(
+                tabela=config["tabela"], fonte="dados.unb.br", recurso_url=res_url, conteudo=conteudo,
+                encoding=config["encoding"], separador=config["separador"], registros=len(df),
+                pacote=pkg_id, metadados=meta,
+            )
         else:
             logger.warning(f"Recurso compatível com '{pattern}' não encontrado em {pkg_id}")
 
     logger.info("=== Ingestão da Camada Bronze Concluída com Sucesso ===")
-    return downloaded_files
+    return registros_por_tabela
 
 
 if __name__ == "__main__":
