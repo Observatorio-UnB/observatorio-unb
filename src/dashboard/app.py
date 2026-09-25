@@ -825,10 +825,24 @@ if df_gold is not None:
             y_v = df_sc[col_unb].values.astype(float)
             r_sc = float(np.corrcoef(x_log, y_v)[0, 1])
 
+            # Teste t da correlação de Pearson (H0: r = 0). Com dezenas de cursos a distribuição t
+            # já é próxima da normal, então |t| > 1,96 corresponde a p < 0,05 bilateral.
+            n_sc = len(df_sc)
+            t_sc = r_sc * np.sqrt((n_sc - 2) / max(1 - r_sc**2, 1e-12)) if n_sc > 2 else 0.0
+            if abs(t_sc) > 1.96:
+                sentido = "menor" if r_sc < 0 else "maior"
+                leitura = (
+                    "com esse número de cursos, a relação é estatisticamente significativa (p < 0,05): "
+                    f"quanto mais disputado o ingresso, {sentido} o indicador."
+                )
+            else:
+                leitura = (
+                    "com esse número de cursos, a relação não é estatisticamente significativa (p ≥ 0,05)."
+                )
+
             st.markdown(
                 f"Relação entre a concorrência de entrada (inscritos por vaga) e o indicador selecionado, "
-                f"nos **{len(df_sc)} cursos** da UnB. **Correlação: {r_sc:.2f}** — com esse número de cursos, "
-                "a relação é estatisticamente significativa: quanto mais disputado o ingresso, menor o indicador."
+                f"nos **{n_sc} cursos** da UnB. **Correlação: {r_sc:.2f}** — {leitura}"
             )
 
             fig_conc = px.scatter(
