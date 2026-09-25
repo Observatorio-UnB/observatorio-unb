@@ -929,37 +929,47 @@ def build_inep_benchmark_gold() -> pd.DataFrame:
 
     df = pd.read_csv(inep_path)
 
+    # O Censo registra cada oferta (turno/campus) como um curso distinto. Os dois lados somam
+    # as ofertas da mesma instituição antes de calcular a taxa, para que a UnB e as demais
+    # federais sejam comparadas na mesma unidade (curso x instituição) e uma federal com três
+    # turnos do mesmo curso não conte três vezes na mediana.
+    soma_cols = {
+        "qt_matriculas": ("QT_MAT", "sum"),
+        "qt_ingressantes": ("QT_ING", "sum"),
+        "qt_concluintes": ("QT_CONC", "sum"),
+        "qt_trancadas": ("QT_SIT_TRANCADA", "sum"),
+        "qt_desvinculados": ("QT_SIT_DESVINCULADO", "sum"),
+        "qt_vagas": ("QT_VG_TOTAL", "sum"),
+        "qt_inscritos": ("QT_INSCRITO_TOTAL", "sum"),
+    }
+    por_ies = df.groupby(["NO_CURSO", "CO_IES", "is_unb"]).agg(**soma_cols).reset_index()
+
     # Cursos muito pequenos produzem taxas instáveis (1 aluno move vários pontos percentuais).
-    df = df[df["QT_MAT"] >= MIN_MATRICULAS_BENCHMARK].copy()
+    # O corte vale para o curso já somado: aplicado por oferta, descartaria turnos pequenos e
+    # tiraria parte dos alunos do cálculo do curso.
+    por_ies = por_ies[por_ies["qt_matriculas"] >= MIN_MATRICULAS_BENCHMARK].copy()
 
-    unb = df[df["is_unb"]]
-    pares = df[~df["is_unb"]]
+    matriculas = por_ies["qt_matriculas"].replace(0, np.nan)
+    por_ies["taxa_trancamento_pct"] = por_ies["qt_trancadas"] / matriculas * 100
+    por_ies["taxa_desvinculacao_pct"] = por_ies["qt_desvinculados"] / matriculas * 100
+    por_ies["concorrencia_vestibular"] = (
+        por_ies["qt_inscritos"] / por_ies["qt_vagas"].replace(0, np.nan)
+    )
 
-    # Lado UnB: soma as várias ofertas do mesmo curso (turnos e campi entram como registros
-    # distintos no Censo) antes de calcular a taxa, para não dar peso igual a ofertas de
-    # tamanhos muito diferentes.
-    agg_unb = unb.groupby("NO_CURSO").agg(
-        qt_matriculas_unb=("QT_MAT", "sum"),
-        qt_ingressantes_unb=("QT_ING", "sum"),
-        qt_concluintes_unb=("QT_CONC", "sum"),
-        qt_trancadas_unb=("QT_SIT_TRANCADA", "sum"),
-        qt_desvinculados_unb=("QT_SIT_DESVINCULADO", "sum"),
-        qt_vagas_unb=("QT_VG_TOTAL", "sum"),
-        qt_inscritos_unb=("QT_INSCRITO_TOTAL", "sum"),
-    ).reset_index()
-    agg_unb["taxa_trancamento_unb_pct"] = (
-        agg_unb["qt_trancadas_unb"] / agg_unb["qt_matriculas_unb"] * 100
-    ).round(2)
-    agg_unb["taxa_desvinculacao_unb_pct"] = (
-        agg_unb["qt_desvinculados_unb"] / agg_unb["qt_matriculas_unb"] * 100
-    ).round(2)
-    agg_unb["concorrencia_vestibular_unb"] = (
-        agg_unb["qt_inscritos_unb"] / agg_unb["qt_vagas_unb"].replace(0, np.nan)
-    ).round(2)
+    # Lado UnB: uma linha por curso (CO_IES único).
+    agg_unb = por_ies[por_ies["is_unb"]].drop(columns=["CO_IES", "is_unb"]).round(2)
+    agg_unb = agg_unb.rename(
+        columns={
+            **{c: f"{c}_unb" for c in soma_cols},
+            "taxa_trancamento_pct": "taxa_trancamento_unb_pct",
+            "taxa_desvinculacao_pct": "taxa_desvinculacao_unb_pct",
+            "concorrencia_vestibular": "concorrencia_vestibular_unb",
+        }
+    )
 
     # Lado nacional: mediana entre as demais federais (mediana, não média, para não deixar uma
     # instituição atípica distorcer o padrão de referência do curso).
-    agg_pares = pares.groupby("NO_CURSO").agg(
+    agg_pares = por_ies[~por_ies["is_unb"]].groupby("NO_CURSO").agg(
         n_ies_comparadas=("CO_IES", "nunique"),
         mediana_trancamento_federais_pct=("taxa_trancamento_pct", "median"),
         mediana_desvinculacao_federais_pct=("taxa_desvinculacao_pct", "median"),
