@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+venv
+.cache
+.env
+__pycache__
+*.pyc
+data/bronze/*.csv
+data/silver/*.csv
+site
+*.pdf
