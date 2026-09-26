@@ -38,6 +38,12 @@ jobs:
           SKIP_DATASETS: sigaa # não é consumido por nenhuma etapa
         run: python src/ingestion/ckan_client.py
 
+      # O servidor do INEP tem quedas frequentes; sem o arquivo, a Silver e a Gold pulam o
+      # benchmark e o painel segue publicado com o CSV Gold já versionado no repositório.
+      - name: "Bronze — Censo da Educação Superior (INEP)"
+        continue-on-error: true
+        run: python src/ingestion/inep_censo_superior.py
+
       - name: "Silver — limpeza, tipagem e normalização"
         run: python src/pipeline/transform_silver.py
 

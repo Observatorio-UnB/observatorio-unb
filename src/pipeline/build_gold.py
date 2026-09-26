@@ -507,6 +507,12 @@ COURSE_ALIASES = {rule["origem_sigra"]: rule["destino_estrutura"] for rule in CA
 # que exigem um curso terminal para o raio-x individual — ver uso em src/dashboard/app.py.
 EXCLUDED_GENERIC_COURSES = {"ENGENHARIA"}
 
+# Limiares do benchmark com o Censo da Educação Superior (INEP). Em cursos com poucas
+# matrículas um único aluno desloca a taxa em vários pontos percentuais, e comparar contra
+# meia dúzia de instituições não caracteriza um padrão nacional do curso.
+MIN_MATRICULAS_BENCHMARK = 50
+MIN_IES_BENCHMARK = 10
+
 
 def normalize_turno_grupo(turno_norm: str) -> str:
     """Unifica matutino/vespertino em Diurno; preserva Noturno e Integral."""
@@ -877,6 +883,9 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     df_gold.to_csv(gold_csv_path, index=False, encoding="utf-8")
     logger.info(f"Tabela analítica Gold salva em {gold_csv_path.name} com {len(df_gold)} cursos.")
 
+    # 8.1 Benchmark Nacional por Curso (Censo da Educação Superior / INEP)
+    build_inep_benchmark_gold()
+
     # 9. Cálculo das Métricas Globais da UnB (Resumo das 5 GQs)
     total_formados_unb = int(df_valid["is_formado"].sum())
     formados_ideal_unb = int(df_valid["formou_tempo_ideal"].sum())
@@ -898,6 +907,103 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
         
     logger.info(f"Métricas globais da UnB consolidadas em metricas_gerais_unb.json")
     return df_gold, global_metrics
+
+
+def build_inep_benchmark_gold() -> pd.DataFrame:
+    """
+    Compara cada curso da UnB com o mesmo curso nas demais universidades federais, a partir do
+    Censo da Educação Superior (INEP).
+
+    A comparação é feita inteiramente dentro da base do INEP - os dois lados usam a mesma
+    nomenclatura oficial de curso -, portanto não depende da harmonização de nomes entre SIGRA
+    e matrizes curriculares usada no restante da camada Gold.
+
+    As taxas aqui são do Censo (situação da matrícula apurada no ano-censo) e medem coisa
+    diferente da taxa de evasão da tabela de retenção, que acompanha a coorte de ingresso ao
+    longo do tempo no SIGRA. Ver docs/fonte_inep_censo_superior.md.
+    """
+    inep_path = SILVER_DIR / "inep_censo_superior_silver.csv"
+    if not inep_path.exists():
+        logger.warning(f"Arquivo {inep_path.name} não encontrado. Pulando benchmark INEP.")
+        return pd.DataFrame()
+
+    df = pd.read_csv(inep_path)
+
+    # O Censo registra cada oferta (turno/campus) como um curso distinto. Os dois lados somam
+    # as ofertas da mesma instituição antes de calcular a taxa, para que a UnB e as demais
+    # federais sejam comparadas na mesma unidade (curso x instituição) e uma federal com três
+    # turnos do mesmo curso não conte três vezes na mediana.
+    soma_cols = {
+        "qt_matriculas": ("QT_MAT", "sum"),
+        "qt_ingressantes": ("QT_ING", "sum"),
+        "qt_concluintes": ("QT_CONC", "sum"),
+        "qt_trancadas": ("QT_SIT_TRANCADA", "sum"),
+        "qt_desvinculados": ("QT_SIT_DESVINCULADO", "sum"),
+        "qt_vagas": ("QT_VG_TOTAL", "sum"),
+        "qt_inscritos": ("QT_INSCRITO_TOTAL", "sum"),
+    }
+    por_ies = df.groupby(["NO_CURSO", "CO_IES", "is_unb"]).agg(**soma_cols).reset_index()
+
+    # Cursos muito pequenos produzem taxas instáveis (1 aluno move vários pontos percentuais).
+    # O corte vale para o curso já somado: aplicado por oferta, descartaria turnos pequenos e
+    # tiraria parte dos alunos do cálculo do curso.
+    por_ies = por_ies[por_ies["qt_matriculas"] >= MIN_MATRICULAS_BENCHMARK].copy()
+
+    matriculas = por_ies["qt_matriculas"].replace(0, np.nan)
+    por_ies["taxa_trancamento_pct"] = por_ies["qt_trancadas"] / matriculas * 100
+    por_ies["taxa_desvinculacao_pct"] = por_ies["qt_desvinculados"] / matriculas * 100
+    por_ies["concorrencia_vestibular"] = (
+        por_ies["qt_inscritos"] / por_ies["qt_vagas"].replace(0, np.nan)
+    )
+
+    # Lado UnB: uma linha por curso (CO_IES único).
+    agg_unb = por_ies[por_ies["is_unb"]].drop(columns=["CO_IES", "is_unb"]).round(2)
+    agg_unb = agg_unb.rename(
+        columns={
+            **{c: f"{c}_unb" for c in soma_cols},
+            "taxa_trancamento_pct": "taxa_trancamento_unb_pct",
+            "taxa_desvinculacao_pct": "taxa_desvinculacao_unb_pct",
+            "concorrencia_vestibular": "concorrencia_vestibular_unb",
+        }
+    )
+
+    # Lado nacional: mediana entre as demais federais (mediana, não média, para não deixar uma
+    # instituição atípica distorcer o padrão de referência do curso).
+    agg_pares = por_ies[~por_ies["is_unb"]].groupby("NO_CURSO").agg(
+        n_ies_comparadas=("CO_IES", "nunique"),
+        mediana_trancamento_federais_pct=("taxa_trancamento_pct", "median"),
+        mediana_desvinculacao_federais_pct=("taxa_desvinculacao_pct", "median"),
+    ).reset_index().round(2)
+
+    df_bench = agg_unb.merge(agg_pares, on="NO_CURSO", how="left")
+    df_bench["gap_trancamento_pp"] = (
+        df_bench["taxa_trancamento_unb_pct"] - df_bench["mediana_trancamento_federais_pct"]
+    ).round(2)
+    df_bench["gap_desvinculacao_pp"] = (
+        df_bench["taxa_desvinculacao_unb_pct"] - df_bench["mediana_desvinculacao_federais_pct"]
+    ).round(2)
+
+    # A diferença em pontos percentuais achata a gravidade relativa: +6 pp sobre um curso que
+    # já perde 24% em todo o país é bem menos grave que +7 pp sobre um que perde 8%. A razão
+    # expõe isso (1,9x = a UnB quase dobra o padrão nacional daquele curso).
+    df_bench["razao_trancamento"] = (
+        df_bench["taxa_trancamento_unb_pct"] / df_bench["mediana_trancamento_federais_pct"]
+    ).round(2)
+    df_bench["razao_desvinculacao"] = (
+        df_bench["taxa_desvinculacao_unb_pct"] / df_bench["mediana_desvinculacao_federais_pct"]
+    ).round(2)
+    df_bench = df_bench.rename(columns={"NO_CURSO": "curso_inep"}).sort_values(
+        "qt_matriculas_unb", ascending=False
+    )
+
+    out_path = GOLD_DIR / "inep_benchmark_cursos_unb.csv"
+    df_bench.to_csv(out_path, index=False, encoding="utf-8")
+    comparaveis = int((df_bench["n_ies_comparadas"] >= MIN_IES_BENCHMARK).sum())
+    logger.info(
+        f"Benchmark INEP salvo em {out_path.name}: {len(df_bench)} cursos da UnB, "
+        f"{comparaveis} com pelo menos {MIN_IES_BENCHMARK} federais comparáveis."
+    )
+    return df_bench
 
 
 def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
