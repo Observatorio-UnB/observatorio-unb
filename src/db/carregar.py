@@ -103,7 +103,8 @@ def _ler_relatorios() -> pd.DataFrame:
         if caminho.exists():
             with open(caminho, encoding="utf-8") as f:
                 conteudo = _sem_nan(json.load(f))
-            linhas.append({"nome": nome, "conteudo": json.dumps(conteudo, ensure_ascii=False, allow_nan=False)})
+            linhas.append({"nome": nome, "conteudo": json.dumps(
+                conteudo, ensure_ascii=False, allow_nan=False)})
     return pd.DataFrame(linhas, columns=["nome", "conteudo"])
 
 
@@ -112,16 +113,27 @@ def _ler_relatorios() -> pd.DataFrame:
 FONTES: Dict[str, List[Fonte]] = {
     "bronze": [
         Fonte("bronze.sigra_discentes",
-              _ler_bronze(BRONZE_DIR / "sigra_discentes.csv", sep=";", encoding="utf-8"),
+              _ler_bronze(BRONZE_DIR / "sigra_discentes.csv",
+                          sep=";", encoding="utf-8"),
               BRONZE_DIR / "sigra_discentes.csv"),
+        Fonte("bronze.sigaa_discentes",
+              _ler_bronze(BRONZE_DIR / "sigaa_discentes.csv",
+                          sep=";", encoding="utf-8"),
+              BRONZE_DIR / "sigaa_discentes.csv"),
+        Fonte("bronze.sigaa_ativos",
+              _ler_bronze(BRONZE_DIR / "sigaa_ativos.csv", sep=",", encoding="utf-8"),
+              BRONZE_DIR / "sigaa_ativos.csv"),
         Fonte("bronze.estrutura_curricular",
-              _ler_bronze(BRONZE_DIR / "estrutura_curricular.csv", sep=";", encoding="latin-1"),
+              _ler_bronze(BRONZE_DIR / "estrutura_curricular.csv",
+                          sep=";", encoding="latin-1"),
               BRONZE_DIR / "estrutura_curricular.csv"),
         Fonte("bronze.cursos_graduacao",
-              _ler_bronze(BRONZE_DIR / "cursos_graduacao.csv", sep=",", encoding="utf-8"),
+              _ler_bronze(BRONZE_DIR / "cursos_graduacao.csv",
+                          sep=",", encoding="utf-8"),
               BRONZE_DIR / "cursos_graduacao.csv"),
         Fonte("bronze.bolsistas_iniciacao_cientifica",
-              _ler_bronze(BRONZE_DIR / "bolsistas_iniciacao_cientifica.csv", sep=",", encoding="latin-1"),
+              _ler_bronze(
+                  BRONZE_DIR / "bolsistas_iniciacao_cientifica.csv", sep=","),
               BRONZE_DIR / "bolsistas_iniciacao_cientifica.csv", opcional=True),
     ],
     "silver": [
@@ -129,19 +141,24 @@ FONTES: Dict[str, List[Fonte]] = {
               SILVER_DIR / "cursos_graduacao_silver.csv"),
         Fonte("silver.estrutura_curricular", _ler_csv(SILVER_DIR / "estrutura_curricular_silver.csv"),
               SILVER_DIR / "estrutura_curricular_silver.csv"),
-        Fonte("silver.sigra_graduacao", _ler_csv(SILVER_DIR / "sigra_graduacao_silver.csv"),
-              SILVER_DIR / "sigra_graduacao_silver.csv"),
+        Fonte("silver.discentes_graduacao", lambda: pd.read_csv(SILVER_DIR / "discentes_graduacao_silver.csv", low_memory=False),
+              SILVER_DIR / "discentes_graduacao_silver.csv"),
+        Fonte("silver.sigaa_ativos", _ler_csv(SILVER_DIR / "sigaa_ativos_silver.csv"),
+              SILVER_DIR / "sigaa_ativos_silver.csv"),
         Fonte("silver.pibic_bolsistas", _ler_csv(SILVER_DIR / "pibic_bolsistas_silver.csv"),
               SILVER_DIR / "pibic_bolsistas_silver.csv", opcional=True),
     ],
     "gold": [
         Fonte("gold.retencao_cursos_unb", _ler_csv(GOLD_DIR / "retencao_cursos_unb.csv"),
               GOLD_DIR / "retencao_cursos_unb.csv"),
+        Fonte("gold.ativos_hoje_cursos_unb", _ler_csv(GOLD_DIR / "ativos_hoje_cursos_unb.csv"),
+              GOLD_DIR / "ativos_hoje_cursos_unb.csv"),
         Fonte("gold.pibic_social_unb", _ler_csv(GOLD_DIR / "pibic_social_unb.csv"),
               GOLD_DIR / "pibic_social_unb.csv", opcional=True),
         Fonte("gold.regras_harmonizacao_canonicas", _ler_regras,
               GOLD_DIR / "regras_harmonizacao_canonicas.json"),
-        Fonte("gold.relatorios", _ler_relatorios, GOLD_DIR / "metricas_gerais_unb.json"),
+        Fonte("gold.relatorios", _ler_relatorios,
+              GOLD_DIR / "metricas_gerais_unb.json"),
     ],
 }
 
@@ -158,7 +175,8 @@ def colunas_da_tabela(conn: psycopg.Connection, tabela: str) -> List[Coluna]:
         (esquema, nome),
     ).fetchall()
     if not linhas:
-        raise ErroDeContrato(f"Tabela {tabela} não existe. Rode as migrações (src/db/migrar.py).")
+        raise ErroDeContrato(
+            f"Tabela {tabela} não existe. Rode as migrações (src/db/migrar.py).")
     return [Coluna(*linha) for linha in linhas]
 
 
@@ -174,17 +192,21 @@ def preparar(df: pd.DataFrame, colunas: List[Coluna], tabela: str) -> pd.DataFra
             "Crie uma migração em db/migrations/ que as acrescente."
         )
 
-    ausentes = [c for c in carregaveis if c.nome not in df.columns and not c.tem_default]
+    ausentes = [
+        c for c in carregaveis if c.nome not in df.columns and not c.tem_default]
     obrigatorias = [c.nome for c in ausentes if not c.nulavel]
     if obrigatorias:
-        raise ErroDeContrato(f"{tabela}: colunas obrigatórias ausentes no arquivo: {obrigatorias}.")
+        raise ErroDeContrato(
+            f"{tabela}: colunas obrigatórias ausentes no arquivo: {obrigatorias}.")
     if ausentes:
-        logger.warning(f"{tabela}: colunas ausentes no arquivo, carregadas como nulo: {[c.nome for c in ausentes]}")
+        logger.warning(
+            f"{tabela}: colunas ausentes no arquivo, carregadas como nulo: {[c.nome for c in ausentes]}")
 
     alvo = [c for c in carregaveis if c.nome in df.columns or not c.tem_default]
     saida = pd.DataFrame(index=df.index)
     for c in alvo:
-        serie = df[c.nome] if c.nome in df.columns else pd.Series(None, index=df.index, dtype="object")
+        serie = df[c.nome] if c.nome in df.columns else pd.Series(
+            None, index=df.index, dtype="object")
         if c.tipo in TIPOS_INTEIROS:
             # Int64 recusa 8.5 -> 8 silencioso; "8.0" vira 8, que o COPY aceita como inteiro.
             serie = pd.to_numeric(serie, errors="raise").astype("Int64")
@@ -208,7 +230,8 @@ def carregar(camadas: tuple = CAMADAS) -> Dict[str, int]:
     """Recarrega as camadas pedidas e devolve o número de linhas por tabela."""
     desconhecidas = set(camadas) - set(CAMADAS)
     if desconhecidas:
-        raise ValueError(f"Camadas desconhecidas: {sorted(desconhecidas)}. Use {CAMADAS}.")
+        raise ValueError(
+            f"Camadas desconhecidas: {sorted(desconhecidas)}. Use {CAMADAS}.")
 
     aplicar_migracoes()
     fontes = [f for camada in CAMADAS if camada in camadas for f in FONTES[camada]]
@@ -218,28 +241,34 @@ def carregar(camadas: tuple = CAMADAS) -> Dict[str, int]:
         with conn.transaction():
             # Datas da fonte vêm como dd/mm/aaaa.
             conn.execute("SET LOCAL datestyle = 'ISO, DMY'")
-            conn.execute(f"TRUNCATE {', '.join(f.tabela for f in fontes)} RESTART IDENTITY")
+            conn.execute(
+                f"TRUNCATE {', '.join(f.tabela for f in fontes)} RESTART IDENTITY")
             for fonte in fontes:
                 if not fonte.arquivo.exists():
                     if fonte.opcional:
-                        logger.warning(f"{fonte.arquivo.name} não encontrado; {fonte.tabela} fica vazia.")
+                        logger.warning(
+                            f"{fonte.arquivo.name} não encontrado; {fonte.tabela} fica vazia.")
                         contagens[fonte.tabela] = 0
                         continue
                     raise FileNotFoundError(
                         f"{fonte.arquivo} não existe. Rode o pipeline antes da carga (scripts/rodar_pipeline.sh)."
                     )
-                df = preparar(fonte.ler(), colunas_da_tabela(conn, fonte.tabela), fonte.tabela)
+                df = preparar(fonte.ler(), colunas_da_tabela(
+                    conn, fonte.tabela), fonte.tabela)
                 contagens[fonte.tabela] = copiar(conn, fonte.tabela, df)
-                logger.info(f"{fonte.tabela}: {contagens[fonte.tabela]:,} linhas.")
+                logger.info(
+                    f"{fonte.tabela}: {contagens[fonte.tabela]:,} linhas.")
         for fonte in fontes:
             conn.execute(f"ANALYZE {fonte.tabela}")
 
-    logger.info(f"=== Carga concluída: {len(contagens)} tabelas, camadas {', '.join(camadas)} ===")
+    logger.info(
+        f"=== Carga concluída: {len(contagens)} tabelas, camadas {', '.join(camadas)} ===")
     return contagens
 
 
 def main(argv: Optional[List[str]] = None):
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "--camadas",
         default=",".join(CAMADAS),

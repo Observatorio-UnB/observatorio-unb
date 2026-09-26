@@ -2,7 +2,7 @@
 
 **Projeto**: Retenção, Tempo Real de Formatura e Evasão nos Cursos da UnB
 **Portal Auditado**: [dados.unb.br](https://dados.unb.br)
-**Total de Inconsistências Auditadas**: 8 achados comprovados com evidência.
+**Total de Inconsistências Auditadas**: 12 achados comprovados com evidência.
 
 ---
 
@@ -18,6 +18,10 @@
 | **ACHADO-06** | `cursos_graduacao.csv` | 2 | `nivel_ensino / convenio_academico` | Uso da string literal 'NULL' em vez de valor nulo/vazio padrão | Consultas que filtram 'IS NOT NULL' interpretam a string 'NULL' como valor válido com 4 caracteres. | Substituir strings literais 'NULL', 'None', '-' e vazias por NaN/None na camada Silver. |
 | **ACHADO-07** | `sigra_discentes.csv vs estrutura_curricular.csv` | Diversas | `curso (SIGRA) vs nome_curso (Estrutura) vs nome (Cursos)` | Variações sintáticas e de especialização em nomes de cursos entre sistemas acadêmicos | Join direto perde cerca de 15% dos discentes caso não haja um dicionário de sinônimos/normalização canônica. | Implementar tabela de sinônimos de cursos (alias mapping) e normalização textual rigorosa na camada Silver, alcançando >95% de casamento. |
 | **ACHADO-08** | `sigra_discentes.csv` | Todas | `data_nascimento + sexo + raca_cor + cota_ingresso + curso` | Presença de múltiplos quase-identificadores em alta granularidade permitindo reidentificação individual de discentes | Violação potencial de privacidade caso dados individuais sejam expostos no dashboard ou em apresentações públicas. | Garantir que a camada Gold e o produto final exponham apenas métricas agregadas por curso/departamento (k-anonimato >= 5 por agregação). |
+| **ACHADO-09** | `sigaa_discentes.csv` | 2 | `status_aluno / data_registro_diploma / ano_ingresso` | O SIGAA não publica período nem motivo de saída, e grava o ano de ingresso com separador de milhar | Evasão não distingue abandono de mudança de curso, e o tempo de conclusão dos formados após 2020 precisa ser estimado pela data do diploma. | Evasão definida como saída sem diploma nas duas bases; semestre de conclusão estimado pela data do diploma (regra validada em 94,6% no SIGRA) e marcado em periodo_saida_estimado. |
+| **ACHADO-10** | `sigaa_discentes.csv` | 56224, 93684 | `data_registro_diploma` | Datas de registro de diploma posteriores à publicação do arquivo (07/2024) | Sem tratamento, o semestre de conclusão estimado cai no futuro e distorce o tempo de formatura. | Datas depois da publicação do recurso no CKAN são descartadas antes da estimativa do semestre; o vínculo continua contado como formado. |
+| **ACHADO-11** | `sigaa_discentes.csv` | Todas | `status_aluno` | O extrato do SIGAA mantém como ATIVO vínculos que já não estão na lista de ativos seguinte, sem virar CANCELADO | A evasão de coortes recentes fica subestimada no extrato: o cancelamento é registrado com atraso. | A Gold de retenção só usa coortes com 8 anos de acompanhamento. O retrato de ativos usa a lista de ativos do semestre mais recente, não o status do extrato. |
+| **ACHADO-12** | `estrutura_curricular.csv` | N/A | `nome_curso` | A estrutura curricular publicada é de 10/2020 e não cobre todos os cursos do catálogo vigente | Sem prazos ideal e máximo, esses cursos ficam fora das métricas de atraso. | Cursos sem estrutura ficam de fora das tabelas por curso. |
 
 ---
 
@@ -79,6 +83,34 @@
 - **Impacto Direto**: Violação potencial de privacidade caso dados individuais sejam expostos no dashboard ou em apresentações públicas.
 - **Tratamento Implementado no Pipeline**: Garantir que a camada Gold e o produto final exponham apenas métricas agregadas por curso/departamento (k-anonimato >= 5 por agregação).
 
+### ACHADO-09: O SIGAA não publica período nem motivo de saída, e grava o ano de ingresso com separador de milhar
+- **Arquivo de Origem**: `data/bronze/sigaa_discentes.csv`
+- **Linha**: `2`
+- **Evidência no Dado Bruto**: `ano_ingresso='2,010'; status_aluno='CANCELADO' sem motivo nem data; formados só têm data_registro_diploma.`
+- **Impacto Direto**: Evasão não distingue abandono de mudança de curso, e o tempo de conclusão dos formados após 2020 precisa ser estimado pela data do diploma.
+- **Tratamento Implementado no Pipeline**: Evasão definida como saída sem diploma nas duas bases; semestre de conclusão estimado pela data do diploma (regra validada em 94,6% no SIGRA) e marcado em periodo_saida_estimado.
+
+### ACHADO-10: Datas de registro de diploma posteriores à publicação do arquivo (07/2024)
+- **Arquivo de Origem**: `data/bronze/sigaa_discentes.csv`
+- **Linha**: `56224, 93684`
+- **Evidência no Dado Bruto**: `linha 56224: '11/01/2202'; linha 93684: '08/01/2027' (provável erro de digitação do ano).`
+- **Impacto Direto**: Sem tratamento, o semestre de conclusão estimado cai no futuro e distorce o tempo de formatura.
+- **Tratamento Implementado no Pipeline**: Datas depois da publicação do recurso no CKAN são descartadas antes da estimativa do semestre; o vínculo continua contado como formado.
+
+### ACHADO-11: O extrato do SIGAA mantém como ATIVO vínculos que já não estão na lista de ativos seguinte, sem virar CANCELADO
+- **Arquivo de Origem**: `data/bronze/sigaa_discentes.csv`
+- **Linha**: `Todas`
+- **Evidência no Dado Bruto**: `coorte de 2022: 8.530 ativos no extrato de 07/2024 contra 5.698 na lista de ativos de 06/2025. com 1.487 cancelados no extrato; coorte de 2023: 8.935 ativos no extrato de 07/2024 contra 7.011 na lista de ativos de 06/2025. com 525 cancelados no extrato. A queda em pouco tempo é grande demais para ser só formatura.`
+- **Impacto Direto**: A evasão de coortes recentes fica subestimada no extrato: o cancelamento é registrado com atraso.
+- **Tratamento Implementado no Pipeline**: A Gold de retenção só usa coortes com 8 anos de acompanhamento. O retrato de ativos usa a lista de ativos do semestre mais recente, não o status do extrato.
+
+### ACHADO-12: A estrutura curricular publicada é de 10/2020 e não cobre todos os cursos do catálogo vigente
+- **Arquivo de Origem**: `data/bronze/estrutura_curricular.csv`
+- **Linha**: `N/A`
+- **Evidência no Dado Bruto**: `Cursos do catálogo vigente sem estrutura curricular: 'MÚSICA - TROMPA'.`
+- **Impacto Direto**: Sem prazos ideal e máximo, esses cursos ficam fora das métricas de atraso.
+- **Tratamento Implementado no Pipeline**: Cursos sem estrutura ficam de fora das tabelas por curso.
+
 
 ---
 
@@ -94,6 +126,9 @@ Durante a ingestão automatizada via API CKAN (dados.unb.br), foram identificado
 a) O recurso `estrutura-curricular.csv` está codificado em ISO-8859-1 (Latin-1) contendo bytes quebrados ao ser consumido como UTF-8 padronizado, além de conter múltiplos registros para o mesmo curso sem chave temporal explícita.
 b) O recurso `sigra.csv` apresenta padding de espaços em branco ao final dos campos de texto (ex: mais de 30 espaços ao final do nome do curso) e assimetria temporal (ano_ingresso em AAAA vs periodo_saida em AAAA/S).
 c) O recurso `cursos_graduacao.csv` utiliza a string literal 'NULL' em colunas com valores ausentes.
+d) O recurso `sigaa.csv` não traz período nem motivo de saída (só `status_aluno` e a data de registro do diploma) e grava `ano_ingresso` com separador de milhar ('2,010').
+e) O recurso `sigaa.csv` mantém como ATIVO vínculos que já deixaram o curso (ver ACHADO-11) e tem datas de registro de diploma no futuro (ver ACHADO-10).
+f) O recurso `estrutura-curricular.csv` não cobre todos os cursos do catálogo vigente (ver ACHADO-12).
 
 **2. Evidência Técnica**
 - `estrutura-curricular.csv`: Linha 2 contém byte 0xCA em 'CIÊNCIAS NATURAIS'.
@@ -107,4 +142,7 @@ Dificulta o cruzamento automatizado de bases por estudantes e pesquisadores, exi
 1. Reexportar `estrutura-curricular.csv` em UTF-8 nativo (sem BOM) e com delimitador padronizado RFC 4180 (vírgula).
 2. Aplicar rotina de TRIM nos campos textuais do SIGRA antes da publicação no CKAN.
 3. Padronizar campos nulos como strings vazias no CSV.
+4. Incluir em `sigaa.csv` o período letivo de saída e o motivo do cancelamento, como o `sigra.csv` já fazia, e gravar `ano_ingresso` como inteiro.
+5. Publicar a data de referência do extrato em `sigaa.csv` e a data do último status de cada vínculo.
+6. Publicar a estrutura curricular vigente, com os cursos criados depois da última versão.
 ```

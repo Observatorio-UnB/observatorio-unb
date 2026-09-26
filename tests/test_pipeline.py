@@ -16,7 +16,10 @@ SILVER_DIR = BASE_DIR / "data" / "silver"
 GOLD_DIR = BASE_DIR / "data" / "gold"
 
 sys.path.insert(0, str(BASE_DIR))
-from src.pipeline.build_gold import normalize_turno_grupo, normalize_categoria_grau, build_area_por_curso
+from src.pipeline.build_gold import normalize_turno_grupo, normalize_categoria_grau, build_area_por_curso, ofertas_por_curso
+from src.pipeline.transform_silver import (categorize_forma_saida, semestre_pela_data_do_diploma, normalize_curso,
+                                          valor_bolsa_no_periodo)
+from src.ingestion.ckan_client import DATASETS_CONFIG, escolher_recurso
 
 
 class TestCanonicalNormalization(unittest.TestCase):
@@ -34,6 +37,35 @@ class TestCanonicalNormalization(unittest.TestCase):
 
     def test_categoria_grau_licenciatura(self):
         self.assertEqual(normalize_categoria_grau("LICENCIADO"), "LICENCIATURA")
+        self.assertEqual(normalize_categoria_grau("LICENCIATURA"), "LICENCIATURA")
+
+    def test_evasao_inclui_mudanca_de_curso(self):
+        """Mesma definição de evasão nas duas bases: o SIGAA não distingue o motivo do cancelamento."""
+        self.assertEqual(categorize_forma_saida("Formatura"), "FORMATURA")
+        for forma in ["Desligamento - Abandono", "Novo Vestibular", "Mudança de Curso", "Vestibular p/outra Habilitação"]:
+            self.assertEqual(categorize_forma_saida(forma), "EVASAO", forma)
+        self.assertEqual(categorize_forma_saida("Anulação de Registro"), "OUTROS")
+
+    def test_semestre_pela_data_do_diploma(self):
+        datas = pd.Series(["15/02/2023", "20/07/2023", "10/12/2023", None])
+        saida = semestre_pela_data_do_diploma(datas)
+        self.assertEqual(saida["ano_saida"].tolist()[:3], [2022, 2023, 2023])
+        self.assertEqual(saida["semestre_saida"].tolist()[:3], [2, 1, 2])
+        self.assertTrue(saida.iloc[3].isna().all())
+
+    def test_ingestao_escolhe_o_recurso_mais_recente(self):
+        """Baixa a versão mais recente que casa com o padrão; arquivos com nome e CPF ficam de fora."""
+        def arquivo(chave):
+            meta = json.loads((BRONZE_DIR / f"metadata_{DATASETS_CONFIG[chave]['package_id']}.json").read_text())
+            return escolher_recurso(meta["resources"], DATASETS_CONFIG[chave]["resource_pattern"])["url"].rsplit("/", 1)[-1]
+        self.assertEqual(arquivo("cursos_graduacao"), "cursos-de-graduao-08-2024.csv")
+        recursos = [{"url": "a/sigaa.csv", "last_modified": "2024-07-15"},
+                    {"url": "a/sigaa_2025_2.csv", "last_modified": "2026-01-10"}]
+        self.assertEqual(escolher_recurso(recursos, DATASETS_CONFIG["sigaa"]["resource_pattern"])["url"], "a/sigaa_2025_2.csv")
+        self.assertEqual(arquivo("sigaa"), "sigaa.csv")
+        self.assertIsNone(escolher_recurso([{"url": "x/sigaa_concluintes_2025_1.csv"}], DATASETS_CONFIG["sigaa"]["resource_pattern"]))
+        self.assertIsNone(escolher_recurso([{"url": "x/sigaa_concluintes_2025_1.csv"}], DATASETS_CONFIG["sigaa_ativos"]["resource_pattern"]))
+        self.assertEqual(arquivo("sigaa_ativos"), "sigaa_ativos_2025_1.csv")
 
     def test_categoria_grau_bacharelado_inclui_titulacoes_profissionais(self):
         for grau in ["BACHAREL", "ENGENHEIRO CIVIL", "MEDICO", "ARQUITETO E URBANISTA"]:
@@ -63,6 +95,30 @@ class TestCanonicalNormalization(unittest.TestCase):
         area_dict = build_area_por_curso(df_cur, ["CURSO X"])
         self.assertNotIn("CURSO X", area_dict)
 
+    def test_normalize_curso_remove_prefixo_guarda_chuva(self):
+        self.assertEqual(normalize_curso("COMUNICAÇÃO SOCIAL - JORNALISMO"), "JORNALISMO")
+        self.assertEqual(normalize_curso("Ciências Sociais - Antropologia"), "ANTROPOLOGIA")
+        self.assertEqual(normalize_curso("CIÊNCIAS SOCIAIS"), "CIENCIAS SOCIAIS")
+        self.assertEqual(normalize_curso("LETRAS - TRADUÇÃO - INGLÊS"), "LETRAS - TRADUCAO - INGLES")
+
+    def test_valor_bolsa_soma_os_meses_de_cada_valor(self):
+        vig = pd.DataFrame({"vigente_desde": ["2012-07", "2023-02"], "valor_mensal": [400.0, 700.0]})
+        # Ciclo 2022: jul/2022 a jun/2023 = 7 meses a 400 + 5 a 700
+        self.assertEqual(valor_bolsa_no_periodo(pd.Timestamp("2022-07-24"), pd.Timestamp("2023-06-24"), vig), 7 * 400 + 5 * 700)
+        self.assertEqual(valor_bolsa_no_periodo(pd.Timestamp("2018-08-01"), pd.Timestamp("2019-07-26"), vig), 12 * 400)
+        # Antes da primeira vigência vale o primeiro valor
+        self.assertEqual(valor_bolsa_no_periodo(pd.Timestamp("2012-01-10"), pd.Timestamp("2012-12-10"), vig), 12 * 400)
+
+    def test_ofertas_por_curso_nao_escolhe_oferta_arbitraria(self):
+        df_cur = pd.DataFrame({
+            "nome_curso_norm": ["DIREITO", "DIREITO", "ENFERMAGEM", "ENFERMAGEM"],
+            "turno_norm": ["DIURNO", "NOTURNO", "DIURNO", "MATUTINO"],
+            "campus_norm": ["DARCY RIBEIRO", "DARCY RIBEIRO", "DARCY RIBEIRO", "CEILANDIA"],
+        })
+        ofertas = ofertas_por_curso(df_cur)
+        self.assertEqual(ofertas["DIREITO"], ("DIURNO E NOTURNO", "DARCY RIBEIRO"))
+        self.assertEqual(ofertas["ENFERMAGEM"], ("DIURNO", "MULTICAMPUS"))
+
 
 class TestDataPipeline(unittest.TestCase):
     
@@ -70,6 +126,8 @@ class TestDataPipeline(unittest.TestCase):
         """Verifica se os datasets brutos foram baixados corretamente via API."""
         required_files = [
             "sigra_discentes.csv",
+            "sigaa_discentes.csv",
+            "sigaa_ativos.csv",
             "estrutura_curricular.csv",
             "cursos_graduacao.csv",
         ]
@@ -80,19 +138,29 @@ class TestDataPipeline(unittest.TestCase):
 
     def test_02_silver_transformation_integrity(self):
         """Verifica a limpeza, tipagem e decodificação na camada Silver."""
-        sig_path = SILVER_DIR / "sigra_graduacao_silver.csv"
+        sig_path = SILVER_DIR / "discentes_graduacao_silver.csv"
         est_path = SILVER_DIR / "estrutura_curricular_silver.csv"
         cur_path = SILVER_DIR / "cursos_graduacao_silver.csv"
         
-        self.assertTrue(sig_path.exists(), "sigra_graduacao_silver.csv ausente")
+        self.assertTrue(sig_path.exists(), "discentes_graduacao_silver.csv ausente")
         self.assertTrue(est_path.exists(), "estrutura_curricular_silver.csv ausente")
         self.assertTrue(cur_path.exists(), "cursos_graduacao_silver.csv ausente")
         
-        df_sig = pd.read_csv(sig_path)
+        df_sig = pd.read_csv(sig_path, low_memory=False)
+        self.assertEqual(set(df_sig["fonte"]), {"SIGRA", "SIGAA"})
+        # O SIGRA só tem vínculos encerrados; ativos vêm apenas do SIGAA.
+        self.assertFalse(((df_sig["fonte"] == "SIGRA") & (df_sig["tipo_saida_grupo"] == "ATIVO")).any())
         self.assertIn("semestres_permanencia_valida", df_sig.columns)
         self.assertIn("tipo_saida_grupo", df_sig.columns)
         self.assertTrue((df_sig["nivel_norm"] == "GRADUACAO").all(), "Registros de pós-graduação presentes indevidamente")
         
+        # Catálogo junta todas as versões: código que saiu da lista (414162, cadastro duplicado de Jornalismo em 2022) continua,
+        # marcado como fora do vigente; curso novo (Ed. Física ciclo básico, 2024) entra.
+        df_cur = pd.read_csv(cur_path)
+        self.assertTrue(df_cur["id_curso"].is_unique)
+        self.assertFalse(df_cur.loc[df_cur["id_curso"] == 414162, "no_catalogo_vigente"].item())
+        self.assertTrue(df_cur["nome_curso_norm"].str.startswith("EDUCACAO FISICA - CICLO BASICO").any())
+
         df_est = pd.read_csv(est_path)
         self.assertIn("semestre_conclusao_ideal", df_est.columns)
         self.assertTrue(df_est["semestre_conclusao_ideal"].notna().any(), "Prazos ideais nulos na estrutura")
@@ -118,7 +186,7 @@ class TestDataPipeline(unittest.TestCase):
         self.assertGreater(len(df_gold), 50, "Quantidade de cursos na Gold muito reduzida")
 
         # Turno deve estar unificado (matutino/vespertino colapsados em Diurno)
-        turnos_inesperados = set(df_gold["turno"].unique()) - {"DIURNO", "NOTURNO", "INTEGRAL"}
+        turnos_inesperados = set(df_gold["turno"].unique()) - {"DIURNO", "NOTURNO", "INTEGRAL", "DIURNO E NOTURNO"}
         self.assertFalse(turnos_inesperados, f"Valores de turno não normalizados encontrados: {turnos_inesperados}")
 
         # Curso genérico de ingresso comum (ex. Engenharia sem habilitação) permanece na tabela
@@ -168,6 +236,20 @@ class TestDataPipeline(unittest.TestCase):
         # Supressão de cursos com menos de 5 discentes
         self.assertTrue((df_gold["total_discentes_registrados"] >= 5).all(), "Grupo com k < 5 discentes não foi suprimido")
 
+    def test_04b_ativos_hoje(self):
+        """Ativos hoje: k >= 5, sem dado pessoal e contagens coerentes entre si."""
+        df = pd.read_csv(GOLD_DIR / "ativos_hoje_cursos_unb.csv")
+        self.assertFalse({"aluno", "data_nascimento", "sexo", "raca_cor"} & set(df.columns))
+        self.assertTrue((df["total_ativos_hoje"] >= 5).all())
+        self.assertTrue((df["ativos_acima_prazo_maximo"] <= df["ativos_acima_prazo_ideal"]).all())
+        self.assertTrue((df["ativos_acima_prazo_ideal"] <= df["total_ativos_hoje"]).all())
+        self.assertEqual(df["periodo_referencia"].nunique(), 1)
+
+    def test_04c_ativos_sem_dado_identificador(self):
+        """A lista de ativos do portal tem nome e CPF; a Bronze só pode ter as colunas minimizadas."""
+        colunas = pd.read_csv(BRONZE_DIR / "sigaa_ativos.csv", nrows=0).columns
+        self.assertEqual(list(colunas), DATASETS_CONFIG["sigaa_ativos"]["colunas"])
+
     def test_05_pibic_pipeline_and_social_metrics(self):
         """Verifica a integridade da ingestão, camada Silver e métricas sociais da Iniciação Científica (PIBIC)."""
         bronze_pibic = BRONZE_DIR / "bolsistas_iniciacao_cientifica.csv"
@@ -182,11 +264,13 @@ class TestDataPipeline(unittest.TestCase):
         
         # Validação Silver
         df_sil = pd.read_csv(silver_pibic)
-        self.assertIn("matricula_mascarada", df_sil.columns)
         self.assertIn("perfil_social_macro", df_sil.columns)
         self.assertIn("tipo_bolsa_norm", df_sil.columns)
-        self.assertNotIn("discente", df_sil.columns, "Nome direto do discente mantido indevidamente")
-        self.assertTrue(df_sil["matricula_mascarada"].str.contains(r"\*\*\*").all(), "Matrícula não foi devidamente mascarada")
+        # Minimização na ingestão: nome, matrícula e orientador nem chegam à Bronze.
+        colunas_bronze = pd.read_csv(bronze_pibic, nrows=0).columns.tolist()
+        self.assertEqual(colunas_bronze, DATASETS_CONFIG["pibic"]["colunas"])
+        for pessoal in ("discente", "matricula", "orientador", "matricula_mascarada", "orientador_norm"):
+            self.assertNotIn(pessoal, df_sil.columns)
         
         # Validação Gold
         df_gold_pibic = pd.read_csv(gold_pibic)

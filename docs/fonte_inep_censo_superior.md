@@ -8,7 +8,8 @@ bases da própria UnB não conseguem responder: **a UnB perde mais alunos do que
 universidades federais no mesmo curso?**
 
 Traz também o **trancamento de matrícula**, informação que não existe em nenhuma outra fonte do
-projeto — o SIGRA registra apenas saídas definitivas, não a suspensão temporária do vínculo.
+projeto com recorte comparável — o SIGRA registra apenas saídas definitivas, e o SIGAA só mostra
+o trancamento como situação atual do vínculo, sem histórico.
 
 ## Situação legal e privacidade
 
@@ -23,7 +24,7 @@ autenticação ou aceite de termos. O manual do usuário que acompanha o pacote 
 Apesar do nome "microdados", **não há registro individual de discente**: os arquivos publicados
 são `MICRODADOS_CADASTRO_CURSOS` (uma linha por curso) e `MICRODADOS_CADASTRO_IES` (uma linha por
 instituição), e todas as ~200 colunas de conteúdo são contagens (`QT_*`). Não há nome, CPF, data
-de nascimento nem qualquer quase-identificador — ao contrário do `sigra_discentes.csv`, que exigiu
+de nascimento nem qualquer quase-identificador — ao contrário do `sigra_discentes.csv` e do `sigaa_discentes.csv`, que exigiu
 a análise de reidentificação em [registro_privacidade_lgpd.md](registro_privacidade_lgpd.md).
 
 ## Origem e recorte
@@ -48,7 +49,7 @@ inconsistente com o resto do sistema:
 
 Em 2023 a taxa nacional sobe e a da UnB cai oito vezes, na contramão — padrão típico de mudança
 de critério no preenchimento do Censo, não de fenômeno real. Além disso, 2019 fica **dentro da
-janela temporal do SIGRA** (2010-2020) usada no restante do painel, o que mantém a coerência
+janela temporal das bases de discentes** (SIGRA até 2020/1, SIGAA depois) usada no restante do painel, o que mantém a coerência
 do dashboard.
 
 ## Cuidado de interpretação (importante)
@@ -57,7 +58,7 @@ As taxas do Censo **não são a mesma coisa** que a taxa de evasão da tabela de
 
 | | Taxa de evasão (tabela de retenção) | Taxas do Censo (INEP) |
 |---|---|---|
-| Base | Histórico do SIGRA | Censo da Educação Superior |
+| Base | Histórico do SIGRA + SIGAA | Censo da Educação Superior |
 | Método | Acompanha a coorte de ingresso até a saída | Fotografa a situação das matrículas no ano-censo |
 | Responde | "Dos que entraram, quantos saíram sem concluir?" | "Das matrículas ativas neste ano, quantas foram trancadas/desvinculadas?" |
 

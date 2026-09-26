@@ -1,15 +1,14 @@
 name: Medalhão + Pages
 
 # Bronze -> Silver -> Gold a cada execução (prova o pipeline "roda do zero")
-# e publica o dashboard no GitHub Pages.
+# e publica o dashboard no GitHub Pages. A coleta mensal que versiona dados novos fica em
+# atualiza-dados.yml, que dispara este workflow quando algo muda.
 
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
-  schedule:
-    - cron: "0 6 * * 1" # toda segunda 06:00 UTC
 
 permissions:
   contents: read
@@ -51,8 +50,6 @@ jobs:
       - run: pip install -r requirements.txt
 
       - name: "Bronze — ingestão via API CKAN"
-        env:
-          SKIP_DATASETS: sigaa # não é consumido por nenhuma etapa
         run: python src/ingestion/ckan_client.py
 
       # O servidor do INEP tem quedas frequentes; sem o arquivo, a Silver e a Gold pulam o
