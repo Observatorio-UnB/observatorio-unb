@@ -29,6 +29,16 @@ from src.db.povoar_dimensional import povoar_gold_dimensional  # noqa: E402
 from src.db.povoar_silver_3nf import povoar_silver_3nf, silver_carregada  # noqa: E402
 
 
+# Chaves substitutas de dim_curso e dim_perfil_social, que a recarga não pode mudar.
+SQL_CHAVES = """
+    SELECT 'curso', nome_curso, sk_curso FROM gold.dim_curso
+    UNION ALL
+    SELECT 'perfil', concat_ws('|', perfil_macro, categoria_cota, faixa_renda, is_cotista), sk_perfil
+    FROM gold.dim_perfil_social
+    ORDER BY 1, 2
+"""
+
+
 def _conectar() -> psycopg.Connection:
     try:
         conn = conectar(autocommit=True, connect_timeout=3)
@@ -168,7 +178,10 @@ class TestCarga3NFStar(unittest.TestCase):
                          self.um("SELECT count(DISTINCT aluno) FROM silver.discentes_graduacao"))
 
     def test_02_fato_retencao_reconcilia_com_a_gold_do_pipeline(self):
-        """Contagens recalculadas da 3NF batem, curso a curso, com gold.retencao_cursos_unb."""
+        """Métricas recalculadas da 3NF batem, curso a curso, com gold.retencao_cursos_unb.
+
+        Tolerâncias só para o arredondamento de meio (numeric do PostgreSQL arredonda 0,5 para cima).
+        """
         divergentes = self.conn.execute(
             """
             SELECT coalesce(r.curso, dc.nome_curso)
@@ -183,6 +196,11 @@ class TestCarga3NFStar(unittest.TestCase):
                OR dc.categoria_grau IS DISTINCT FROM r.categoria_grau
                OR dc.area_conhecimento IS DISTINCT FROM r.area_conhecimento
                OR abs(f.taxa_formatura_pct - r.taxa_formatura_pct) > 0.01
+               OR abs(f.taxa_evasao_pct - r.taxa_evasao_pct) > 0.01
+               OR abs(f.formados_tempo_ideal_pct - r.formados_tempo_ideal_pct) > 0.01
+               OR abs(f.atraso_medio_semestres - r.desvio_medio_semestres) > 0.01
+               OR abs(f.indice_retencao_critica - r.indice_retencao_critica) > 0.1
+               OR f.classificacao_retencao IS DISTINCT FROM r.classificacao_retencao
             """
         ).fetchall()
         self.assertEqual(divergentes, [])
@@ -207,7 +225,13 @@ class TestCarga3NFStar(unittest.TestCase):
         )
         self.assertEqual(faltantes, 0)
 
-    def test_05_view_materializada_tem_um_curso_terminal_por_fato(self):
+    def test_05_fato_pibic_perfil_respeita_k_anonimato(self):
+        self.assertGreater(self.um("SELECT count(*) FROM gold.fato_pibic_perfil"), 0)
+        self.assertEqual(self.um("SELECT count(*) FROM gold.fato_pibic_perfil WHERE total_projetos < 5"), 0)
+        self.assertLessEqual(self.um("SELECT sum(total_projetos) FROM gold.fato_pibic_perfil"),
+                             self.um("SELECT count(*) FROM silver.pibic_projetos"))
+
+    def test_06_view_materializada_tem_um_curso_terminal_por_fato(self):
         self.conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY gold.mv_dashboard_executivo")
         self.assertEqual(
             self.um("SELECT count(*) FROM gold.mv_dashboard_executivo"),
@@ -215,15 +239,14 @@ class TestCarga3NFStar(unittest.TestCase):
                     "WHERE NOT is_tronco_abi"),
         )
 
-    def test_06_recarga_e_idempotente(self):
+    def test_07_recarga_e_idempotente(self):
         """Rodar o povoamento de novo não duplica linhas nem muda chaves (desfeito no fim)."""
         with self.conn.transaction():
             antes = povoar_silver_3nf(self.conn) | povoar_gold_dimensional(self.conn)
-            sks = self.conn.execute("SELECT nome_curso, sk_curso FROM gold.dim_curso ORDER BY 1").fetchall()
+            sks = self.conn.execute(SQL_CHAVES).fetchall()
             depois = povoar_silver_3nf(self.conn) | povoar_gold_dimensional(self.conn)
             self.assertEqual(antes, depois)
-            self.assertEqual(sks, self.conn.execute(
-                "SELECT nome_curso, sk_curso FROM gold.dim_curso ORDER BY 1").fetchall())
+            self.assertEqual(sks, self.conn.execute(SQL_CHAVES).fetchall())
             raise Rollback()
 
 

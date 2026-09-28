@@ -10,8 +10,9 @@ Cada tabela é comparada pela chave natural:
   - linha igual não é reescrita, e nada é apagado no Supabase.
 Rodar duas vezes seguidas não duplica nem altera nada.
 
-As chaves substitutas do Star Schema (sk_curso, sk_campus) são de cada banco: os fatos viajam
-com o nome do curso e do campus e são religados às dimensões do Supabase na chegada.
+As chaves substitutas do Star Schema (sk_curso, sk_campus, sk_perfil) são de cada banco: os fatos
+viajam com os atributos naturais (nome do curso, campus, perfil social) e são religados às
+dimensões do Supabase na chegada.
 
 O destino vem de SUPABASE_DATABASE_URL (ambiente ou .env). Sem ela, a etapa é pulada.
 As migrações pendentes são aplicadas no destino antes da cópia.
@@ -69,6 +70,7 @@ MEDIDAS_ATIVOS = [
     "sk_tempo_referencia", "total_ativos", "ativos_acima_prazo_ideal", "ativos_acima_prazo_maximo",
     "pct_acima_prazo_ideal",
 ]
+MEDIDAS_PIBIC = ["total_projetos", "total_remuneradas", "total_voluntarias", "valor_total_investido"]
 
 # Ordem importa: dimensões antes dos fatos.
 SINCRONIAS = [
@@ -109,6 +111,23 @@ SINCRONIAS = [
             JOIN gold.dim_curso c ON c.nome_curso = tmp.nome_curso""",
         colunas=["sk_curso", *MEDIDAS_ATIVOS],
     ),
+    Sincronia(
+        "gold.fato_pibic_perfil", ["sk_curso", "sk_perfil"],
+        exportar=f"""
+            SELECT c.nome_curso, p.perfil_macro, p.categoria_cota, p.faixa_renda, p.is_cotista,
+                   {', '.join('f.' + m for m in MEDIDAS_PIBIC)}
+            FROM gold.fato_pibic_perfil f
+            JOIN gold.dim_curso c USING (sk_curso)
+            JOIN gold.dim_perfil_social p USING (sk_perfil)""",
+        inserir=f"""
+            SELECT c.sk_curso, p.sk_perfil, {', '.join('tmp.' + m for m in MEDIDAS_PIBIC)}
+            FROM tmp
+            JOIN gold.dim_curso c ON c.nome_curso = tmp.nome_curso
+            JOIN gold.dim_perfil_social p
+              ON (p.perfil_macro, p.categoria_cota, p.is_cotista) = (tmp.perfil_macro, tmp.categoria_cota, tmp.is_cotista)
+             AND p.faixa_renda IS NOT DISTINCT FROM tmp.faixa_renda""",
+        colunas=["sk_curso", "sk_perfil", *MEDIDAS_PIBIC],
+    ),
 ]
 
 
@@ -148,28 +167,31 @@ def sincronizar_tabela(origem: psycopg.Connection, destino: psycopg.Connection, 
         for bloco in saida:
             entrada.write(bloco)
 
+    carimbos = [c for c in sorted(CARIMBOS) if tem_coluna(destino, s.tabela, c)]
+    resultado = destino.execute(montar_insercao(s, colunas, inserir, somente_inserir, carimbos)).fetchall()
+    inseridas = sum(1 for (novo,) in resultado if novo)
+    return inseridas, len(resultado) - inseridas
+
+
+def montar_insercao(s: Sincronia, colunas: List[str], inserir: str, somente_inserir: bool,
+                    carimbos: List[str]) -> str:
+    """INSERT ... ON CONFLICT que insere o que é novo e, fora do modo --somente-inserir, atualiza só o que mudou."""
     alvo = s.conflito or f"({', '.join(s.chave)})"
     valores = [c for c in colunas if c not in s.chave]
     if somente_inserir or not valores:
         acao = "DO NOTHING"
     else:
-        sets = [f"{c} = EXCLUDED.{c}" for c in valores]
-        sets += [f"{c} = now()" for c in CARIMBOS if tem_coluna(destino, s.tabela, c)]
+        sets = [f"{c} = EXCLUDED.{c}" for c in valores] + [f"{c} = now()" for c in carimbos]
         mudou = (f"({', '.join('t.' + c for c in valores)}) IS DISTINCT FROM "
                  f"({', '.join('EXCLUDED.' + c for c in valores)})")
         acao = f"DO UPDATE SET {', '.join(sets)} WHERE {mudou}"
-
     # xmax = 0 só na linha recém-inserida; a atualizada carrega o xmax da versão anterior.
-    resultado = destino.execute(
-        f"""
+    return f"""
         INSERT INTO {s.tabela} AS t ({', '.join(colunas)})
         {inserir}
         ON CONFLICT {alvo} {acao}
         RETURNING (xmax = 0)
         """
-    ).fetchall()
-    inseridas = sum(1 for (novo,) in resultado if novo)
-    return inseridas, len(resultado) - inseridas
 
 
 def sincronizar(url_destino: str, somente_inserir: bool = False) -> Dict[str, Tuple[int, int]]:

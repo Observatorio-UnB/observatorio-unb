@@ -6,11 +6,11 @@ Povoamento do Star Schema da gold a partir da Silver 3NF, dentro do PostgreSQL.
   3. gold.dim_curso         <- silver.estruturas_curriculares + silver.cursos (chave natural nome_curso)
   4. gold.dim_tempo         <- anos de ingresso de silver.movimentacoes_vinculos até o ano corrente
   5. gold.dim_perfil_social <- silver.pibic_projetos
-  6. gold.fato_retencao_curso <- silver.movimentacoes_vinculos (contagens e taxas das coortes maduras)
-                                 + gold.retencao_cursos_unb (IRC, classificação, % no tempo ideal e
-                                 atraso médio, que dependem dos percentis calculados em build_gold.py)
+  6. gold.fato_retencao_curso <- silver.movimentacoes_vinculos (coortes maduras: contagens, taxas,
+                                 % no tempo ideal, atraso médio, IRC e classificação)
   7. gold.fato_alunos_ativos  <- gold.ativos_hoje_cursos_unb
-  8. REFRESH da gold.mv_dashboard_executivo
+  8. gold.fato_pibic_perfil   <- silver.pibic_projetos (por curso e perfil social)
+  9. REFRESH da gold.mv_dashboard_executivo
 
 As dimensões são atualizadas por chave natural (upsert): a chave substituta de um curso não muda
 quando outro curso entra. Os fatos são recriados por inteiro a cada execução.
@@ -39,14 +39,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("povoar_dimensional")
 
-TABELAS_GOLD = (
-    "gold.dim_campus",
-    "gold.dim_curso",
-    "gold.dim_tempo",
-    "gold.dim_perfil_social",
-    "gold.fato_retencao_curso",
-    "gold.fato_alunos_ativos",
-)
+DIMENSOES = ("gold.dim_campus", "gold.dim_curso", "gold.dim_tempo", "gold.dim_perfil_social")
+FATOS = ("gold.fato_retencao_curso", "gold.fato_alunos_ativos", "gold.fato_pibic_perfil")
+TABELAS_GOLD = DIMENSOES + FATOS
 
 SQL_DIM_CAMPUS = """
 INSERT INTO gold.dim_campus (campus, regiao_admin)
@@ -113,7 +108,14 @@ FROM silver.pibic_projetos
 ON CONFLICT ON CONSTRAINT uk_dim_perfil_social DO NOTHING
 """
 
-# Mesmo corte de coorte e mesma regra de campus (MULTICAMPUS) de build_gold.py.
+# Port de build_gold.py (seções 6 a 8) para SQL, com as mesmas regras:
+#  - coortes com ingresso até (último ano de ingresso - ANOS_MATURACAO_COORTE), k >= 5;
+#  - % no tempo ideal e atraso médio só sobre formados com permanência calculável;
+#  - IRC = (0,3 x atraso + 0,7 x evasão) x 100, cada um saturado nos percentis 5 e 95 e
+#    normalizado min-max entre os cursos; classificação pelos quartis do IRC;
+#  - campus MULTICAMPUS quando o nome tem ofertas em mais de um campus.
+# percentile_cont interpola como o quantile do pandas. O arredondamento pode diferir em 0,01
+# (taxas) ou 0,1 (IRC) nos empates de meio: o numeric do PostgreSQL arredonda 0,5 para cima.
 SQL_FATO_RETENCAO = """
 WITH corte AS (
     SELECT max(ano_ingresso) - %(anos_maturacao)s AS ano FROM silver.movimentacoes_vinculos
@@ -122,12 +124,50 @@ WITH corte AS (
            count(*) AS ingressantes,
            count(*) FILTER (WHERE m.tipo_saida_grupo = 'FORMATURA') AS formados,
            count(*) FILTER (WHERE m.tipo_saida_grupo = 'EVASAO') AS evadidos,
-           count(*) FILTER (WHERE m.tipo_saida_grupo = 'ATIVO') AS ativos
+           count(*) FILTER (WHERE m.tipo_saida_grupo = 'ATIVO') AS ativos,
+           count(m.semestres_permanencia_valida) FILTER (WHERE m.tipo_saida_grupo = 'FORMATURA') AS formados_com_prazo,
+           count(*) FILTER (WHERE m.tipo_saida_grupo = 'FORMATURA'
+                              AND m.semestres_permanencia_valida <= e.semestre_ideal) AS formados_no_ideal,
+           avg(m.semestres_permanencia_valida - e.semestre_ideal)
+               FILTER (WHERE m.tipo_saida_grupo = 'FORMATURA') AS atraso
     FROM silver.movimentacoes_vinculos m
     JOIN silver.estruturas_curriculares e USING (id_estrutura)
     WHERE m.ano_ingresso <= (SELECT ano FROM corte)
     GROUP BY e.nome_curso_canonico
     HAVING count(*) >= 5
+), metricas AS (
+    SELECT *,
+           round(100.0 * formados / ingressantes, 2) AS taxa_formatura,
+           round(100.0 * evadidos / ingressantes, 2) AS taxa_evasao,
+           CASE WHEN formados_com_prazo > 0 THEN round(100.0 * formados_no_ideal / formados_com_prazo, 2)
+                ELSE 0 END AS pct_tempo_ideal,
+           round(atraso, 2) AS atraso_medio
+    FROM coortes
+), entradas AS (
+    SELECT curso, greatest(coalesce(atraso_medio, 0), 0)::float8 AS x_atraso, taxa_evasao::float8 AS x_evasao
+    FROM metricas
+), limites AS (
+    SELECT percentile_cont(0.05) WITHIN GROUP (ORDER BY x_atraso) AS a05,
+           percentile_cont(0.95) WITHIN GROUP (ORDER BY x_atraso) AS a95,
+           percentile_cont(0.05) WITHIN GROUP (ORDER BY x_evasao) AS e05,
+           percentile_cont(0.95) WITHIN GROUP (ORDER BY x_evasao) AS e95
+    FROM entradas
+), saturados AS (
+    SELECT curso,
+           least(greatest(x_atraso, a05), a95) AS s_atraso,
+           least(greatest(x_evasao, e05), e95) AS s_evasao
+    FROM entradas, limites
+), irc AS (
+    SELECT curso,
+           round(((0.3 * (s_atraso - min(s_atraso) OVER ()) / (max(s_atraso) OVER () - min(s_atraso) OVER () + 1e-6)
+                 + 0.7 * (s_evasao - min(s_evasao) OVER ()) / (max(s_evasao) OVER () - min(s_evasao) OVER () + 1e-6))
+                 * 100)::numeric, 1) AS indice
+    FROM saturados
+), quartis AS (
+    SELECT percentile_cont(0.25) WITHIN GROUP (ORDER BY indice) AS q25,
+           percentile_cont(0.50) WITHIN GROUP (ORDER BY indice) AS q50,
+           percentile_cont(0.75) WITHIN GROUP (ORDER BY indice) AS q75
+    FROM irc
 ), campus_do_curso AS (
     SELECT e.nome_curso_canonico AS curso,
            CASE WHEN count(DISTINCT o.campus) > 1 THEN 'MULTICAMPUS'
@@ -141,14 +181,38 @@ INSERT INTO gold.fato_retencao_curso (
     sk_curso, sk_campus, total_ingressantes, total_formados, total_evadidos, total_ainda_ativos,
     taxa_formatura_pct, taxa_evasao_pct, formados_tempo_ideal_pct, atraso_medio_semestres,
     indice_retencao_critica, classificacao_retencao)
-SELECT dc.sk_curso, camp.sk_campus, c.ingressantes, c.formados, c.evadidos, c.ativos,
-       round(100.0 * c.formados / c.ingressantes, 2), round(100.0 * c.evadidos / c.ingressantes, 2),
-       r.formados_tempo_ideal_pct, r.desvio_medio_semestres, r.indice_retencao_critica, r.classificacao_retencao
-FROM coortes c
-JOIN gold.dim_curso dc ON dc.nome_curso = c.curso
-JOIN campus_do_curso cc ON cc.curso = c.curso
+SELECT dc.sk_curso, camp.sk_campus, m.ingressantes, m.formados, m.evadidos, m.ativos,
+       m.taxa_formatura, m.taxa_evasao, m.pct_tempo_ideal, m.atraso_medio, i.indice,
+       CASE WHEN i.indice >= q.q75 THEN 'RETENÇÃO CRÍTICA'
+            WHEN i.indice >= q.q50 THEN 'RETENÇÃO ALTA'
+            WHEN i.indice >= q.q25 THEN 'RETENÇÃO MÉDIA'
+            ELSE 'RETENÇÃO BAIXA' END
+FROM metricas m
+JOIN irc i USING (curso)
+CROSS JOIN quartis q
+JOIN gold.dim_curso dc ON dc.nome_curso = m.curso
+JOIN campus_do_curso cc ON cc.curso = m.curso
 JOIN gold.dim_campus camp ON camp.campus = cc.campus
-LEFT JOIN gold.retencao_cursos_unb r ON r.curso = c.curso
+"""
+
+# Um grupo por curso canônico e perfil social; grupos com menos de 5 planos ficam de fora.
+SQL_FATO_PIBIC_PERFIL = """
+INSERT INTO gold.fato_pibic_perfil (sk_curso, sk_perfil, total_projetos, total_remuneradas, total_voluntarias,
+                                    valor_total_investido)
+SELECT dc.sk_curso, ps.sk_perfil, count(*),
+       count(*) FILTER (WHERE p.tipo_bolsa = 'REMUNERADA'),
+       count(*) FILTER (WHERE p.tipo_bolsa = 'VOLUNTARIA'),
+       sum(p.valor_bolsa_total)
+FROM silver.pibic_projetos p
+JOIN silver.estruturas_curriculares e USING (id_estrutura)
+JOIN gold.dim_curso dc ON dc.nome_curso = e.nome_curso_canonico
+JOIN gold.dim_perfil_social ps
+  ON ps.perfil_macro = coalesce(p.perfil_social_macro, 'NAO INFORMADO')
+ AND ps.categoria_cota = coalesce(p.cota_detalhe, 'NAO INFORMADO')
+ AND ps.faixa_renda IS NOT DISTINCT FROM p.faixa_renda
+ AND ps.is_cotista = p.is_cotista
+GROUP BY dc.sk_curso, ps.sk_perfil
+HAVING count(*) >= 5
 """
 
 SQL_FATO_ATIVOS = """
@@ -165,9 +229,10 @@ def povoar_gold_dimensional(conn: psycopg.Connection) -> Dict[str, int]:
     """Atualiza dimensões e recria fatos na transação de `conn`; devolve o número de linhas por tabela."""
     for sql in (SQL_DIM_CAMPUS, SQL_DIM_CURSO, SQL_DIM_TEMPO, SQL_DIM_PERFIL_SOCIAL):
         conn.execute(sql)
-    conn.execute("TRUNCATE gold.fato_retencao_curso, gold.fato_alunos_ativos RESTART IDENTITY")
+    conn.execute(f"TRUNCATE {', '.join(FATOS)} RESTART IDENTITY")
     conn.execute(SQL_FATO_RETENCAO, {"anos_maturacao": ANOS_MATURACAO_COORTE})
     conn.execute(SQL_FATO_ATIVOS)
+    conn.execute(SQL_FATO_PIBIC_PERFIL)
     return {t: conn.execute(f"SELECT count(*) FROM {t}").fetchone()[0] for t in TABELAS_GOLD}
 
 

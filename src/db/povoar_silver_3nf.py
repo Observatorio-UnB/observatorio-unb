@@ -104,9 +104,9 @@ JOIN silver.estruturas_curriculares e ON e.nome_curso_canonico = coalesce(r.dest
 # A matrícula do bolsista não é gravada (0010_pibic.sql): o plano não se liga ao discente.
 SQL_PIBIC = """
 INSERT INTO silver.pibic_projetos (
-    id_curso, ano_edital, tipo_bolsa, linha_pesquisa, is_cotista, perfil_social_macro, cota_detalhe,
+    id_curso, id_estrutura, ano_edital, tipo_bolsa, linha_pesquisa, is_cotista, perfil_social_macro, cota_detalhe,
     faixa_renda, valor_bolsa_total, titulo_pesquisa, status_projeto)
-SELECT e.id_curso, pb.ano, pb.tipo_bolsa_norm, pb.linha_pesquisa_norm, pb.is_cotista, pb.perfil_social_macro,
+SELECT e.id_curso, e.id_estrutura, pb.ano, pb.tipo_bolsa_norm, pb.linha_pesquisa_norm, pb.is_cotista, pb.perfil_social_macro,
        pb.cota_detalhe, pb.faixa_renda, pb.valor_bolsa_anual_estimado, pb.titulo_norm, pb.status_norm
 FROM silver.pibic_bolsistas pb
 LEFT JOIN gold.regras_harmonizacao_canonicas r ON r.origem_sigra = pb.curso_pibic_norm
