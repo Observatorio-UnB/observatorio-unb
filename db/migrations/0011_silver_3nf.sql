@@ -31,14 +31,13 @@ CREATE TABLE IF NOT EXISTS silver.cursos (
     codigo_sigaa        TEXT,
     nome_curso_norm     TEXT NOT NULL,
     campus              TEXT NOT NULL,
-    turno               TEXT NOT NULL CHECK (turno IN ('DIURNO', 'NOTURNO', 'INTEGRAL', 'DIURNO E NOTURNO')),
+    turno               TEXT NOT NULL CHECK (turno IN ('DIURNO', 'NOTURNO', 'INTEGRAL', 'DIURNO E NOTURNO', 'MATUTINO', 'VESPERTINO', 'MATUTINO E VESPERTINO')),
     grau_academico      TEXT NOT NULL,
     categoria_grau      TEXT NOT NULL CHECK (categoria_grau IN ('BACHARELADO', 'LICENCIATURA', 'MISTO')),
     area_conhecimento   TEXT NOT NULL,
     departamento        TEXT,
     is_tronco_abi       BOOLEAN NOT NULL DEFAULT false,
-    ativo               BOOLEAN NOT NULL DEFAULT true,
-    CONSTRAINT uk_cursos_nome UNIQUE (nome_curso_norm)
+    ativo               BOOLEAN NOT NULL DEFAULT true
 );
 CREATE INDEX IF NOT EXISTS idx_cursos_nome_trgm ON silver.cursos USING gin (nome_curso_norm gin_trgm_ops);
 

@@ -54,10 +54,16 @@ def povoar_cursos_e_estruturas(conn) -> tuple[int, int]:
                 cg.codigo_inep::text,
                 cg.nome_curso_norm,
                 COALESCE(cg.campus_norm, 'DARCY RIBEIRO'),
-                COALESCE(cg.turno_norm, 'DIURNO'),
+                CASE 
+                    WHEN cg.turno_norm LIKE '%NOTURNO%' AND (cg.turno_norm LIKE '%MATUTINO%' OR cg.turno_norm LIKE '%VESPERTINO%' OR cg.turno_norm LIKE '%DIURNO%') THEN 'DIURNO E NOTURNO'
+                    WHEN cg.turno_norm LIKE '%NOTURNO%' THEN 'NOTURNO'
+                    WHEN cg.turno_norm LIKE '%INTEGRAL%' THEN 'INTEGRAL'
+                    ELSE 'DIURNO'
+                END,
                 COALESCE(cg.grau_academico_norm, 'BACHARELADO'),
                 CASE 
                     WHEN cg.grau_academico_norm LIKE '%LICENCIATURA%' THEN 'LICENCIATURA'
+                    WHEN cg.grau_academico_norm LIKE '%MISTO%' THEN 'MISTO'
                     ELSE 'BACHARELADO'
                 END,
                 COALESCE(cg.area_conhecimento_norm, 'CIENCIAS EXATAS E DA TERRA'),
@@ -104,8 +110,9 @@ def povoar_cursos_e_estruturas(conn) -> tuple[int, int]:
                 (r.curso IN ('ENGENHARIA', 'EDUCACAO FISICA', 'EDUCACAO FISICA - CICLO BASICO')),
                 true
             FROM gold.retencao_cursos_unb r
-            ON CONFLICT (nome_curso_norm) DO UPDATE
-            SET campus = EXCLUDED.campus,
+            ON CONFLICT (id_curso) DO UPDATE
+            SET nome_curso_norm = EXCLUDED.nome_curso_norm,
+                campus = EXCLUDED.campus,
                 turno = EXCLUDED.turno,
                 grau_academico = EXCLUDED.grau_academico,
                 categoria_grau = EXCLUDED.categoria_grau,
@@ -135,7 +142,7 @@ def povoar_cursos_e_estruturas(conn) -> tuple[int, int]:
                 ec.ch_total_minima,
                 ec.cr_total_minimo
             FROM silver.estrutura_curricular ec
-            JOIN silver.cursos c ON ec.nome_curso_norm = c.nome_curso_norm
+            JOIN silver.cursos c ON ec.id_curso = c.id_curso
             ON CONFLICT (id_curso, semestre_ideal) DO UPDATE
             SET semestre_minimo = EXCLUDED.semestre_minimo,
                 semestre_maximo = EXCLUDED.semestre_maximo,

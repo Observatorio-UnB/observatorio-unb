@@ -50,7 +50,7 @@ ON CONFLICT (campus) DO NOTHING;
 
 -- 2. Dimensão Curso (chave natural estável nome_curso derivada de silver.cursos 3NF)
 INSERT INTO gold.dim_curso (nome_curso, id_curso_origem, grau_academico, categoria_grau, area_conhecimento, departamento, is_tronco_abi)
-SELECT 
+SELECT DISTINCT ON (nome_curso_norm)
     nome_curso_norm AS nome_curso,
     id_curso AS id_curso_origem,
     grau_academico,
@@ -59,6 +59,7 @@ SELECT
     departamento,
     is_tronco_abi
 FROM silver.cursos
+ORDER BY nome_curso_norm, id_curso
 ON CONFLICT (nome_curso) DO UPDATE 
 SET id_curso_origem = EXCLUDED.id_curso_origem,
     grau_academico = EXCLUDED.grau_academico,
