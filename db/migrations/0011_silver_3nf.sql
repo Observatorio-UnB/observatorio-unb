@@ -51,8 +51,8 @@ CREATE TABLE IF NOT EXISTS silver.estruturas_curriculares (
     semestre_minimo     NUMERIC(4,1) NOT NULL CHECK (semestre_minimo > 0),
     semestre_ideal      NUMERIC(4,1) NOT NULL CHECK (semestre_ideal >= semestre_minimo),
     semestre_maximo     NUMERIC(4,1) NOT NULL,
-    ch_total_minima     INTEGER CHECK (ch_total_minima > 0),
-    cr_total_minimo     INTEGER CHECK (cr_total_minimo > 0),
+    ch_total_minima     INTEGER CHECK (ch_total_minima >= 0),
+    cr_total_minimo     INTEGER CHECK (cr_total_minimo >= 0),
     CONSTRAINT uk_curso_estrutura UNIQUE (id_curso, semestre_ideal)
 );
 COMMENT ON TABLE silver.estruturas_curriculares IS
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS silver.movimentacoes_vinculos (
     id_curso                     INTEGER NOT NULL REFERENCES silver.cursos (id_curso) ON DELETE RESTRICT,
     id_estrutura                 INTEGER REFERENCES silver.estruturas_curriculares (id_estrutura),
     ano_ingresso                 SMALLINT NOT NULL,
-    semestre_ingresso            SMALLINT NOT NULL CHECK (semestre_ingresso IN (1, 2)),
+    semestre_ingresso            SMALLINT NOT NULL CHECK (semestre_ingresso IN (0, 1, 2)),
     forma_saida                  TEXT,
     tipo_saida_grupo             TEXT NOT NULL CHECK (tipo_saida_grupo IN ('FORMATURA', 'EVASAO', 'ATIVO', 'OUTROS')),
     ano_saida                    SMALLINT,
