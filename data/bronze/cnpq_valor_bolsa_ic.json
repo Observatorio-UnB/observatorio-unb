@@ -1,0 +1,16 @@
+{
+  "descricao": "Valor mensal da bolsa de Iniciação Científica (IC) do CNPq, com o mês a partir do qual vale. Atualizado por src/ingestion/cnpq_valor_bolsa.py.",
+  "pagina_oficial": "https://www.gov.br/cnpq/pt-br/acesso-a-informacao/bolsas-e-auxilios/copy_of_modalidades/tabela-de-valores-no-pais",
+  "vigencias": [
+    {
+      "vigente_desde": "2012-07",
+      "valor_mensal": 400.0,
+      "fonte": "https://web.archive.org/web/20120710000000*/cnpq.br/no-pais (R$ 360 em 06/2012; R$ 400 em 07/2012)"
+    },
+    {
+      "vigente_desde": "2023-02",
+      "valor_mensal": 700.0,
+      "fonte": "https://web.archive.org/web/20230320063309/https://www.gov.br/cnpq/pt-br/acesso-a-informacao/bolsas-e-auxilios/copy_of_modalidades/tabela-de-valores-no-pais (R$ 400 em 28/01/2023; reajuste de fev/2023)"
+    }
+  ]
+}

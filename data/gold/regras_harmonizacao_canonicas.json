@@ -1,7 +1,7 @@
 {
-  "total_regras": 78,
-  "total_discentes_harmonizados": 8900,
-  "metodologia": "Entity Resolution e Harmonização Canônica (SIGRA -> Matrizes Curriculares Ativas)",
+  "total_regras": 72,
+  "total_discentes_harmonizados": 6950,
+  "metodologia": "Entity Resolution e Harmonização Canônica (SIGRA/SIGAA -> Matrizes Curriculares Ativas)",
   "regras": [
     {
       "origem_sigra": "LINGUA PORTUGUESA E RESPECTIVA LITERATURA",
@@ -18,25 +18,11 @@
       "discentes_impactados": 503
     },
     {
-      "origem_sigra": "COMUNICACAO ORGANIZACIONAL",
-      "destino_estrutura": "COMUNICACAO SOCIAL - COMUNICACAO ORGANIZACIONAL",
-      "categoria": "Comunicação",
-      "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
-      "discentes_impactados": 497
-    },
-    {
       "origem_sigra": "LINGUA INGLESA E RESPECTIVA LITERATURA",
       "destino_estrutura": "LETRAS - LINGUA INGLESA E RESPECTIVA LITERATURA",
       "categoria": "Letras e Línguas",
       "justificativa": "Prefixo formal 'LETRAS' adicionado pela matriz curricular.",
       "discentes_impactados": 474
-    },
-    {
-      "origem_sigra": "JORNALISMO",
-      "destino_estrutura": "COMUNICACAO SOCIAL - JORNALISMO",
-      "categoria": "Comunicação",
-      "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco (nome padronizado com o prefixo do catálogo oficial).",
-      "discentes_impactados": 458
     },
     {
       "origem_sigra": "LINGUA ESPANHOLA E LITERATURA ESPANHOLA E HISPANO-AMERICANA",
@@ -81,25 +67,11 @@
       "discentes_impactados": 344
     },
     {
-      "origem_sigra": "PUBLICIDADE E PROPAGANDA",
-      "destino_estrutura": "COMUNICACAO SOCIAL - PUBLICIDADE E PROPAGANDA",
-      "categoria": "Comunicação",
-      "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
-      "discentes_impactados": 322
-    },
-    {
       "origem_sigra": "ADMINISTRACAO PUBLICA",
       "destino_estrutura": "ADMINISTRACAO",
       "categoria": "Administração",
       "justificativa": "Ênfase pública vinculada à matriz curricular de Administração.",
       "discentes_impactados": 280
-    },
-    {
-      "origem_sigra": "AUDIOVISUAL",
-      "destino_estrutura": "COMUNICACAO SOCIAL - AUDIOVISUAL",
-      "categoria": "Comunicação",
-      "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
-      "discentes_impactados": 275
     },
     {
       "origem_sigra": "FRANCES",
@@ -130,25 +102,11 @@
       "discentes_impactados": 220
     },
     {
-      "origem_sigra": "ANTROPOLOGIA",
-      "destino_estrutura": "CIENCIAS SOCIAIS - ANTROPOLOGIA",
-      "categoria": "Ciências Sociais",
-      "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
-      "discentes_impactados": 206
-    },
-    {
       "origem_sigra": "PROGRAMACAO VISUAL",
       "destino_estrutura": "DESIGN - PROGRAMACAO VISUAL",
       "categoria": "Design / Desenho Industrial",
       "justificativa": "Habilitação clássica de Design vinculada à matriz oficial de Programação Visual.",
       "discentes_impactados": 195
-    },
-    {
-      "origem_sigra": "SOCIOLOGIA",
-      "destino_estrutura": "CIENCIAS SOCIAIS - SOCIOLOGIA",
-      "categoria": "Ciências Sociais",
-      "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
-      "discentes_impactados": 192
     },
     {
       "origem_sigra": "PROJETO DO PRODUTO",
@@ -495,7 +453,7 @@
     },
     {
       "origem_sigra": "DAP / COMUNICACAO SOCIAL - AUDIOVISUAL",
-      "destino_estrutura": "COMUNICACAO SOCIAL - AUDIOVISUAL",
+      "destino_estrutura": "AUDIOVISUAL",
       "categoria": "Comunicação",
       "justificativa": "Sigla do departamento (DAP) remanescente da extração do campo 'unidade' do PIBIC.",
       "discentes_impactados": 0
@@ -509,7 +467,7 @@
     },
     {
       "origem_sigra": "JOR / JORNALISMO",
-      "destino_estrutura": "COMUNICACAO SOCIAL - JORNALISMO",
+      "destino_estrutura": "JORNALISMO",
       "categoria": "Comunicação",
       "justificativa": "Sigla do departamento (JOR) remanescente da extração do campo 'unidade' do PIBIC.",
       "discentes_impactados": 0

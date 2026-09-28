@@ -4,8 +4,11 @@ Realiza limpeza, decodificação de encodings, remoção de padding,
 padronização semântica, cálculo de permanência e tipagem de dados.
 """
 
+import bisect
+import json
 import logging
 import os
+import sys
 import re
 import unicodedata
 from pathlib import Path
@@ -21,8 +24,11 @@ logging.basicConfig(
 logger = logging.getLogger("transform_silver")
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(BASE_DIR))
+from src.ingestion.ckan_client import DATASETS_CONFIG, escolher_recurso  # noqa: E402
 BRONZE_DIR = BASE_DIR / "data" / "bronze"
 SILVER_DIR = BASE_DIR / "data" / "silver"
+VIGENCIAS_BOLSA_IC = BRONZE_DIR / "cnpq_valor_bolsa_ic.json"
 
 
 def normalize_text(text: Optional[str]) -> str:
@@ -38,85 +44,232 @@ def normalize_text(text: Optional[str]) -> str:
     return re.sub(r"\s+", " ", ascii_text).upper()
 
 
+# Comunicação Social e Ciências Sociais eram cursos guarda-chuva; as habilitações viraram
+# cursos próprios e as fontes usam os dois nomes para o mesmo curso (o catálogo tem
+# 414164 "COMUNICAÇÃO SOCIAL - JORNALISMO" e 414165 "JORNALISMO"; o SIGRA, só "JORNALISMO").
+PREFIXOS_GUARDA_CHUVA = re.compile(r"^(COMUNICACAO SOCIAL|CIENCIAS SOCIAIS) - ")
+
+
+def normalize_curso(text: Optional[str]) -> str:
+    """Nome de curso normalizado, sem o prefixo do antigo curso guarda-chuva."""
+    return PREFIXOS_GUARDA_CHUVA.sub("", normalize_text(text))
+
+
+def valor_bolsa_no_periodo(inicio, fim, vigencias: pd.DataFrame) -> float:
+    """Soma do valor mensal em vigor em cada mês da bolsa, do mês de início ao de fim.
+
+    vigencias: vigente_desde (AAAA-MM) e valor_mensal, em ordem. Mês anterior à primeira
+    vigência fica com o primeiro valor.
+    """
+    inicios = [pd.Period(m, "M") for m in vigencias["vigente_desde"]]
+    valores = list(vigencias["valor_mensal"])
+    return sum(valores[max(bisect.bisect_right(inicios, mes) - 1, 0)]
+               for mes in pd.period_range(inicio, fim, freq="M"))
+
+
 def categorize_forma_saida(forma: str) -> str:
-    """Classifica a forma de saída em categorias padronizadas de análise."""
+    """Classifica a forma de saída do SIGRA nas categorias comuns às duas bases de discentes.
+
+    EVASAO é saída do curso sem diploma, inclusive por mudança de curso ou novo vestibular
+    (definição de "evasão de curso" da Comissão Especial MEC/SESu, 1996). É a única definição
+    que o SIGAA permite reproduzir, já que ele só marca CANCELADO, sem o motivo.
+    """
     forma_norm = normalize_text(forma)
     if "FORMATURA" in forma_norm:
         return "FORMATURA"
-    elif any(k in forma_norm for k in ["ABANDONO", "NAO CUMPRIU CONDICAO", "JUBILAMENTO", "REPR 3 VEZES", "DESLIGAMENTO"]):
-        return "EVASAO_DESLIGAMENTO"
-    elif any(k in forma_norm for k in ["NOVO VESTIBULAR", "TRANSFERENCIA", "MUDANCA DE CURSO", "DUPLA HABILITACAO"]):
-        return "MUDANCA_INTERNA"
+    elif any(k in forma_norm for k in [
+        "ABANDONO", "NAO CUMPRIU CONDICAO", "JUBILAMENTO", "REPR 3 VEZES", "DESLIGAMENTO",
+        "NOVO VESTIBULAR", "TRANSFERENCIA", "MUDANCA DE", "DUPLA HABILITACAO", "VESTIBULAR P/",
+    ]):
+        return "EVASAO"
     else:
         return "OUTROS"
 
 
+# Situação do vínculo no SIGAA -> categorias comuns com o SIGRA.
+STATUS_SIGAA_GRUPO = {
+    "CONCLUIDO": "FORMATURA",
+    "FORMADO": "FORMATURA",
+    "CANCELADO": "EVASAO",
+    "ATIVO": "ATIVO",
+    "ATIVO - FORMANDO": "ATIVO",
+    "TRANCADO": "ATIVO",
+}
+
+
+def recurso_baixado(chave: str) -> dict:
+    """O recurso do CKAN que a ingestão baixou para a fonte, a partir dos metadados na Bronze."""
+    cfg = DATASETS_CONFIG[chave]
+    with open(BRONZE_DIR / f"metadata_{cfg['package_id']}.json", encoding="utf-8") as f:
+        recursos = json.load(f)["resources"]
+    return escolher_recurso(recursos, cfg["resource_pattern"])
+
+
+def semestre_pela_data_do_diploma(datas: pd.Series, limite: Optional[pd.Timestamp] = None) -> pd.DataFrame:
+    """Estima o semestre letivo de conclusão a partir da data de registro do diploma.
+
+    O SIGAA não publica o período de saída. O registro sai logo depois do fim do semestre:
+    janeiro a abril corresponde ao 2º semestre do ano anterior, maio a outubro ao 1º e
+    novembro e dezembro ao 2º do próprio ano. No SIGRA, que tem as duas colunas, a regra
+    acerta 94,6% dos formados (erro de 1 semestre em outros 3%).
+    """
+    # ponytail: regra calibrada no calendário regular (SIGRA, 2010-2020). No calendário
+    # deslocado da pandemia (2020-2022) ela pode errar em 1 semestre; a correção é trocar os
+    # cortes de mês por uma tabela com as datas oficiais de fim de cada semestre (SAA/UnB).
+    d = pd.to_datetime(datas, format="%d/%m/%Y", errors="coerce")
+    if limite is not None:
+        # Diploma registrado depois da publicação do arquivo é erro de digitação (ex.: 2202).
+        d = d.where(d <= limite)
+    mes = d.dt.month
+    ano = np.where(mes <= 4, d.dt.year - 1, d.dt.year)
+    sem = np.where((mes >= 5) & (mes <= 10), 1, 2)
+    return pd.DataFrame({
+        "ano_saida": pd.Series(ano, index=datas.index).where(d.notna()),
+        "semestre_saida": pd.Series(sem, index=datas.index).where(d.notna()),
+    })
+
+
+def _permanencia(df: pd.DataFrame) -> None:
+    """Semestres entre o ingresso e a saída; assume ingresso no 1º semestre (a fonte só traz o ano)."""
+    df["semestres_permanencia"] = 2 * \
+        (df["ano_saida"] - df["ano_ingresso"]) + df["semestre_saida"]
+    df["semestres_permanencia_valida"] = df["semestres_permanencia"].where(
+        df["semestres_permanencia"].between(1, 30)
+    )
+
+
 def process_sigra() -> pd.DataFrame:
-    """Processa a base bruta do SIGRA e gera a versão Silver de discentes de graduação."""
+    """SIGRA (sistema legado): vínculos de graduação encerrados até a migração para o SIGAA (2020/1)."""
     raw_path = BRONZE_DIR / "sigra_discentes.csv"
     logger.info(f"Processando {raw_path.name}...")
-    
-    df = pd.read_csv(raw_path, sep=";", encoding="utf-8", on_bad_lines="skip", dtype=str)
-    
-    # 1. Filtrar apenas discentes de graduação
-    df["nivel_norm"] = df["nivel"].apply(normalize_text)
-    df_grad = df[df["nivel_norm"] == "GRADUACAO"].copy()
-    
-    # 2. Limpeza de campos textuais
-    df_grad["curso_raw"] = df_grad["curso"].astype(str).str.strip()
-    df_grad["curso_norm"] = df_grad["curso"].apply(normalize_text)
-    df_grad["departamento_norm"] = df_grad["departamento"].apply(normalize_text)
-    df_grad["forma_saida_norm"] = df_grad["forma_saida"].apply(normalize_text)
-    df_grad["tipo_saida_grupo"] = df_grad["forma_saida"].apply(categorize_forma_saida)
-    
-    # 3. Tratamento de datas e períodos
-    df_grad["ano_ingresso"] = pd.to_numeric(df_grad["ano_ingresso"], errors="coerce")
-    
-    # Parse do periodo_saida (ex: '20141' -> ano 2014, semestre 1)
-    def parse_periodo_saida(val):
-        val_str = str(val).strip().replace(".0", "")
-        if len(val_str) == 5 and val_str.isdigit():
-            ano = int(val_str[:4])
-            sem = int(val_str[4])
-            return ano, sem
-        elif len(val_str) == 4 and val_str.isdigit():
-            # Apenas o ano
-            return int(val_str), 1
-        return np.nan, np.nan
+    df = pd.read_csv(raw_path, sep=";", encoding="utf-8",
+                     on_bad_lines="skip", dtype=str)
 
-    parsed_periodo = df_grad["periodo_saida"].apply(parse_periodo_saida)
-    df_grad["ano_saida"] = [p[0] for p in parsed_periodo]
-    df_grad["semestre_saida"] = [p[1] for p in parsed_periodo]
-    
-    # 4. Cálculo do tempo de permanência em semestres
-    # Fórmula: 2 * (ano_saida - ano_ingresso) + semestre_saida
-    # Documentação de incerteza: assume ingresso no semestre 1 como baseline
-    df_grad["semestres_permanencia"] = (
-        2 * (df_grad["ano_saida"] - df_grad["ano_ingresso"]) + df_grad["semestre_saida"]
+    df["nivel_norm"] = df["nivel"].apply(normalize_text)
+    df = df[df["nivel_norm"] == "GRADUACAO"].copy()
+    df["fonte"] = "SIGRA"
+    df["departamento_norm"] = df["departamento"].apply(normalize_text)
+    df["forma_saida_norm"] = df["forma_saida"].apply(normalize_text)
+    df["tipo_saida_grupo"] = df["forma_saida"].apply(categorize_forma_saida)
+    df = df.rename(columns={"data_registro_livro": "data_registro_diploma"})
+
+    # periodo_saida: '20141' -> 2014/1; semestre 0 é o período de verão.
+    periodo = df["periodo_saida"].astype(
+        str).str.strip().str.replace(".0", "", regex=False)
+    valido = periodo.str.fullmatch(r"\d{5}")
+    df["ano_saida"] = pd.to_numeric(
+        periodo.str[:4].where(valido), errors="coerce")
+    df["semestre_saida"] = pd.to_numeric(
+        periodo.str[4].where(valido), errors="coerce")
+    df["periodo_saida_estimado"] = False
+    return df
+
+
+def process_sigaa() -> pd.DataFrame:
+    """SIGAA (sistema atual): vínculos ativos na migração ou iniciados depois, com a situação atual."""
+    raw_path = BRONZE_DIR / "sigaa_discentes.csv"
+    logger.info(f"Processando {raw_path.name}...")
+    df = pd.read_csv(raw_path, sep=";", encoding="utf-8",
+                     on_bad_lines="skip", dtype=str)
+
+    df["nivel_norm"] = df["nivel"].apply(normalize_text)
+    df = df[df["nivel_norm"] == "GRADUACAO"].copy()
+    df["fonte"] = "SIGAA"
+    df = df.rename(columns={"unidade": "departamento"})
+    df["departamento_norm"] = df["departamento"].apply(normalize_text)
+    # A fonte formata o ano como número com separador de milhar ("2,010").
+    df["ano_ingresso"] = df["ano_ingresso"].str.replace(",", "", regex=False)
+    df["sexo"] = df["sexo"].where(df["sexo"].isin(["F", "M"]))
+    df["status_aluno"] = df["status_aluno"].str.strip()
+    df["tipo_saida_grupo"] = df["status_aluno"].apply(
+        normalize_text).map(STATUS_SIGAA_GRUPO).fillna("OUTROS")
+
+    formado = df["tipo_saida_grupo"] == "FORMATURA"
+    publicado = pd.Timestamp(recurso_baixado("sigaa")["created"][:10])
+    saida = semestre_pela_data_do_diploma(
+        df["data_registro_diploma"].where(formado), limite=publicado)
+    df["ano_saida"] = saida["ano_saida"]
+    df["semestre_saida"] = saida["semestre_saida"]
+    df["periodo_saida_estimado"] = df["ano_saida"].notna()
+    return df
+
+
+def process_discentes() -> pd.DataFrame:
+    """Une SIGRA e SIGAA numa base única de vínculos de graduação.
+
+    As bases se complementam: o SIGRA só tem vínculos encerrados até 2020/1, e o SIGAA os
+    que estavam ativos na migração ou começaram depois. Somadas, cada coorte de ingresso
+    2010-2020 fica com 9 a 13 mil discentes, sem salto na virada entre os sistemas.
+    """
+    df = pd.concat([process_sigra(), process_sigaa()], ignore_index=True)
+    df["curso_raw"] = df["curso"].astype(str).str.strip()
+    df["curso_norm"] = df["curso"].apply(normalize_curso)
+    df["ano_ingresso"] = pd.to_numeric(df["ano_ingresso"], errors="coerce")
+    _permanencia(df)
+
+    cols = [
+        "fonte", "aluno", "nivel", "opcao", "curso", "departamento", "ano_ingresso",
+        "forma_ingresso", "cota_ingresso", "data_nascimento", "sexo", "raca_cor",
+        "forma_saida", "status_aluno", "data_registro_diploma", "periodo_saida",
+        "nivel_norm", "curso_raw", "curso_norm", "departamento_norm", "forma_saida_norm",
+        "tipo_saida_grupo", "ano_saida", "semestre_saida", "periodo_saida_estimado",
+        "semestres_permanencia", "semestres_permanencia_valida",
+    ]
+    df = df[cols]
+    out_path = SILVER_DIR / "discentes_graduacao_silver.csv"
+    df.to_csv(out_path, index=False, encoding="utf-8")
+    logger.info(
+        f"Salvo {out_path.name} com {len(df):,} vínculos de graduação "
+        f"({(df['fonte'] == 'SIGRA').sum():,} SIGRA + {(df['fonte'] == 'SIGAA').sum():,} SIGAA)."
     )
-    
-    # Filtro de sanidade (permanência entre 1 e 30 semestres)
-    df_grad["semestres_permanencia_valida"] = df_grad["semestres_permanencia"].apply(
-        lambda x: x if (pd.notna(x) and 1 <= x <= 30) else np.nan
-    )
-    
-    out_path = SILVER_DIR / "sigra_graduacao_silver.csv"
-    df_grad.to_csv(out_path, index=False, encoding="utf-8")
-    logger.info(f"Salvo {out_path.name} com {len(df_grad):,} registros de graduação.")
-    return df_grad
+    return df
+
+
+GRAUS_POS_GRADUACAO = {"Mestrado", "Doutorado"}
+
+
+def process_sigaa_ativos() -> pd.DataFrame:
+    """Discentes de graduação ativos no semestre mais recente publicado (lista do SIGAA).
+
+    A Bronze só tem curso, grau e período de ingresso (ver ckan_client). A lista mistura
+    graduação, lato sensu (grau vazio) e pós stricto sensu; fica a graduação.
+    """
+    raw_path = BRONZE_DIR / "sigaa_ativos.csv"
+    logger.info(f"Processando {raw_path.name}...")
+    df = pd.read_csv(raw_path, dtype=str)
+    df = df[df["grau"].notna() & ~df["grau"].isin(GRAUS_POS_GRADUACAO)].copy()
+
+    arquivo = recurso_baixado("sigaa_ativos")["url"].rsplit("/", 1)[-1]
+    ano_ref, sem_ref = map(int, re.search(r"_(\d{4})_(\d)\.csv$", arquivo).groups())
+    df["periodo_referencia"] = f"{ano_ref}/{sem_ref}"
+    df["curso_norm"] = df["curso"].apply(normalize_curso)
+    df["ano_ingresso"] = pd.to_numeric(df["ano_ingresso"], errors="coerce")
+    df["periodo_ingresso"] = pd.to_numeric(df["periodo_ingresso"], errors="coerce")
+    # Semestres cursados contando o de ingresso e o de referência; o verão (0) conta como o 1º.
+    sem_ing = df["periodo_ingresso"].replace(0, 1)
+    df["semestres_cursados"] = ((ano_ref - df["ano_ingresso"]) * 2 + (sem_ref - sem_ing) + 1).clip(lower=1)
+
+    cols = ["periodo_referencia", "curso", "curso_norm", "grau", "ano_ingresso",
+            "periodo_ingresso", "semestres_cursados"]
+    df = df[cols]
+    out_path = SILVER_DIR / "sigaa_ativos_silver.csv"
+    df.to_csv(out_path, index=False, encoding="utf-8")
+    logger.info(f"Salvo {out_path.name} com {len(df):,} discentes de graduação ativos em {ano_ref}/{sem_ref}.")
+    return df
 
 
 def process_estrutura_curricular() -> pd.DataFrame:
     """Processa a base bruta de estrutura curricular (resolvendo encoding latin-1)."""
     raw_path = BRONZE_DIR / "estrutura_curricular.csv"
     logger.info(f"Processando {raw_path.name}...")
-    
-    df = pd.read_csv(raw_path, sep=";", encoding="latin-1", on_bad_lines="skip", dtype=str)
-    
+
+    df = pd.read_csv(raw_path, sep=";", encoding="latin-1",
+                     on_bad_lines="skip", dtype=str)
+
     # Normalização de nomes de cursos
-    df["nome_curso_norm"] = df["nome_curso"].apply(normalize_text)
+    df["nome_curso_norm"] = df["nome_curso"].apply(normalize_curso)
     df["nome_matriz_norm"] = df["nome_matriz"].apply(normalize_text)
-    
+
     # Conversão de colunas numéricas de semestres e horas
     num_cols = [
         "semestre_conclusao_minimo",
@@ -128,11 +281,11 @@ def process_estrutura_curricular() -> pd.DataFrame:
     ]
     for col in num_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
-        
+
     # Agregação por curso canônico para obter os prazos de referência consolidados
     # (seleciona o currículo com maior ch_total_minima ou mais recente)
     df_clean = df[df["nome_curso_norm"] != ""].copy()
-    
+
     # Agrupamento para consolidar matriz de referência
     agg_dict = {
         "semestre_conclusao_minimo": "median",
@@ -142,27 +295,51 @@ def process_estrutura_curricular() -> pd.DataFrame:
         "cr_total_minimo": "max",
         "id_curso": "first",
     }
-    df_consolidado = df_clean.groupby("nome_curso_norm", as_index=False).agg(agg_dict)
-    
+    df_consolidado = df_clean.groupby(
+        "nome_curso_norm", as_index=False).agg(agg_dict)
+
     out_path = SILVER_DIR / "estrutura_curricular_silver.csv"
     df_consolidado.to_csv(out_path, index=False, encoding="utf-8")
-    logger.info(f"Salvo {out_path.name} com {len(df_consolidado):,} estruturas curriculares consolidadas.")
+    logger.info(
+        f"Salvo {out_path.name} com {len(df_consolidado):,} estruturas curriculares consolidadas.")
     return df_consolidado
 
 
+def consolidar_versoes_catalogo(df: pd.DataFrame) -> pd.DataFrame:
+    """Um registro por id_curso, com o valor da versão mais recente do catálogo em cada campo.
+
+    Campo vazio na versão nova (ex.: unidade_responsavel, que saiu do arquivo em 2023) fica
+    com o da última versão que o tinha. Curso que sumiu do catálogo vigente (extinto) continua,
+    com no_catalogo_vigente = False: ainda tem alunos nas coortes analisadas.
+    """
+    df = df.replace({"NULL": np.nan, "": np.nan}).sort_values("publicado_em", kind="stable")
+    vigente = df["publicado_em"].max()
+    no_vigente = set(df.loc[df["publicado_em"] == vigente, "id_curso"])
+    df = df.groupby("id_curso", as_index=False, sort=False).last()
+    df["no_catalogo_vigente"] = df["id_curso"].isin(no_vigente)
+    # O formato da data mudou entre versões (2018-07-18 em 2022, 18/07/2018 depois).
+    for col in ("data_funcionamento", "dou"):
+        iso = pd.to_datetime(df[col], format="%Y-%m-%d", errors="coerce")
+        df[col] = iso.fillna(pd.to_datetime(df[col], format="%d/%m/%Y", errors="coerce")).dt.date
+    return df.drop(columns=["id_servidor", "arquivo_origem", "publicado_em"], errors="ignore")
+
+
 def process_cursos_graduacao() -> pd.DataFrame:
-    """Processa a base de cursos de graduação (resolvendo 'NULL' literais e metadados)."""
+    """Processa o catálogo de cursos de graduação, juntando todas as versões publicadas."""
     raw_path = BRONZE_DIR / "cursos_graduacao.csv"
     logger.info(f"Processando {raw_path.name}...")
-    
-    df = pd.read_csv(raw_path, sep=",", encoding="utf-8", on_bad_lines="skip", dtype=str)
-    
-    df["nome_curso_norm"] = df["nome"].apply(normalize_text)
+
+    df = consolidar_versoes_catalogo(pd.read_csv(raw_path, sep=",", encoding="utf-8",
+                                                 on_bad_lines="skip", dtype=str))
+
+    df["nome_curso_norm"] = df["nome"].apply(normalize_curso)
     df["turno_norm"] = df["turno"].apply(normalize_text)
     df["campus_norm"] = df["campus"].apply(normalize_text)
     df["grau_academico_norm"] = df["grau_academico"].apply(normalize_text)
-    df["area_conhecimento_norm"] = df["area_conhecimento"].apply(normalize_text)
-    df["unidade_responsavel_norm"] = df["unidade_responsavel"].apply(normalize_text)
+    df["area_conhecimento_norm"] = df["area_conhecimento"].apply(
+        normalize_text)
+    df["unidade_responsavel_norm"] = df["unidade_responsavel"].apply(
+        normalize_text)
 
     # O catálogo bruto da UnB classifica 13 cursos como "Outra", que não existe na
     # taxonomia oficial CNPq/MEC de Grande Área. Mapeamos manualmente para a área correta
@@ -184,9 +361,11 @@ def process_cursos_graduacao() -> pd.DataFrame:
     }
     mask_outra = df["area_conhecimento_norm"] == "OUTRA"
     df.loc[mask_outra, "area_conhecimento_norm"] = (
-        df.loc[mask_outra, "nome_curso_norm"].map(AREA_CONHECIMENTO_OVERRIDES).fillna("OUTRA")
+        df.loc[mask_outra, "nome_curso_norm"].map(
+            AREA_CONHECIMENTO_OVERRIDES).fillna("OUTRA")
     )
-    ainda_outra = df.loc[df["area_conhecimento_norm"] == "OUTRA", "nome_curso_norm"].unique()
+    ainda_outra = df.loc[df["area_conhecimento_norm"]
+                         == "OUTRA", "nome_curso_norm"].unique()
     if len(ainda_outra):
         logger.warning(
             f"Cursos sem Grande Área mapeada, adicione a AREA_CONHECIMENTO_OVERRIDES: {list(ainda_outra)}"
@@ -194,10 +373,10 @@ def process_cursos_graduacao() -> pd.DataFrame:
 
     # Substituir literais NULL por NaN
     df = df.replace(["NULL", "NONE", "NAN", ""], np.nan)
-    
+
     out_path = SILVER_DIR / "cursos_graduacao_silver.csv"
     df.to_csv(out_path, index=False, encoding="utf-8")
-    logger.info(f"Salvo {out_path.name} com {len(df):,} cursos cadastrados.")
+    logger.info(f"Salvo {out_path.name} com {len(df):,} cursos ({(~df['no_catalogo_vigente']).sum()} fora do catálogo vigente).")
     return df
 
 
@@ -213,10 +392,12 @@ def process_inep_censo() -> pd.DataFrame:
     """
     raw_path = BRONZE_DIR / "inep_censo_superior_federais.csv"
     if not raw_path.exists():
-        logger.warning(f"Arquivo {raw_path.name} não encontrado na camada Bronze. Pulando Censo INEP.")
+        logger.warning(
+            f"Arquivo {raw_path.name} não encontrado na camada Bronze. Pulando Censo INEP.")
         return pd.DataFrame()
 
-    logger.info(f"Processando {raw_path.name} (Censo da Educação Superior - INEP)...")
+    logger.info(
+        f"Processando {raw_path.name} (Censo da Educação Superior - INEP)...")
     df = pd.read_csv(raw_path)
 
     df["curso_inep_norm"] = df["NO_CURSO"].apply(normalize_text)
@@ -224,10 +405,12 @@ def process_inep_censo() -> pd.DataFrame:
 
     # Taxas do próprio Censo: a situação da matrícula é apurada no ano-censo, e não pelo
     # acompanhamento da coorte de ingresso - por isso estas taxas não são comparáveis com a
-    # taxa de evasão da tabela de retenção (construída sobre o histórico do SIGRA).
+    # taxa de evasão da tabela de retenção (construída sobre as coortes de SIGRA + SIGAA).
     matriculas = df["QT_MAT"].replace(0, np.nan)
-    df["taxa_trancamento_pct"] = (df["QT_SIT_TRANCADA"] / matriculas * 100).round(2)
-    df["taxa_desvinculacao_pct"] = (df["QT_SIT_DESVINCULADO"] / matriculas * 100).round(2)
+    df["taxa_trancamento_pct"] = (
+        df["QT_SIT_TRANCADA"] / matriculas * 100).round(2)
+    df["taxa_desvinculacao_pct"] = (
+        df["QT_SIT_DESVINCULADO"] / matriculas * 100).round(2)
 
     vagas = df["QT_VG_TOTAL"].replace(0, np.nan)
     df["concorrencia_vestibular"] = (df["QT_INSCRITO_TOTAL"] / vagas).round(2)
@@ -269,23 +452,26 @@ def process_pibic() -> pd.DataFrame:
     """
     raw_path = BRONZE_DIR / "bolsistas_iniciacao_cientifica.csv"
     if not raw_path.exists():
-        logger.warning(f"Arquivo {raw_path.name} não encontrado na camada Bronze. Pulando PIBIC.")
+        logger.warning(
+            f"Arquivo {raw_path.name} não encontrado na camada Bronze. Pulando PIBIC.")
         return pd.DataFrame()
-        
-    logger.info(f"Processando {raw_path.name} (Iniciação Científica & Análise Social)...")
-    df = pd.read_csv(raw_path, sep=",", encoding="latin-1", on_bad_lines="skip", dtype=str)
-    
+
+    logger.info(
+        f"Processando {raw_path.name} (Iniciação Científica & Análise Social)...")
+    # A ingestão já grava só as colunas usadas, em UTF-8 (ver DATASETS_CONFIG["pibic"]).
+    df = pd.read_csv(raw_path, sep=",", encoding="utf-8",
+                     on_bad_lines="skip", dtype=str)
+
     # 1. Normalização de textos
     df["titulo_norm"] = df["titulo"].apply(normalize_text)
-    df["orientador_norm"] = df["orientador"].apply(normalize_text)
     df["linha_pesquisa_norm"] = df["linha_pesquisa"].apply(normalize_text)
     df["unidade_raw"] = df["unidade"].astype(str).str.strip()
     df["unidade_norm"] = df["unidade"].apply(normalize_text)
     df["status_norm"] = df["status"].apply(normalize_text)
-    
+
     # 2. Parse temporal
     df["ano"] = pd.to_numeric(df["ano"], errors="coerce")
-    
+
     # 3. Tipo de bolsa (Remunerada vs Voluntária PIVIC)
     def clean_tipo_bolsa(val):
         v = normalize_text(val)
@@ -295,18 +481,18 @@ def process_pibic() -> pd.DataFrame:
             return "VOLUNTARIA"
         return "NAO INFORMADO"
     df["tipo_bolsa_norm"] = df["tipo_de_bolsa"].apply(clean_tipo_bolsa)
-    
+
     # 4. Categorização Social de Ingresso e Cotas
     def categorize_cota_pibic(val):
         v = normalize_text(val)
         if not v or v in ["NAO", "UNIVERSAL"]:
             return "AMPLA CONCORRENCIA", "AMPLA CONCORRENCIA", "NAO APLICAVEL", False
-            
+
         is_ppi = any(k in v for k in ["PPI", "NEGRO", "INDIGENA"])
         is_pcd = "PCD" in v
         is_baixa_renda = "BAIXA RENDA" in v
         is_alta_renda = "ALTA RENDA" in v
-        
+
         # Grupo detalhado
         if is_ppi and ("ESCOLA PUB" in v or "ESCOLA PUBLICA" in v):
             grupo = "ESCOLA PUBLICA - PPI"
@@ -318,7 +504,7 @@ def process_pibic() -> pd.DataFrame:
             grupo = "COTAS PCD"
         else:
             grupo = "OUTRAS ACOES AFIRMATIVAS"
-            
+
         # Renda
         if is_baixa_renda:
             faixa_renda = "BAIXA RENDA (<= 1.5 SM)"
@@ -326,8 +512,9 @@ def process_pibic() -> pd.DataFrame:
             faixa_renda = "INDEPENDENTE DE RENDA"
         else:
             faixa_renda = "NAO ESPECIFICADO"
-            
-        perfil_macro = "PPI / ETNICO-RACIAL" if is_ppi else ("ESCOLA PUBLICA" if "ESCOLA PUB" in v else "OUTRAS COTAS")
+
+        perfil_macro = "PPI / ETNICO-RACIAL" if is_ppi else (
+            "ESCOLA PUBLICA" if "ESCOLA PUB" in v else "OUTRAS COTAS")
         return perfil_macro, grupo, faixa_renda, True
 
     cota_results = df["cota"].apply(categorize_cota_pibic)
@@ -335,7 +522,7 @@ def process_pibic() -> pd.DataFrame:
     df["cota_detalhe"] = [r[1] for r in cota_results]
     df["faixa_renda"] = [r[2] for r in cota_results]
     df["is_cotista"] = [r[3] for r in cota_results]
-    
+
     # 5. Mapeamento Territorial de Campi
     def parse_campus_pibic(u_norm):
         if "GAMA" in u_norm:
@@ -346,7 +533,7 @@ def process_pibic() -> pd.DataFrame:
             return "FUP - PLANALTINA"
         return "DARCY RIBEIRO"
     df["campus"] = df["unidade_norm"].apply(parse_campus_pibic)
-    
+
     # 6. Extração de Curso e Departamento
     # Prefixos genéricos usados de forma inconsistente no campo "unidade" do PIBIC
     # (ex.: "BACHARELADO EM FISICA" vs. "FISICA" no restante da base) e que impedem o
@@ -363,36 +550,37 @@ def process_pibic() -> pd.DataFrame:
         # Remove sufixo de situação do discente ("- ALUNO: ATIVO", "- ALUNO: TRANCADO" etc.)
         # e o marcador final "- FORMANDO", em qualquer combinação.
         part = re.sub(r"-?\s*ALUNO:\s*\S+", "", part, flags=re.IGNORECASE)
-        part = re.sub(r"-\s*FORMANDO\s*$", "", part, flags=re.IGNORECASE).strip()
+        part = re.sub(r"-\s*FORMANDO\s*$", "", part,
+                      flags=re.IGNORECASE).strip()
         part = CURSO_PREFIXOS_GENERICOS.sub("", part.strip())
-        return normalize_text(part)
-        
+        return normalize_curso(part)
+
     def parse_depto_pibic(u_raw):
         if pd.isna(u_raw) or "/" not in str(u_raw):
             return normalize_text(u_raw)
         return normalize_text(str(u_raw).split("/", 1)[0])
-        
+
     df["curso_pibic_norm"] = df["unidade_raw"].apply(parse_curso_pibic)
     df["departamento_pibic_norm"] = df["unidade_raw"].apply(parse_depto_pibic)
-    
+
     # 7. Cálculo de Investimento Público por Bolsa
-    def calc_valor_bolsa(row):
-        if row["tipo_bolsa_norm"] != "REMUNERADA":
-            return 0.0
-        ano = row["ano"]
-        if pd.notna(ano) and ano >= 2023:
-            return 700.0 * 12
-        return 400.0 * 12
-    df["valor_bolsa_anual_estimado"] = df.apply(calc_valor_bolsa, axis=1)
-    
-    # 8. Sanitização Ética / LGPD
-    # Descarte de identificador nominal individualizado e mascaramento da matrícula
-    df["matricula_mascarada"] = df["matricula"].astype(str).str.strip().apply(
-        lambda m: (m[:3] + "***" + m[-2:]) if len(m) >= 6 else "***"
-    )
-    
+    # Soma, mês a mês da vigência (inicio a fim, 12 meses), o valor da bolsa IC em vigor no
+    # CNPq. A série vem de src/ingestion/cnpq_valor_bolsa.py; voluntária (PIVIC) não recebe.
+    with open(VIGENCIAS_BOLSA_IC, encoding="utf-8") as f:
+        vigencias = pd.DataFrame(json.load(f)["vigencias"])
+    if vigencias.empty or not {"vigente_desde", "valor_mensal"} <= set(vigencias.columns):
+        raise ValueError(f"{VIGENCIAS_BOLSA_IC} precisa de ao menos uma linha com vigente_desde e valor_mensal.")
+    vigencias = vigencias.sort_values("vigente_desde")
+    inicio = pd.to_datetime(df["inicio"], format="%d/%m/%Y", errors="coerce")
+    fim = pd.to_datetime(df["fim"], format="%d/%m/%Y", errors="coerce")
+    remunerada = df["tipo_bolsa_norm"] == "REMUNERADA"
+    if (remunerada & (inicio.isna() | fim.isna())).any():
+        raise ValueError("Bolsa remunerada sem data de início ou fim: não dá para somar o valor pago.")
+    df["valor_bolsa_anual_estimado"] = [
+        valor_bolsa_no_periodo(i, f, vigencias) if r else 0.0
+        for i, f, r in zip(inicio, fim, remunerada)]
+
     cols_silver = [
-        "matricula_mascarada",
         "ano",
         "tipo_bolsa_norm",
         "linha_pesquisa_norm",
@@ -404,15 +592,15 @@ def process_pibic() -> pd.DataFrame:
         "faixa_renda",
         "is_cotista",
         "valor_bolsa_anual_estimado",
-        "orientador_norm",
         "titulo_norm",
         "status_norm",
     ]
     df_pibic_silver = df[cols_silver].copy()
-    
+
     out_path = SILVER_DIR / "pibic_bolsistas_silver.csv"
     df_pibic_silver.to_csv(out_path, index=False, encoding="utf-8")
-    logger.info(f"Salvo {out_path.name} com {len(df_pibic_silver):,} planos de pesquisa de IC tratados.")
+    logger.info(
+        f"Salvo {out_path.name} com {len(df_pibic_silver):,} planos de pesquisa de IC tratados.")
     return df_pibic_silver
 
 
@@ -420,15 +608,15 @@ def run_silver_pipeline():
     """Executa o pipeline completo Bronze -> Silver."""
     SILVER_DIR.mkdir(parents=True, exist_ok=True)
     logger.info("=== Iniciando Pipeline de Transformação (Camada Silver) ===")
-    df_sigra = process_sigra()
+    df_discentes = process_discentes()
+    process_sigaa_ativos()
     df_est = process_estrutura_curricular()
     df_cursos = process_cursos_graduacao()
     df_pibic = process_pibic()
     df_inep = process_inep_censo()
     logger.info("=== Camada Silver Gerada com Sucesso ===")
-    return df_sigra, df_est, df_cursos, df_pibic, df_inep
+    return df_discentes, df_est, df_cursos, df_pibic, df_inep
 
 
 if __name__ == "__main__":
     run_silver_pipeline()
-

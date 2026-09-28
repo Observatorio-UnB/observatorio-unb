@@ -68,14 +68,20 @@ def gerar_markdown(conn: psycopg.Connection) -> str:
             (esquema,),
         ).fetchall()
         for oid, tabela, descricao in tabelas:
-            total = conn.execute(f'SELECT count(*) FROM "{esquema}"."{tabela}"').fetchone()[0]
+            # A busca depende de VETORIZAR_TIPOS (o CI vetoriza menos que o compose); gravar a
+            # contagem faria o dicionário versionado oscilar entre ambientes.
+            if esquema == "busca":
+                carga = "**Linhas na última carga:** variável (depende de `VETORIZAR_TIPOS`)"
+            else:
+                total = conn.execute(f'SELECT count(*) FROM "{esquema}"."{tabela}"').fetchone()[0]
+                carga = f"**Linhas na última carga:** {total:,}".replace(",", ".")
             linhas += [
                 "",
                 f"### `{esquema}.{tabela}`",
                 "",
                 _celula(descricao) or "_Sem descrição._",
                 "",
-                f"**Linhas na última carga:** {total:,}".replace(",", "."),
+                carga,
                 "",
                 "| Coluna | Tipo | Nulo | Descrição |",
                 "| :--- | :--- | :---: | :--- |",

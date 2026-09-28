@@ -26,9 +26,9 @@
 
 | GQ | Pergunta Menor | Métrica Associada | Conjuntos de Dados Candidatos |
 | :--- | :--- | :--- | :--- |
-| **GQ 1** | Qual o percentual de concluintes que se forma no tempo mínimo, ideal e acima do ideal por curso? | `% no Prazo Ideal` e `% Acima do Ideal` | `sigra_discentes.csv` + `estrutura_curricular.csv` |
-| **GQ 2** | Qual é a diferença média (em semestres) entre a duração prevista na estrutura curricular e a duração real da graduação? | `Desvio Médio de Integralização (semestres)` | `sigra_discentes.csv` + `estrutura_curricular.csv` |
-| **GQ 3** | Qual a proporção de saídas por formatura versus desligamentos críticos (abandono, jubilamento e 3 reprovações) em cada curso? | `Taxa de Evasão / Desligamento Crítico (%)` | `sigra_discentes.csv` |
+| **GQ 1** | Qual o percentual de concluintes que se forma no tempo mínimo, ideal e acima do ideal por curso? | `% no Prazo Ideal` e `% Acima do Ideal` | `sigra_discentes.csv` + `sigaa_discentes.csv` + `estrutura_curricular.csv` |
+| **GQ 2** | Qual é a diferença média (em semestres) entre a duração prevista na estrutura curricular e a duração real da graduação? | `Desvio Médio de Integralização (semestres)` | `sigra_discentes.csv` + `sigaa_discentes.csv` + `estrutura_curricular.csv` |
+| **GQ 3** | Qual a proporção de saídas por formatura versus evasão (saída sem diploma: abandono, jubilamento, 3 reprovações, mudança de curso, cancelamento) em cada curso? | `Taxa de Evasão / Desligamento Crítico (%)` | `sigra_discentes.csv` + `sigaa_discentes.csv` |
 | **GQ 4** | Cursos noturnos apresentam desvio de tempo de formação significativamente maior que os cursos diurnos? | `Diferença de Desvio Médio: Noturno vs. Diurno` | `sigra_discentes.csv` + `cursos_graduacao.csv` |
 | **GQ 5** | Existe correlação entre a carga horária total da matriz curricular e o tempo médio de atraso na formatura? | `Coeficiente de Correlação de Pearson (CH vs. Atraso)` | `estrutura_curricular.csv` + `sigra_discentes.csv` |
 
@@ -38,6 +38,6 @@
 
 Para assegurar rigor científico e evitar conclusões precipitadas:
 1. **Motivação Individual da Evasão/Atraso**: Os dados abertos não informam motivos pessoais, de saúde mental, necessidade de trabalhar, dificuldades socioeconômicas ou reprovações pontuais em disciplinas específicas.
-2. **Semestre Exato de Ingresso no SIGRA**: O SIGRA registra apenas o ano de ingresso (`2010`) e o período de saída (`20141`). Há uma incerteza residual de $\pm 1$ semestre metodológico.
+2. **Semestre Exato de Ingresso e Saída**: SIGRA e SIGAA registram apenas o ano de ingresso (`2010`). O SIGRA publica o período de saída (`20141`); no SIGAA ele é estimado pela data de registro do diploma. Há uma incerteza residual de $\pm 1$ semestre metodológico.
 3. **Mudanças Curriculares Individuais**: Alunos que mudaram de habilitação, transferiram de curso ou ingressaram sob uma matriz curricular antiga e migraram para uma nova não têm esse histórico de transição individualizado no arquivo estático.
 4. **Cursos Descontinuados ou Muito Recentes**: Cursos novos com poucas turmas formadas ou cursos extintos possuem amostras estatísticas reduzidas.
