@@ -73,6 +73,9 @@ jobs:
       - name: "Banco — migrações e carga das camadas (PostgreSQL)"
         run: python src/db/carregar.py
 
+      - name: "Banco — Silver 3NF e Star Schema"
+        run: python src/db/povoar_dimensional.py
+
       - name: "Cache do modelo de embedding"
         uses: actions/cache@v4
         with:
@@ -90,6 +93,12 @@ jobs:
 
       - name: "Verificação determinística (contratos da Gold)"
         run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: "Supabase — sincronização incremental da gold"
+        if: github.event_name != 'pull_request'
+        env:
+          SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+        run: python src/db/sincronizar_supabase.py
 
       - name: "Resumo do medalhão"
         run: |

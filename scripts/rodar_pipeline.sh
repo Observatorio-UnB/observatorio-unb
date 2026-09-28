@@ -42,8 +42,16 @@ etapa "Privacidade: k-anonimato"
 etapa "Banco: migrações e carga das camadas"
 "$PYTHON" src/db/carregar.py
 
+etapa "Banco: Silver 3NF e Star Schema"
+"$PYTHON" src/db/povoar_dimensional.py
+
 etapa "Busca semântica: vetorização"
 "$PYTHON" src/busca/vetorizar.py
 
 etapa "Dicionário de dados do banco"
 "$PYTHON" src/db/gerar_dicionario.py
+
+# Envia ao Supabase só o que é novo ou mudou na gold e na busca (bronze e silver não saem do
+# banco local). Pulada se SUPABASE_DATABASE_URL não estiver definida.
+etapa "Supabase: sincronização incremental da gold"
+"$PYTHON" src/db/sincronizar_supabase.py

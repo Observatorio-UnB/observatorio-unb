@@ -1,0 +1,2 @@
+# Scripts rodam no bash do container Linux: CRLF quebra o "set -o pipefail".
+*.sh text eol=lf

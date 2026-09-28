@@ -1,15 +1,19 @@
 """
-Procedimento ELT in-Database: Carga e Povoamento da Camada Gold Dimensional (Star Schema).
+Povoamento do Star Schema da gold a partir da Silver 3NF, dentro do PostgreSQL.
 
-Transforma e estrutura os dados analíticos dentro do próprio PostgreSQL via SQL puro:
-  1. Silver 3NF (silver.cursos, silver.estruturas_curriculares, silver.discentes)
-  2. gold.dim_campus (Dimensão Campus da UnB)
-  3. gold.dim_curso (Dimensão Cursos com chave natural estável nome_curso)
-  4. gold.dim_tempo (Dimensão Temporal em Semestres Letivos)
-  5. gold.dim_perfil_social (Dimensão Perfil Social e Ações Afirmativas)
-  6. gold.fato_retencao_curso (Fato de Integralização Curricular e IRC com k >= 5)
-  7. gold.fato_alunos_ativos (Fato de Alunos Ativos no Semestre Vigente)
-  8. gold.mv_dashboard_executivo (View Materializada Indexada para o Dashboard DEG)
+  1. Silver 3NF (src/db/povoar_silver_3nf.py)
+  2. gold.dim_campus        <- silver.cursos
+  3. gold.dim_curso         <- silver.estruturas_curriculares + silver.cursos (chave natural nome_curso)
+  4. gold.dim_tempo         <- anos de ingresso de silver.movimentacoes_vinculos até o ano corrente
+  5. gold.dim_perfil_social <- silver.pibic_projetos
+  6. gold.fato_retencao_curso <- silver.movimentacoes_vinculos (contagens e taxas das coortes maduras)
+                                 + gold.retencao_cursos_unb (IRC, classificação, % no tempo ideal e
+                                 atraso médio, que dependem dos percentis calculados em build_gold.py)
+  7. gold.fato_alunos_ativos  <- gold.ativos_hoje_cursos_unb
+  8. REFRESH da gold.mv_dashboard_executivo
+
+As dimensões são atualizadas por chave natural (upsert): a chave substituta de um curso não muda
+quando outro curso entra. Os fatos são recriados por inteiro a cada execução.
 
 Uso:
     python3 src/db/povoar_dimensional.py
@@ -18,11 +22,15 @@ Uso:
 import logging
 import sys
 from pathlib import Path
+from typing import Dict
+
+import psycopg
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conectar  # noqa: E402
-from src.db.povoar_silver_3nf import executar_elt_silver_3nf  # noqa: E402
+from src.db.povoar_silver_3nf import povoar_silver_3nf, silver_carregada  # noqa: E402
+from src.pipeline.build_gold import ANOS_MATURACAO_COORTE  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,165 +39,153 @@ logging.basicConfig(
 )
 logger = logging.getLogger("povoar_dimensional")
 
+TABELAS_GOLD = (
+    "gold.dim_campus",
+    "gold.dim_curso",
+    "gold.dim_tempo",
+    "gold.dim_perfil_social",
+    "gold.fato_retencao_curso",
+    "gold.fato_alunos_ativos",
+)
 
-SQL_POVOAR_DIMENSOES = """
--- 1. Dimensão Campus (derivada de silver.cursos)
-INSERT INTO gold.dim_campus (campus, regiao_admin, municipio)
-SELECT DISTINCT 
-    campus,
-    CASE 
-        WHEN campus = 'DARCY RIBEIRO' THEN 'Plano Piloto'
-        WHEN campus = 'GAMA' THEN 'Gama'
-        WHEN campus = 'PLANALTINA' THEN 'Planaltina'
-        WHEN campus = 'CEILANDIA' THEN 'Ceilândia'
-        ELSE 'Distrito Federal'
-    END AS regiao_admin,
-    'Brasília' AS municipio
-FROM silver.cursos
-ON CONFLICT (campus) DO NOTHING;
+SQL_DIM_CAMPUS = """
+INSERT INTO gold.dim_campus (campus, regiao_admin)
+SELECT campus,
+       CASE campus
+           WHEN 'DARCY RIBEIRO' THEN 'Plano Piloto'
+           WHEN 'FACULDADE DE CIENCIAS E TECNOLOGIAS EM ENGENHARIA (FCTE)' THEN 'Gama'
+           WHEN 'FACULDADE DE CIENCIAS E TECNOLOGIAS EM SAUDE (FCTS)' THEN 'Ceilândia'
+           WHEN 'FACULDADE DE PLANALTINA (FUP)' THEN 'Planaltina'
+           ELSE 'Distrito Federal'
+       END
+FROM (SELECT DISTINCT campus FROM silver.cursos UNION SELECT 'MULTICAMPUS') c
+ON CONFLICT (campus) DO UPDATE SET regiao_admin = EXCLUDED.regiao_admin
+"""
 
--- 2. Dimensão Curso (chave natural estável nome_curso derivada de silver.cursos 3NF)
-INSERT INTO gold.dim_curso (nome_curso, id_curso_origem, grau_academico, categoria_grau, area_conhecimento, departamento, is_tronco_abi)
-SELECT DISTINCT ON (nome_curso_norm)
-    nome_curso_norm AS nome_curso,
-    id_curso AS id_curso_origem,
-    grau_academico,
-    categoria_grau,
-    area_conhecimento,
-    departamento,
-    is_tronco_abi
-FROM silver.cursos
-ORDER BY nome_curso_norm, id_curso
-ON CONFLICT (nome_curso) DO UPDATE 
+# Mesmas regras de build_gold.py: os atributos vêm da oferta principal do nome (catálogo vigente,
+# menor id_curso), e bacharelado + licenciatura com o mesmo nome vira MISTO. Sem oferta com o nome
+# (ex.: COMUNICACAO SOCIAL), valem os do curso dono da matriz.
+SQL_DIM_CURSO = """
+WITH principal AS (
+    SELECT DISTINCT ON (nome_curso_norm) *
+    FROM silver.cursos
+    ORDER BY nome_curso_norm, ativo DESC, id_curso
+), misto AS (
+    SELECT nome_curso_norm FROM silver.cursos GROUP BY nome_curso_norm HAVING count(DISTINCT categoria_grau) > 1
+)
+INSERT INTO gold.dim_curso (nome_curso, id_curso_origem, grau_academico, categoria_grau, area_conhecimento,
+                            departamento, is_tronco_abi)
+SELECT e.nome_curso_canonico,
+       e.id_curso,
+       CASE WHEN m.nome_curso_norm IS NOT NULL THEN 'MISTO (BACHARELADO + LICENCIATURA)'
+            ELSE coalesce(p.grau_academico, dono.grau_academico) END,
+       CASE WHEN m.nome_curso_norm IS NOT NULL THEN 'MISTO' ELSE coalesce(p.categoria_grau, dono.categoria_grau) END,
+       coalesce(p.area_conhecimento, dono.area_conhecimento),
+       coalesce(p.departamento, dono.departamento),
+       coalesce(p.is_tronco_abi, dono.is_tronco_abi)
+FROM silver.estruturas_curriculares e
+JOIN silver.cursos dono ON dono.id_curso = e.id_curso
+LEFT JOIN principal p ON p.nome_curso_norm = e.nome_curso_canonico
+LEFT JOIN misto m ON m.nome_curso_norm = e.nome_curso_canonico
+ON CONFLICT (nome_curso) DO UPDATE
 SET id_curso_origem = EXCLUDED.id_curso_origem,
     grau_academico = EXCLUDED.grau_academico,
     categoria_grau = EXCLUDED.categoria_grau,
     area_conhecimento = EXCLUDED.area_conhecimento,
     departamento = EXCLUDED.departamento,
-    is_tronco_abi = EXCLUDED.is_tronco_abi;
+    is_tronco_abi = EXCLUDED.is_tronco_abi
+"""
 
--- 3. Dimensão Tempo (Semestres 2010 a 2026)
+SQL_DIM_TEMPO = """
 INSERT INTO gold.dim_tempo (sk_tempo, ano, semestre, rotulo, decada)
-SELECT 
-    (ano * 10 + sem)::integer AS sk_tempo,
-    ano::smallint,
-    sem::smallint,
-    ano || '/' || sem AS rotulo,
-    (ano / 10 * 10)::smallint AS decada
-FROM generate_series(2010, 2026) AS ano
+SELECT ano * 10 + sem, ano, sem, ano || '/' || sem, ano / 10 * 10
+FROM generate_series((SELECT min(ano_ingresso) FROM silver.movimentacoes_vinculos),
+                     extract(year FROM current_date)::int) AS ano
 CROSS JOIN (VALUES (1), (2)) AS s(sem)
-ON CONFLICT (sk_tempo) DO NOTHING;
+ON CONFLICT (sk_tempo) DO NOTHING
+"""
 
--- 4. Dimensão Perfil Social (Cotas e Ações Afirmativas)
+SQL_DIM_PERFIL_SOCIAL = """
 INSERT INTO gold.dim_perfil_social (perfil_macro, categoria_cota, faixa_renda, is_cotista)
-VALUES
-    ('AMPLA CONCORRENCIA', 'AMPLA CONCORRENCIA', 'NAO APLICAVEL', false),
-    ('ESCOLA PUBLICA', 'ESCOLA PUBLICA - PPI', 'BAIXA RENDA (<= 1.5 SM)', true),
-    ('ESCOLA PUBLICA', 'ESCOLA PUBLICA - PPI', 'INDEPENDENTE DE RENDA', true),
-    ('ESCOLA PUBLICA', 'ESCOLA PUBLICA - NAO PPI', 'BAIXA RENDA (<= 1.5 SM)', true),
-    ('ESCOLA PUBLICA', 'ESCOLA PUBLICA - NAO PPI', 'INDEPENDENTE DE RENDA', true),
-    ('OUTRAS COTAS', 'COTAS PCD', 'INDEPENDENTE DE RENDA', true),
-    ('OUTRAS COTAS', 'OUTRAS ACOES AFIRMATIVAS', 'NAO ESPECIFICADO', true)
-ON CONFLICT (perfil_macro, categoria_cota, faixa_renda, is_cotista) DO NOTHING;
+SELECT DISTINCT coalesce(perfil_social_macro, 'NAO INFORMADO'), coalesce(cota_detalhe, 'NAO INFORMADO'),
+       faixa_renda, is_cotista
+FROM silver.pibic_projetos
+ON CONFLICT ON CONSTRAINT uk_dim_perfil_social DO NOTHING
+"""
 
--- 5. Tabela Fato: Retenção e Formatura por Curso (k-anonimato assegurado por CHECK)
+# Mesmo corte de coorte e mesma regra de campus (MULTICAMPUS) de build_gold.py.
+SQL_FATO_RETENCAO = """
+WITH corte AS (
+    SELECT max(ano_ingresso) - %(anos_maturacao)s AS ano FROM silver.movimentacoes_vinculos
+), coortes AS (
+    SELECT e.nome_curso_canonico AS curso,
+           count(*) AS ingressantes,
+           count(*) FILTER (WHERE m.tipo_saida_grupo = 'FORMATURA') AS formados,
+           count(*) FILTER (WHERE m.tipo_saida_grupo = 'EVASAO') AS evadidos,
+           count(*) FILTER (WHERE m.tipo_saida_grupo = 'ATIVO') AS ativos
+    FROM silver.movimentacoes_vinculos m
+    JOIN silver.estruturas_curriculares e USING (id_estrutura)
+    WHERE m.ano_ingresso <= (SELECT ano FROM corte)
+    GROUP BY e.nome_curso_canonico
+    HAVING count(*) >= 5
+), campus_do_curso AS (
+    SELECT e.nome_curso_canonico AS curso,
+           CASE WHEN count(DISTINCT o.campus) > 1 THEN 'MULTICAMPUS'
+                ELSE coalesce(min(o.campus), dono.campus) END AS campus
+    FROM silver.estruturas_curriculares e
+    JOIN silver.cursos dono ON dono.id_curso = e.id_curso
+    LEFT JOIN silver.cursos o ON o.nome_curso_norm = e.nome_curso_canonico
+    GROUP BY e.nome_curso_canonico, dono.campus
+)
 INSERT INTO gold.fato_retencao_curso (
-    sk_curso,
-    sk_campus,
-    total_ingressantes,
-    total_formados,
-    total_evadidos,
-    total_ainda_ativos,
-    taxa_formatura_pct,
-    taxa_evasao_pct,
-    formados_tempo_ideal_pct,
-    atraso_medio_semestres,
-    indice_retencao_critica,
-    classificacao_retencao
-)
-SELECT 
-    c.sk_curso,
-    camp.sk_campus,
-    r.total_discentes_registrados,
-    r.total_formados,
-    r.total_evadidos_desligados,
-    COALESCE(r.total_ainda_ativos, 0),
-    r.taxa_formatura_pct,
-    r.taxa_evasao_pct,
-    r.formados_tempo_ideal_pct,
-    r.desvio_medio_semestres,
-    r.indice_retencao_critica,
-    r.classificacao_retencao
-FROM gold.retencao_cursos_unb r
-JOIN gold.dim_curso c ON r.curso = c.nome_curso
-JOIN gold.dim_campus camp ON r.campus = camp.campus
-ON CONFLICT (sk_curso, sk_campus) DO UPDATE 
-SET total_ingressantes = EXCLUDED.total_ingressantes,
-    total_formados = EXCLUDED.total_formados,
-    total_evadidos = EXCLUDED.total_evadidos,
-    total_ainda_ativos = EXCLUDED.total_ainda_ativos,
-    taxa_formatura_pct = EXCLUDED.taxa_formatura_pct,
-    taxa_evasao_pct = EXCLUDED.taxa_evasao_pct,
-    formados_tempo_ideal_pct = EXCLUDED.formados_tempo_ideal_pct,
-    atraso_medio_semestres = EXCLUDED.atraso_medio_semestres,
-    indice_retencao_critica = EXCLUDED.indice_retencao_critica,
-    classificacao_retencao = EXCLUDED.classificacao_retencao,
-    atualizado_em = now();
+    sk_curso, sk_campus, total_ingressantes, total_formados, total_evadidos, total_ainda_ativos,
+    taxa_formatura_pct, taxa_evasao_pct, formados_tempo_ideal_pct, atraso_medio_semestres,
+    indice_retencao_critica, classificacao_retencao)
+SELECT dc.sk_curso, camp.sk_campus, c.ingressantes, c.formados, c.evadidos, c.ativos,
+       round(100.0 * c.formados / c.ingressantes, 2), round(100.0 * c.evadidos / c.ingressantes, 2),
+       r.formados_tempo_ideal_pct, r.desvio_medio_semestres, r.indice_retencao_critica, r.classificacao_retencao
+FROM coortes c
+JOIN gold.dim_curso dc ON dc.nome_curso = c.curso
+JOIN campus_do_curso cc ON cc.curso = c.curso
+JOIN gold.dim_campus camp ON camp.campus = cc.campus
+LEFT JOIN gold.retencao_cursos_unb r ON r.curso = c.curso
+"""
 
--- 6. Tabela Fato: Alunos Ativos Hoje (Momento Presente e Atraso)
-INSERT INTO gold.fato_alunos_ativos (
-    sk_curso,
-    sk_tempo_referencia,
-    total_ativos,
-    ativos_acima_prazo_ideal,
-    ativos_acima_prazo_maximo,
-    pct_acima_prazo_ideal
-)
-SELECT 
-    c.sk_curso,
-    (SUBSTRING(a.periodo_referencia FROM 1 FOR 4) || SUBSTRING(a.periodo_referencia FROM 6 FOR 1))::integer AS sk_tempo_referencia,
-    a.total_ativos_hoje,
-    a.ativos_acima_prazo_ideal,
-    a.ativos_acima_prazo_maximo,
-    a.pct_acima_prazo_ideal
+SQL_FATO_ATIVOS = """
+INSERT INTO gold.fato_alunos_ativos (sk_curso, sk_tempo_referencia, total_ativos, ativos_acima_prazo_ideal,
+                                     ativos_acima_prazo_maximo, pct_acima_prazo_ideal)
+SELECT dc.sk_curso, replace(a.periodo_referencia, '/', '')::int, a.total_ativos_hoje,
+       a.ativos_acima_prazo_ideal, a.ativos_acima_prazo_maximo, a.pct_acima_prazo_ideal
 FROM gold.ativos_hoje_cursos_unb a
-JOIN gold.dim_curso c ON a.curso = c.nome_curso
-ON CONFLICT (sk_curso) DO UPDATE
-SET sk_tempo_referencia = EXCLUDED.sk_tempo_referencia,
-    total_ativos = EXCLUDED.total_ativos,
-    ativos_acima_prazo_ideal = EXCLUDED.ativos_acima_prazo_ideal,
-    ativos_acima_prazo_maximo = EXCLUDED.ativos_acima_prazo_maximo,
-    pct_acima_prazo_ideal = EXCLUDED.pct_acima_prazo_ideal,
-    atualizado_em = now();
+JOIN gold.dim_curso dc ON dc.nome_curso = a.curso
 """
 
 
-def executar_elt_dimensional():
-    """Executa a transformação e povoamento da modelagem dimensional no PostgreSQL."""
-    # 1. Garante que a camada Silver 3NF esteja consistente e populada
-    executar_elt_silver_3nf()
+def povoar_gold_dimensional(conn: psycopg.Connection) -> Dict[str, int]:
+    """Atualiza dimensões e recria fatos na transação de `conn`; devolve o número de linhas por tabela."""
+    for sql in (SQL_DIM_CAMPUS, SQL_DIM_CURSO, SQL_DIM_TEMPO, SQL_DIM_PERFIL_SOCIAL):
+        conn.execute(sql)
+    conn.execute("TRUNCATE gold.fato_retencao_curso, gold.fato_alunos_ativos RESTART IDENTITY")
+    conn.execute(SQL_FATO_RETENCAO, {"anos_maturacao": ANOS_MATURACAO_COORTE})
+    conn.execute(SQL_FATO_ATIVOS)
+    return {t: conn.execute(f"SELECT count(*) FROM {t}").fetchone()[0] for t in TABELAS_GOLD}
 
-    logger.info("Iniciando procedimento ELT dimensional no PostgreSQL...")
+
+def executar_elt_dimensional() -> Dict[str, int]:
     with conectar(autocommit=True) as conn:
+        if not silver_carregada(conn):
+            logger.warning("silver.discentes_graduacao vazia (banco só com a gold?): Star Schema não atualizado.")
+            return {}
         with conn.transaction():
-            conn.execute(SQL_POVOAR_DIMENSOES)
-        
-        # Refresh concorrente na view materializada
-        logger.info("Atualizando View Materializada gold.mv_dashboard_executivo...")
+            contagens = povoar_silver_3nf(conn)
+            contagens.update(povoar_gold_dimensional(conn))
+        # CONCURRENTLY não roda dentro de transação; mantém a view legível durante o refresh.
         conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY gold.mv_dashboard_executivo")
-        
-        # Coleta contagens para log
-        n_cursos = conn.execute("SELECT count(*) FROM gold.dim_curso").fetchone()[0]
-        n_campi = conn.execute("SELECT count(*) FROM gold.dim_campus").fetchone()[0]
-        n_perfil = conn.execute("SELECT count(*) FROM gold.dim_perfil_social").fetchone()[0]
-        n_fatos_ret = conn.execute("SELECT count(*) FROM gold.fato_retencao_curso").fetchone()[0]
-        n_fatos_atv = conn.execute("SELECT count(*) FROM gold.fato_alunos_ativos").fetchone()[0]
-        n_view = conn.execute("SELECT count(*) FROM gold.mv_dashboard_executivo").fetchone()[0]
-        
-    logger.info(
-        f"ELT Concluído: {n_campi} campi, {n_cursos} cursos, {n_perfil} perfis sociais, "
-        f"{n_fatos_ret} fatos de retenção, {n_fatos_atv} fatos de ativos hoje, {n_view} linhas na view executiva."
-    )
+        contagens["gold.mv_dashboard_executivo"] = conn.execute(
+            "SELECT count(*) FROM gold.mv_dashboard_executivo").fetchone()[0]
+    for tabela, n in contagens.items():
+        logger.info(f"{tabela}: {n:,} linhas.")
+    return contagens
 
 
 if __name__ == "__main__":
