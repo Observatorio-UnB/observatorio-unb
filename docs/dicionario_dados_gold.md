@@ -7,8 +7,9 @@ Este documento descreve a semântica, os tipos de dados e os métodos de cálcul
 ## 1. Metadados do Artefato
 - **Arquivo**: `data/gold/retencao_cursos_unb.csv`
 - **Granularidade**: 1 linha por curso canônico de graduação da UnB. Cursos com oferta dupla de Bacharelado e Licenciatura sob o mesmo nome no catálogo (ex. Química, Física, Matemática — ver seção 3) permanecem em uma única linha, com `categoria_grau = "MISTO"`.
-- **Total de Cursos Consolidados**: 88 cursos. O curso-tronco de ingresso comum `ENGENHARIA` (habilitação escolhida posteriormente pelo discente, ex. modelo FGA/FT) permanece na tabela e nas métricas globais — compõe o panorama geral da UnB — mas é descartado apenas nas telas de Visão Executiva e Detalhe por Curso do dashboard (`EXCLUDED_GENERIC_COURSES` em `src/dashboard/app.py`), por não ser um curso terminal válido para um raio-x individual.
-- **Fontes Primárias**: `sigra_discentes.csv` (24.5 MB) + `estrutura_curricular.csv` (76 KB) + `cursos_graduacao.csv` (45 KB).
+- **Total de Cursos Consolidados**: 95 cursos (versão de 09/2026). O curso-tronco de ingresso comum `ENGENHARIA` (habilitação escolhida posteriormente pelo discente, ex. modelo FGA/FT) permanece na tabela e nas métricas globais — compõe o panorama geral da UnB — mas é descartado apenas nas telas de Visão Executiva e Detalhe por Curso do dashboard (`EXCLUDED_GENERIC_COURSES` em `src/dashboard/app.py`), por não ser um curso terminal válido para um raio-x individual.
+- **Fontes Primárias**: `sigra_discentes.csv` (SIGRA, vínculos encerrados até 2020/1) + `sigaa_discentes.csv` (SIGAA, extrato de 07/2024) + `estrutura_curricular.csv` + `cursos_graduacao.csv`.
+- **Recorte Temporal**: coortes de ingresso com pelo menos 8 anos de acompanhamento até o último ano de ingresso da base (hoje 2010-2016; `ANOS_MATURACAO_COORTE` em `src/pipeline/build_gold.py`).
 - **Taxa de Casamento dos Joins**: 100.00%.
 
 ---
@@ -19,8 +20,8 @@ Este documento descreve a semântica, os tipos de dados e os métodos de cálcul
 | :--- | :--- | :--- | :--- |
 | `curso` | String | `CIENCIA DA COMPUTACAO` | Nome canônico e normalizado do curso de graduação da UnB (sem acentos, uppercase). |
 | `departamento` | String | `DEPTO CIENCIA DA COMPUTACAO` | Departamento acadêmico de vinculação principal da matriz. |
-| `campus` | String | `DARCY RIBEIRO` | Campus de oferta (Darcy Ribeiro, FGA - Gama, FCE - Ceilândia, FUP - Planaltina). |
-| `turno` | String | `DIURNO` | Turno de oferta, normalizado para `DIURNO`, `NOTURNO` ou `INTEGRAL`. Cursos autodesignados como `MATUTINO`, `VESPERTINO` ou `MATUTINO E VESPERTINO` no catálogo bruto são unificados em `DIURNO`, já que juntos cobrem o período diurno completo. |
+| `campus` | String | `DARCY RIBEIRO` | Campus de oferta (Darcy Ribeiro, FCTE - Gama, FCTS - Ceilândia, FUP - Planaltina). `MULTICAMPUS` quando o mesmo nome é oferecido em mais de um campus. |
+| `turno` | String | `DIURNO` | Turno de oferta, normalizado para `DIURNO`, `NOTURNO` ou `INTEGRAL`. Cursos autodesignados como `MATUTINO`, `VESPERTINO` ou `MATUTINO E VESPERTINO` no catálogo bruto são unificados em `DIURNO`, já que juntos cobrem o período diurno completo. Nome com oferta diurna e noturna fica `DIURNO E NOTURNO` (nenhuma fonte liga o discente à oferta). |
 | `area_conhecimento` | String | `CIENCIAS EXATAS E DA TERRA` | Grande área de conhecimento do CNPq/MEC. |
 | `grau_academico` | String | `BACHAREL` | Titulação literal conferida ao egresso, conforme cadastrada (Bacharel, Licenciado, Engenheiro Civil, Médico etc.). |
 | `categoria_grau` | String | `BACHARELADO` | Agrupamento de `grau_academico` em três classes de análise: `LICENCIATURA` (titulações de Licenciado), `BACHARELADO` (Bacharel e todas as titulações profissionais — Engenheiro\*, Médico, Enfermeiro, Nutricionista, Geólogo, Arquiteto e Urbanista, Cirurgião Dentista, Médico Veterinário) e `MISTO` para os 15 cursos com oferta dupla sob o mesmo nome (ver seção 3). |
@@ -28,13 +29,14 @@ Este documento descreve a semântica, os tipos de dados e os métodos de cálcul
 | `semestre_ideal_previsto` | Float | `9.0` | Duração padrão/ideal em semestres para integralização da matriz curricular. |
 | `semestre_maximo_previsto` | Float | `16.0` | Prazo máximo de permanência antes da abertura de processo de jubilamento. |
 | `carga_horaria_minima` | Float | `3600.0` | Carga horária total mínima (horas-aula) exigida para conclusão. |
-| `total_discentes_registrados` | Inteiro | `1450` | Volume total de discentes com registro de movimentação acadêmica no curso. |
-| `total_formados` | Inteiro | `580` | Quantidade total de discentes cuja forma de saída foi `Formatura`. |
-| `total_evadidos_desligados` | Inteiro | `850` | Total de discentes desligados (abandono, jubilamento, reprovação 3x na mesma disciplina). |
+| `total_discentes_registrados` | Inteiro | `1450` | Vínculos do curso nas coortes analisadas, somando SIGRA e SIGAA. |
+| `total_formados` | Inteiro | `580` | Vínculos encerrados por formatura (`Formatura` no SIGRA; `CONCLUÍDO` ou `FORMADO` no SIGAA). |
+| `total_evadidos_desligados` | Inteiro | `850` | Vínculos encerrados sem diploma: abandono, jubilamento, reprovação 3x, desligamento, mudança de curso/novo vestibular (SIGRA) e `CANCELADO` (SIGAA, que não publica o motivo). |
+| `total_ainda_ativos` | Inteiro | `40` | Vínculos das coortes analisadas ainda ativos, formandos ou trancados no extrato do SIGAA. |
 | `taxa_formatura_pct` | Float (%) | `40.00` | Percentual de discentes que concluíram o curso: $\frac{\text{total\_formados}}{\text{total\_discentes}} \times 100$. |
 | `taxa_evasao_pct` | Float (%) | `58.62` | Percentual de discentes evadidos/desligados: $\frac{\text{total\_evadidos}}{\text{total\_discentes}} \times 100$. |
 | `formados_tempo_minimo_pct` | Float (%) | `5.17` | Proporção de egressos que integralizaram o curso em prazo $\le \text{semestre\_minimo\_previsto}$. |
-| `formados_tempo_ideal_pct` | Float (%) | `42.50` | Proporção de egressos que integralizaram o curso em prazo $\le \text{semestre\_ideal\_previsto}$. |
+| `formados_tempo_ideal_pct` | Float (%) | `42.50` | Proporção de egressos que integralizaram o curso em prazo $\le \text{semestre\_ideal\_previsto}$. Nas quatro colunas `formados_*_pct` o denominador são os formados com permanência calculável (ficam de fora formados do SIGAA sem `data_registro_diploma`). |
 | `formados_acima_ideal_pct` | Float (%) | `57.50` | Proporção de egressos que ultrapassaram o tempo ideal ($100 - \text{formados\_tempo\_ideal\_pct}$). |
 | `formados_limite_maximo_pct` | Float (%) | `8.20` | Proporção de egressos que se formaram no limite do jubilamento ($\ge \text{semestre\_maximo\_previsto}$). |
 | `tempo_medio_real_semestres` | Float | `12.37` | Duração média observada em semestres entre o ingresso e a outorga de grau. |
@@ -52,3 +54,20 @@ Este documento descreve a semântica, os tipos de dados e os métodos de cálcul
 Uma primeira tentativa separou esses cursos usando o código `opcao` do SIGRA como proxy (o menor código observado por curso = Bacharelado, os demais = Licenciatura). Isso funciona de forma limpa apenas quando o curso tem exatamente 2 códigos de `opcao` distintos — o caso de Química (1449/1503). Nos outros 14 cursos há 3 a 6 códigos distintos (entradas por vestibular, SiSU, transferência, mudança de curso etc. registradas em anos diferentes), e não há como saber quais códigos pertencem a qual grau: aplicar a mesma regra em Física, por exemplo, isolava um subgrupo minoritário de 55 discentes (código de opção mais baixo) como "Bacharelado" com 0% de formatura — um resultado claramente incorreto, não apenas incompleto.
 
 **Decisão final**: em vez de dividir apenas os cursos onde a heurística funciona (criando uma experiência inconsistente — alguns cursos duplos separados, outros não) ou arriscar atribuições erradas nos demais, todos os 15 cursos permanecem como uma única linha na Gold, com `grau_academico = "MISTO (BACHARELADO + LICENCIATURA)"` e `categoria_grau = "MISTO"`. As métricas de retenção/evasão dessa linha somam as duas habilitações. Caso uma tabela oficial `opcao → curso/grau` do SIGRA seja obtida no futuro, essa lógica em `src/pipeline/build_gold.py` (função `build_gold_layer`, comentário "2.1") pode ser refeita para separar os discentes com uma correspondência real.
+
+---
+
+## Tabela `ativos_hoje_cursos_unb.csv`
+
+Discentes de graduação na **lista de ativos do SIGAA** do semestre mais recente publicado (`sigaa_ativos_AAAA_S.csv`, hoje 2025/1), por curso, de todas as coortes. Complementa a tabela de retenção, que só olha coortes com 8 anos de acompanhamento. Cursos-tronco e cursos sem estrutura curricular publicada ficam de fora. Só entram cursos com 5 ou mais ativos (k-anonimato).
+
+| Coluna | Tipo | Exemplo | Descrição |
+| :--- | :--- | :--- | :--- |
+| `curso` | String | `MUSEOLOGIA` | Nome canônico do curso (mesmo de `retencao_cursos_unb.csv`). |
+| `periodo_referencia` | String | `2025/1` | Semestre da lista de ativos, tirado do nome do arquivo publicado. |
+| `semestre_ideal_previsto` | Float | `8.0` | Duração ideal da matriz curricular. |
+| `semestre_maximo_previsto` | Float | `12.0` | Prazo máximo de integralização. |
+| `total_ativos_hoje` | Inteiro | `297` | Discentes do curso na lista de ativos. A lista não separa formandos nem trancados. |
+| `ativos_acima_prazo_ideal` | Inteiro | `120` | Já cursaram mais semestres que a duração ideal. Semestres = do ingresso (ano e semestre) até o de referência, contando os dois; o verão conta como 1º semestre. |
+| `ativos_acima_prazo_maximo` | Inteiro | `40` | Já passaram do prazo máximo de integralização. |
+| `pct_acima_prazo_ideal` | Float | `40.4` | `ativos_acima_prazo_ideal / total_ativos_hoje × 100`. |

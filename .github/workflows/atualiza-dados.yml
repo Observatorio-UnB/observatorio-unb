@@ -1,0 +1,88 @@
+name: Atualização mensal dos dados
+
+# Coleta as fontes (portal dados.unb.br, INEP, valor da bolsa IC do CNPq), roda o pipeline
+# inteiro e os testes e, se algo mudou, versiona o resultado na main. Depois dispara o
+# Medalhão para publicar o painel com os dados novos (push feito com GITHUB_TOKEN não
+# dispara outros workflows; workflow_dispatch sim).
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 1 * *" # dia 1 de cada mês, 06:00 UTC
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: atualiza-dados
+  cancel-in-progress: false
+
+jobs:
+  atualiza:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: observatorio
+          POSTGRES_PASSWORD: observatorio
+          POSTGRES_DB: observatorio
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U observatorio -d observatorio"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://observatorio:observatorio@localhost:5432/observatorio
+      FASTEMBED_CACHE_PATH: ${{ github.workspace }}/.cache/fastembed
+      # Os ~12,5 mil planos de IC levam vários minutos em CPU; a busca não é versionada.
+      VETORIZAR_TIPOS: curso,documentacao
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: "Cache do modelo de embedding"
+        uses: actions/cache@v4
+        with:
+          path: .cache/fastembed
+          key: fastembed-paraphrase-multilingual-MiniLM-L12-v2
+
+      # Mesmo roteiro do docker compose: INEP e CNPq que caírem só geram aviso, e o pipeline
+      # segue com o que já está versionado.
+      - name: "Pipeline completo"
+        env:
+          PYTHON: python
+        run: bash scripts/rodar_pipeline.sh
+
+      - name: "Verificação determinística (contratos da Gold)"
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: "Versiona dados atualizados"
+        id: versiona
+        run: |
+          git add data/gold/ data/bronze/metadata_*.json data/bronze/cnpq_valor_bolsa_ic.json docs/relatorio_qualidade.md docs/registro_privacidade_lgpd.md docs/dicionario_dados_banco.md
+          if git diff --cached --quiet; then
+            echo "Fontes sem mudanças; nada a versionar."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(dados): atualização mensal das fontes"
+          git push
+          echo "mudou=true" >> "$GITHUB_OUTPUT"
+
+      - name: "Publica o painel com os dados novos"
+        if: steps.versiona.outputs.mudou == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run medalhao.yml --ref main
