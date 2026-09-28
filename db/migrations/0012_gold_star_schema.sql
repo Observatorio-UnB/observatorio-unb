@@ -13,8 +13,8 @@
 -- 1. Dimensão Curso
 CREATE TABLE IF NOT EXISTS gold.dim_curso (
     sk_curso            INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    id_curso_origem     INTEGER NOT NULL UNIQUE,
-    nome_curso          TEXT NOT NULL,
+    nome_curso          TEXT NOT NULL UNIQUE,
+    id_curso_origem     INTEGER,
     grau_academico      TEXT NOT NULL,
     categoria_grau      TEXT NOT NULL CHECK (categoria_grau IN ('BACHARELADO', 'LICENCIATURA', 'MISTO')),
     area_conhecimento   TEXT NOT NULL,
@@ -48,7 +48,8 @@ CREATE TABLE IF NOT EXISTS gold.dim_perfil_social (
     perfil_macro        TEXT NOT NULL,
     categoria_cota      TEXT NOT NULL,
     faixa_renda         TEXT,
-    is_cotista          BOOLEAN NOT NULL
+    is_cotista          BOOLEAN NOT NULL,
+    CONSTRAINT uk_dim_perfil_social UNIQUE (perfil_macro, categoria_cota, faixa_renda, is_cotista)
 );
 COMMENT ON TABLE gold.dim_perfil_social IS 'Dimensão social e de ações afirmativas.';
 

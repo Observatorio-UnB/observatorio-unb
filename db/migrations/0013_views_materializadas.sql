@@ -34,7 +34,7 @@ LEFT JOIN gold.fato_alunos_ativos fa ON c.sk_curso = fa.sk_curso
 WHERE c.is_tronco_abi = false;
 
 -- O índice exclusivo é requisito obrigatório do PostgreSQL para REFRESH CONCURRENTLY
-CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_executivo_sk ON gold.mv_dashboard_executivo (sk_curso);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_executivo_sk ON gold.mv_dashboard_executivo (sk_curso, campus);
 
 COMMENT ON MATERIALIZED VIEW gold.mv_dashboard_executivo IS
   'Visão Executiva do DEG pré-computada para renderização sub-milissegundo no Streamlit.';

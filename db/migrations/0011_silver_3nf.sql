@@ -31,13 +31,14 @@ CREATE TABLE IF NOT EXISTS silver.cursos (
     codigo_sigaa        TEXT,
     nome_curso_norm     TEXT NOT NULL,
     campus              TEXT NOT NULL,
-    turno               TEXT NOT NULL CHECK (turno IN ('DIURNO', 'NOTURNO', 'INTEGRAL')),
+    turno               TEXT NOT NULL CHECK (turno IN ('DIURNO', 'NOTURNO', 'INTEGRAL', 'DIURNO E NOTURNO')),
     grau_academico      TEXT NOT NULL,
     categoria_grau      TEXT NOT NULL CHECK (categoria_grau IN ('BACHARELADO', 'LICENCIATURA', 'MISTO')),
     area_conhecimento   TEXT NOT NULL,
     departamento        TEXT,
     is_tronco_abi       BOOLEAN NOT NULL DEFAULT false,
-    ativo               BOOLEAN NOT NULL DEFAULT true
+    ativo               BOOLEAN NOT NULL DEFAULT true,
+    CONSTRAINT uk_cursos_nome UNIQUE (nome_curso_norm)
 );
 CREATE INDEX IF NOT EXISTS idx_cursos_nome_trgm ON silver.cursos USING gin (nome_curso_norm gin_trgm_ops);
 
@@ -88,6 +89,8 @@ CREATE TABLE IF NOT EXISTS silver.movimentacoes_p2016_2020
     PARTITION OF silver.movimentacoes_vinculos FOR VALUES FROM (2016) TO (2021);
 CREATE TABLE IF NOT EXISTS silver.movimentacoes_p2021_atual 
     PARTITION OF silver.movimentacoes_vinculos FOR VALUES FROM (2021) TO (2035);
+CREATE TABLE IF NOT EXISTS silver.movimentacoes_p_default 
+    PARTITION OF silver.movimentacoes_vinculos DEFAULT;
 
 -- Índices B-Tree especializados para filtros frequentes
 CREATE INDEX IF NOT EXISTS idx_mov_curso_ano ON silver.movimentacoes_vinculos (id_curso, ano_ingresso);
