@@ -22,7 +22,7 @@ Os arquivos `SIGAA_Concluintes_*` continuam fora: as listas de 2024/1 (1.508 for
 - Referência 2025/1 em vez de 2024/1, e contagem exata de semestres cursados, sem o limite inferior da ADR 0019.
 - A lista não separa formandos nem trancados; essas colunas saíram da Gold.
 - 38 registros de graduação sem grau (Filosofia e Música) ficam de fora, por não se distinguirem do lato sensu.
-- Quando a UnB publicar `sigaa_ativos_2025_2.csv`, a ingestão semanal pega sozinha ([ADR 0018](0018-atualizacao-semanal-commit-na-main.md)).
+- Quando a UnB publicar `sigaa_ativos_2025_2.csv`, a ingestão mensal pega sozinha ([ADR 0018](0018-atualizacao-mensal-commit-na-main.md)).
 
 ## Adendo: bolsistas de IC
 

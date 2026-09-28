@@ -498,7 +498,7 @@ Retenção, formatura e evasão por curso, sobre as coortes de ingresso com pelo
 
 Um documento de texto por entidade pesquisável: cada curso da gold, cada plano de IC distinto e cada seção da documentação em docs/. Não contém nome nem matrícula.
 
-**Linhas na última carga:** 12.879
+**Linhas na última carga:** variável (depende de `VETORIZAR_TIPOS`)
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |

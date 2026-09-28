@@ -21,7 +21,7 @@ Cada arquivo registra uma decisão: o contexto que a motivou, o que foi decidido
 | 0015 | [Semestre de conclusão do SIGAA estimado pela data do diploma](0015-semestre-de-saida-estimado.md) | 2026-09-26 |
 | 0016 | [Catálogo de cursos fixo na versão de 2022](0016-catalogo-cursos-fixo-2022.md) (substituída pela 0021) | 2026-09-26 |
 | 0017 | [Arquivos nominais do SIGAA ficam fora da ingestão](0017-arquivos-nominais-fora.md) | 2026-09-26 |
-| 0018 | [Atualização automática com commit direto na main](0018-atualizacao-semanal-commit-na-main.md) | 2026-09-26 |
+| 0018 | [Atualização automática com commit direto na main](0018-atualizacao-mensal-commit-na-main.md) | 2026-09-26 |
 | 0019 | [Tabela de alunos ativos hoje com contagem conservadora de atraso](0019-ativos-hoje.md) | 2026-09-26 |
 | 0020 | [Lista de ativos do SIGAA com minimização de colunas](0020-lista-de-ativos-com-minimizacao.md) | 2026-09-26 |
 | 0021 | [Catálogo de cursos com todas as versões, a mais recente valendo](0021-catalogo-todas-as-versoes.md) | 2026-09-26 |

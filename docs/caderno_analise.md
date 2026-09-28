@@ -11,12 +11,12 @@
 
 ### **GQ 1: Qual o percentual de concluintes que se forma no tempo mínimo, ideal e acima do ideal?**
 - **Evidência Global**:
-  - Na média de toda a UnB, **50.14%** dos formados integralizam o curso dentro do prazo ideal previsto pela matriz curricular.
-  - **49.43%** dos egressos necessitam de semestres adicionais além do prazo ideal para conseguir outorga de grau (os 0.43% restantes são formados sem data de conclusão publicada).
+  - Na média de toda a UnB, **50.36%** dos formados integralizam o curso dentro do prazo ideal previsto pela matriz curricular.
+  - **49.64%** dos egressos necessitam de semestres adicionais além do prazo ideal para conseguir outorga de grau. Os dois percentuais contam só os formados com data de conclusão publicada (ficam de fora 150 formados do SIGAA sem `data_registro_diploma`, 0,4% do total).
   - A versão anterior, só com o SIGRA, mostrava 62.05% no prazo: ela enxergava apenas quem saiu até 2020, isto é, os que se formaram mais rápido. Os formados depois da migração, que só aparecem no SIGAA, são justamente os mais demorados.
 - **Disparidade Extrema entre Cursos**:
-  - Cursos com maior taxa de formatura no tempo ideal: *Medicina* (83.72%) e *Direito* (82.53%).
-  - Cursos com menor taxa de formatura no tempo ideal (alta retenção): *Engenharia Aeroespacial* (3.3%), *Letras - Tradução - Inglês* (4.0%) e *Línguas Estrangeiras Aplicadas - MSI* (5.8%).
+  - Cursos com maior taxa de formatura no tempo ideal: *Medicina* (83.72%) e *Direito* (82.75%).
+  - Cursos com menor taxa de formatura no tempo ideal (alta retenção): *Engenharia Aeroespacial* (3.3%), *Letras - Tradução - Inglês* (4.35%) e *Línguas Estrangeiras Aplicadas - MSI* (5.8%).
 
 ---
 

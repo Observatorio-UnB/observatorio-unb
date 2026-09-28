@@ -13,4 +13,4 @@ O dados.unb.br roda CKAN 2.11. Um mesmo pacote tem vários arquivos (por exemplo
 
 ## Consequências
 
-Uma versão nova com o mesmo padrão de nome (ex.: `sigaa_2025_2.csv`) entra sozinha; um arquivo de outra natureza no pacote não é pego por engano. Os `metadata_*.json` servem de detector de mudança no portal (ver [ADR 0018](0018-atualizacao-semanal-commit-na-main.md)).
+Uma versão nova com o mesmo padrão de nome (ex.: `sigaa_2025_2.csv`) entra sozinha; um arquivo de outra natureza no pacote não é pego por engano. Os `metadata_*.json` servem de detector de mudança no portal (ver [ADR 0018](0018-atualizacao-mensal-commit-na-main.md)).

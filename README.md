@@ -214,9 +214,9 @@ derivadas (Gold) seguem os termos de uso do portal de origem.
 
 Recorte: SIGRA + SIGAA, coortes de ingresso 2010-2016 (as com 8 anos ou mais de acompanhamento). Os números abaixo são da Gold de 09/2026; a atualização mensal pode alterá-los.
 
-1. **Taxa de Formatura no Tempo Ideal**: Apenas **50.14%** dos formados na UnB concluem o curso dentro do prazo regulamentar da matriz curricular.
+1. **Taxa de Formatura no Tempo Ideal**: Apenas **50.36%** dos formados na UnB concluem o curso dentro do prazo regulamentar da matriz curricular.
 2. **Tempo Médio Global de Conclusão**: **11.77 semestres** (~5.9 anos).
 3. **Cursos com Maior Retenção Crítica (IRC)**: *Física Computacional*, *Computação*, *Ciência da Computação* e *Línguas Estrangeiras Aplicadas - MSI* combinam atrasos médios de 2,8 a 4,3 semestres e taxas de evasão acima de 59%.
-4. **Cursos com Maior Pontualidade**: *Medicina* (83.72% no tempo ideal), *Direito* (82.53%) e *Língua de Sinais Brasileira - Português como Segunda Língua* (79.41%).
+4. **Cursos com Maior Pontualidade**: *Medicina* (83.72% no tempo ideal), *Direito* (82.75%) e *Língua de Sinais Brasileira - Português como Segunda Língua* (81.82%).
 5. **Cursos Noturnos**: Apresentam evasão média maior (**50.90%** vs. **40.85%** no diurno; cursos com oferta diurna e noturna sob o mesmo nome ficam fora da comparação).
 6. **Taxa de Casamento dos Joins**: **100%** dos 152.680 vínculos de graduação integrados com estruturas curriculares.

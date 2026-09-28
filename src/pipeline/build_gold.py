@@ -592,7 +592,7 @@ def build_ativos_hoje(df_est: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
     df.insert(1, "periodo_referencia", referencia)
     df["pct_acima_prazo_ideal"] = (
         df["ativos_acima_prazo_ideal"] / df["total_ativos_hoje"] * 100).round(2)
-    df = df.sort_values("pct_acima_prazo_ideal", ascending=False)
+    df = df.sort_values(["pct_acima_prazo_ideal", "curso"], ascending=[False, True])
 
     df.to_csv(GOLD_DIR / "ativos_hoje_cursos_unb.csv", index=False, encoding="utf-8")
     logger.info(
@@ -794,15 +794,18 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
         taxa_formatura = (n_formados / total_ing * 100) if total_ing else 0.0
         taxa_evasao = (n_evadidos / total_ing * 100) if total_ing else 0.0
 
-        if n_formados > 0:
+        # Percentuais de prazo só sobre formados com permanência calculável (há formados do
+        # SIGAA sem data_registro_diploma); assim tempo ideal + acima do ideal somam 100%.
+        n_com_prazo = int(grp_formados["semestres_permanencia_valida"].notna().sum())
+        if n_com_prazo > 0:
             pct_minimo = (
-                grp_formados["formou_tempo_minimo"].sum() / n_formados) * 100
+                grp_formados["formou_tempo_minimo"].sum() / n_com_prazo) * 100
             pct_ideal = (
-                grp_formados["formou_tempo_ideal"].sum() / n_formados) * 100
+                grp_formados["formou_tempo_ideal"].sum() / n_com_prazo) * 100
             pct_acima = (
-                grp_formados["formou_acima_ideal"].sum() / n_formados) * 100
+                grp_formados["formou_acima_ideal"].sum() / n_com_prazo) * 100
             pct_maximo = (
-                grp_formados["formou_limite_maximo"].sum() / n_formados) * 100
+                grp_formados["formou_limite_maximo"].sum() / n_com_prazo) * 100
 
             tempo_medio = grp_formados["semestres_permanencia_valida"].mean()
             tempo_mediano = grp_formados["semestres_permanencia_valida"].median(
@@ -938,8 +941,9 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
             df_gold.drop(columns=["curso_pibic_norm"], inplace=True)
 
     # Ordenar por índice de retenção decrescente
+    # Nome do curso desempata, para a ordem não depender da versão do pandas
     df_gold = df_gold.sort_values(
-        by="indice_retencao_critica", ascending=False)
+        by=["indice_retencao_critica", "curso"], ascending=[False, True])
 
     # Salvar tabela Gold
     gold_csv_path = GOLD_DIR / "retencao_cursos_unb.csv"
@@ -954,13 +958,15 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     total_formados_unb = int(df_valid["is_formado"].sum())
     formados_ideal_unb = int(df_valid["formou_tempo_ideal"].sum())
     formados_acima_unb = int(df_valid["formou_acima_ideal"].sum())
+    formados_com_prazo_unb = int(
+        df_valid.loc[df_valid["is_formado"], "semestres_permanencia_valida"].notna().sum())
 
     global_metrics = {
         "coortes_ingresso_analisadas": f"{primeira_coorte}-{ultima_coorte}",
         "total_discentes_analisados": len(df_valid),
         "total_formados_unb": total_formados_unb,
-        "taxa_conclusao_tempo_ideal_global_pct": round(formados_ideal_unb / total_formados_unb * 100, 2),
-        "taxa_conclusao_acima_ideal_global_pct": round(formados_acima_unb / total_formados_unb * 100, 2),
+        "taxa_conclusao_tempo_ideal_global_pct": round(formados_ideal_unb / formados_com_prazo_unb * 100, 2),
+        "taxa_conclusao_acima_ideal_global_pct": round(formados_acima_unb / formados_com_prazo_unb * 100, 2),
         "tempo_medio_formatura_global_semestres": round(df_valid[df_valid["is_formado"]]["semestres_permanencia_valida"].mean(), 2),
         "desvio_medio_global_semestres": round(df_valid[df_valid["is_formado"]]["desvio_semestres_individual"].mean(), 2),
         "top_5_cursos_maior_retencao": df_gold.head(5)[["curso", "tempo_medio_real_semestres", "taxa_evasao_pct", "indice_retencao_critica"]].to_dict(orient="records"),
@@ -1074,7 +1080,7 @@ def build_inep_benchmark_gold() -> pd.DataFrame:
         df_bench["mediana_desvinculacao_federais_pct"]
     ).round(2)
     df_bench = df_bench.rename(columns={"NO_CURSO": "curso_inep"}).sort_values(
-        "qt_matriculas_unb", ascending=False
+        ["qt_matriculas_unb", "curso_inep"], ascending=[False, True]
     )
 
     out_path = GOLD_DIR / "inep_benchmark_cursos_unb.csv"
@@ -1230,7 +1236,9 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
         curso_agg["total_cotistas"] / curso_agg["total_projetos"] * 100).round(1)
     curso_agg["taxa_voluntario_pct"] = (
         curso_agg["total_voluntarias_pivic"] / curso_agg["total_projetos"] * 100).round(1)
-    curso_agg = curso_agg.sort_values(by="total_projetos", ascending=False)
+    curso_agg = curso_agg.sort_values(
+        by=["total_projetos", "curso_pibic_norm", "campus", "area_conhecimento"],
+        ascending=[False, True, True, True])
 
     # Salvar tabela Gold do PIBIC
     pibic_gold_csv = GOLD_DIR / "pibic_social_unb.csv"

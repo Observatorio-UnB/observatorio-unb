@@ -36,7 +36,7 @@ Este documento descreve a semântica, os tipos de dados e os métodos de cálcul
 | `taxa_formatura_pct` | Float (%) | `40.00` | Percentual de discentes que concluíram o curso: $\frac{\text{total\_formados}}{\text{total\_discentes}} \times 100$. |
 | `taxa_evasao_pct` | Float (%) | `58.62` | Percentual de discentes evadidos/desligados: $\frac{\text{total\_evadidos}}{\text{total\_discentes}} \times 100$. |
 | `formados_tempo_minimo_pct` | Float (%) | `5.17` | Proporção de egressos que integralizaram o curso em prazo $\le \text{semestre\_minimo\_previsto}$. |
-| `formados_tempo_ideal_pct` | Float (%) | `42.50` | Proporção de egressos que integralizaram o curso em prazo $\le \text{semestre\_ideal\_previsto}$. |
+| `formados_tempo_ideal_pct` | Float (%) | `42.50` | Proporção de egressos que integralizaram o curso em prazo $\le \text{semestre\_ideal\_previsto}$. Nas quatro colunas `formados_*_pct` o denominador são os formados com permanência calculável (ficam de fora formados do SIGAA sem `data_registro_diploma`). |
 | `formados_acima_ideal_pct` | Float (%) | `57.50` | Proporção de egressos que ultrapassaram o tempo ideal ($100 - \text{formados\_tempo\_ideal\_pct}$). |
 | `formados_limite_maximo_pct` | Float (%) | `8.20` | Proporção de egressos que se formaram no limite do jubilamento ($\ge \text{semestre\_maximo\_previsto}$). |
 | `tempo_medio_real_semestres` | Float | `12.37` | Duração média observada em semestres entre o ingresso e a outorga de grau. |
