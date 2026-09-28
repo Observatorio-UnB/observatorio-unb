@@ -266,8 +266,20 @@ def povoar_pibic_projetos(conn) -> int:
     if n_pibic == 0:
         return 0
 
+    # Verifica se a tabela ainda possui matricula_mascarada (removida na migração 0010_pibic.sql sob LGPD)
+    colunas_pb = {
+        row[0]
+        for row in conn.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_schema = 'silver' AND table_name = 'pibic_bolsistas'"
+        ).fetchall()
+    }
+    tem_matricula = "matricula_mascarada" in colunas_pb
+
+    discente_select = "d.id_discente" if tem_matricula else "NULL::bigint"
+    discente_join = "LEFT JOIN silver.discentes d ON pb.matricula_mascarada = d.pseudonimo" if tem_matricula else ""
+
     logger.info(f"Populando silver.pibic_projetos a partir de silver.pibic_bolsistas ({n_pibic} registros)...")
-    conn.execute("""
+    conn.execute(f"""
         INSERT INTO silver.pibic_projetos (
             id_discente,
             id_curso,
@@ -282,7 +294,7 @@ def povoar_pibic_projetos(conn) -> int:
             status_projeto
         )
         SELECT 
-            d.id_discente,
+            {discente_select},
             c.id_curso,
             COALESCE(pb.ano, 2022)::smallint,
             CASE 
@@ -297,7 +309,7 @@ def povoar_pibic_projetos(conn) -> int:
             COALESCE(pb.titulo_norm, 'PLANO DE TRABALHO PIBIC'),
             pb.status_norm
         FROM silver.pibic_bolsistas pb
-        LEFT JOIN silver.discentes d ON pb.matricula_mascarada = d.pseudonimo
+        {discente_join}
         LEFT JOIN silver.cursos c ON pb.curso_pibic_norm = c.nome_curso_norm
         ON CONFLICT DO NOTHING;
     """)
