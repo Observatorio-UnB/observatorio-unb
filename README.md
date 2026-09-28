@@ -103,6 +103,7 @@ python3 src/pipeline/build_gold.py
 # 6. Banco: sobe o PostgreSQL, aplica as migrações e carrega bronze, silver e gold
 docker compose up -d db
 python3 src/db/carregar.py
+python3 src/db/povoar_dimensional.py   # Silver 3NF e Star Schema da gold
 
 # 7. Busca semântica e dicionário de dados do banco
 python3 src/busca/vetorizar.py
@@ -152,6 +153,12 @@ scripts usam o banco do `docker-compose.yml` em `localhost:5435`.
 > ⚠️ **Banco remoto (ex.: Supabase):** bronze e silver têm registro individual de
 > discente. Num banco hospedado por terceiros, carregue só a gold:
 > `python3 src/db/carregar.py --camadas gold`.
+
+**Supabase:** a última etapa do pipeline, `src/db/sincronizar_supabase.py`, envia a gold, o
+Star Schema e `busca.documentos` do banco local para `SUPABASE_DATABASE_URL`. A comparação é
+pela chave natural: insere o que é novo, atualiza o que mudou (`--somente-inserir` desliga a
+atualização) e não apaga nada; rodar de novo sem mudança não escreve nenhuma linha. No CI a
+etapa usa o secret `SUPABASE_DATABASE_URL` e não roda em pull request.
 
 ### Busca semântica
 Cada curso da gold, cada plano de iniciação científica (título, ano, curso e linha,

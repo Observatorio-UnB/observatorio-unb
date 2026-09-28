@@ -10,7 +10,7 @@ import hashlib
 import logging
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
@@ -34,11 +34,11 @@ def _checksum(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def aplicar_migracoes() -> List[str]:
+def aplicar_migracoes(url: Optional[str] = None) -> List[str]:
     """Aplica as migrações pendentes e devolve os nomes das que foram aplicadas agora."""
     # autocommit: cada `conn.transaction()` abaixo é uma transação de verdade, e não um
     # savepoint dentro da transação implícita aberta pelo primeiro comando.
-    conn = conectar(autocommit=True)
+    conn = conectar(url, autocommit=True)
     aplicadas_agora = []
     try:
         conn.execute("SELECT pg_advisory_lock(%s)", (ADVISORY_LOCK_ID,))
