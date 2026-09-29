@@ -41,6 +41,7 @@ jobs:
       FASTEMBED_CACHE_PATH: ${{ github.workspace }}/.cache/fastembed
       # Os ~12,5 mil planos de IC levam vários minutos em CPU; a busca não é versionada.
       VETORIZAR_TIPOS: curso,documentacao
+      SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -70,7 +71,7 @@ jobs:
       - name: "Versiona dados atualizados"
         id: versiona
         run: |
-          git add data/gold/ data/bronze/metadata_*.json data/bronze/cnpq_valor_bolsa_ic.json docs/relatorio_qualidade.md docs/registro_privacidade_lgpd.md docs/dicionario_dados_banco.md
+          git add data/bronze/cnpq_valor_bolsa_ic.json docs/relatorio_qualidade.md docs/registro_privacidade_lgpd.md docs/dicionario_dados_banco.md
           if git diff --cached --quiet; then
             echo "Fontes sem mudanças; nada a versionar."
             exit 0

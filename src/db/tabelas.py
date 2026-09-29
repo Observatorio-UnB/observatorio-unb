@@ -15,6 +15,7 @@ ou sem coluna obrigatória: a mudança precisa de uma migração nova em db/migr
 import json
 import logging
 import math
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
@@ -41,6 +42,10 @@ NULOS_DO_READ_CSV = {
     "", "#N/A", "#N/A N/A", "#NA", "-1.#IND", "-1.#QNAN", "-NaN", "-nan", "1.#IND", "1.#QNAN",
     "<NA>", "N/A", "NA", "NULL", "NaN", "None", "n/a", "nan", "null",
 }
+
+
+# Gravações adiadas por gravacao_atomica(): {"tabelas": {nome: df}, "relatorios": {nome: json}}.
+_pendente: Optional[Dict] = None
 
 
 class ErroDeContrato(Exception):
@@ -128,6 +133,11 @@ def gravar_varias(tabelas: Dict[str, pd.DataFrame], conn: Optional[psycopg.Conne
     contagens = {}
     if not tabelas:
         return contagens
+    if _pendente is not None and conn is None:
+        for tabela, df in tabelas.items():
+            _pendente["tabelas"][tabela] = df.reset_index(drop=True)
+            contagens[tabela] = len(df)
+        return contagens
 
     def _executar(c: psycopg.Connection):
         # Datas das fontes chegam como dd/mm/aaaa.
@@ -178,6 +188,8 @@ def consultar(consulta: str, params=None) -> pd.DataFrame:
 
 def ler(tabela: str, colunas_de_controle: bool = False) -> pd.DataFrame:
     """Lê uma tabela inteira, na ordem em que foi gravada."""
+    if _pendente is not None and tabela in _pendente["tabelas"]:
+        return _pendente["tabelas"][tabela].copy()
     with _conectar_leitura() as conn:
         colunas = colunas_da_tabela(conn, tabela)
         nomes = [c.nome for c in colunas]
@@ -201,6 +213,8 @@ def ler_bronze(tabela: str) -> pd.DataFrame:
 
 
 def tem_linhas(tabela: str) -> bool:
+    if _pendente is not None and tabela in _pendente["tabelas"]:
+        return len(_pendente["tabelas"][tabela]) > 0
     with conectar() as conn:
         esquema, nome = tabela.split(".")
         consulta = sql.SQL("SELECT EXISTS (SELECT 1 FROM {})").format(sql.Identifier(esquema, nome))
@@ -220,18 +234,50 @@ def _sem_nan(valor):
     return valor
 
 
+def _upsert_relatorio(conn: psycopg.Connection, nome: str, texto: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO gold.relatorios (nome, conteudo) VALUES (%s, %s)
+        ON CONFLICT (nome) DO UPDATE SET conteudo = EXCLUDED.conteudo, _carregado_em = now()
+        """,
+        (nome, texto),
+    )
+    logger.info(f"gold.relatorios: relatório '{nome}' gravado.")
+
+
 def gravar_relatorio(nome: str, conteudo: Dict) -> None:
     """Grava (ou substitui) um relatório JSON em gold.relatorios."""
     texto = json.dumps(_sem_nan(conteudo), ensure_ascii=False, allow_nan=False)
+    if _pendente is not None:
+        _pendente["relatorios"][nome] = texto
+        return
     with conectar() as conn:
-        conn.execute(
-            """
-            INSERT INTO gold.relatorios (nome, conteudo) VALUES (%s, %s)
-            ON CONFLICT (nome) DO UPDATE SET conteudo = EXCLUDED.conteudo, _carregado_em = now()
-            """,
-            (nome, texto),
-        )
-    logger.info(f"gold.relatorios: relatório '{nome}' gravado.")
+        _upsert_relatorio(conn, nome, texto)
+
+
+@contextmanager
+def gravacao_atomica():
+    """Adia as gravações do bloco e aplica todas numa transação só ao sair.
+
+    Quem lê o banco vê a camada anterior inteira ou a nova inteira, nunca uma gold pela
+    metade. Se o bloco falhar, nada é gravado. Dentro do bloco, ler() e tem_linhas()
+    enxergam as tabelas ainda pendentes.
+    """
+    global _pendente
+    _pendente = {"tabelas": {}, "relatorios": {}}
+    try:
+        yield
+        pendente, _pendente = _pendente, None
+        with conectar(autocommit=True) as c:
+            with c.transaction():
+                if pendente["tabelas"]:
+                    gravar_varias(pendente["tabelas"], conn=c)
+                for nome, texto in pendente["relatorios"].items():
+                    _upsert_relatorio(c, nome, texto)
+            for tabela in pendente["tabelas"]:
+                c.execute(f"ANALYZE {tabela}")
+    finally:
+        _pendente = None
 
 
 def ler_relatorio(nome: str) -> Optional[Dict]:

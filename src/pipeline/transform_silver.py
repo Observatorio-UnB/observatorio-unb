@@ -120,13 +120,6 @@ def recurso_baixado(chave: str) -> dict:
     except Exception:
         pass
 
-    meta_file = BRONZE_DIR / f"metadata_{cfg['package_id']}.json"
-    if meta_file.exists():
-        with open(meta_file, encoding="utf-8") as f:
-            recursos = json.load(f)["resources"]
-        rec = escolher_recurso(recursos, cfg["resource_pattern"])
-        if rec:
-            return rec
     return {"url": "", "created": "2024-07-01"}
 
 

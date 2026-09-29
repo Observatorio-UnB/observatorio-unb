@@ -22,11 +22,11 @@ etapa "Bronze: ingestão via API CKAN"
 "$PYTHON" src/ingestion/ckan_client.py
 
 # O servidor do INEP cai com frequência; sem o arquivo, Silver e Gold pulam o benchmark
-# e o painel usa o CSV Gold já versionado no repositório (mesma regra do CI).
+# e o painel segue sem o benchmark (mesma regra do CI).
 etapa "Bronze: Censo da Educação Superior (INEP)"
 "$PYTHON" src/ingestion/inep_censo_superior.py || echo "AVISO: download do INEP falhou; seguindo sem atualizar o benchmark."
 
-# Valor atual da bolsa IC na tabela do CNPq (uma requisição). O CSV de vigências é versionado: se a leitura
+# Valor atual da bolsa IC na tabela do CNPq (uma requisição). O JSON de vigências é versionado: se a leitura
 # falhar, a Silver usa as vigências já gravadas.
 etapa "Bronze: valor da bolsa IC do CNPq"
 "$PYTHON" src/ingestion/cnpq_valor_bolsa.py || echo "AVISO: coleta do valor da bolsa falhou; usando as vigências versionadas."

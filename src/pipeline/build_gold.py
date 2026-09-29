@@ -25,7 +25,7 @@ logger = logging.getLogger("build_gold")
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
-from src.db.tabelas import gravar, gravar_relatorio, ler, tem_linhas  # noqa: E402
+from src.db.tabelas import gravacao_atomica, gravar, gravar_relatorio, ler, tem_linhas  # noqa: E402
 
 # Mapeamento detalhado e auditável de Harmonização Canônica (Entity Resolution)
 # Converte nomenclaturas legadas/abreviadas do SIGRA para as matrizes formais da Estrutura Curricular
@@ -1257,5 +1257,7 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
 
 
 if __name__ == "__main__":
-    build_gold_layer()
-    build_pibic_gold()
+    # Toda a gold vai ao banco numa transação só: o painel nunca lê metade dela.
+    with gravacao_atomica():
+        build_gold_layer()
+        build_pibic_gold()

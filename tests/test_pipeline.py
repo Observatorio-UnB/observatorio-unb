@@ -17,7 +17,6 @@ import pandas as pd
 import psycopg
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-BRONZE_DIR = BASE_DIR / "data" / "bronze"
 
 sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conectar
@@ -79,10 +78,6 @@ class TestCanonicalNormalization(unittest.TestCase):
                     return escolher_recurso(meta["resources"], DATASETS_CONFIG[chave]["resource_pattern"])["url"].rsplit("/", 1)[-1]
             except Exception:
                 pass
-            meta_file = BRONZE_DIR / f"metadata_{DATASETS_CONFIG[chave]['package_id']}.json"
-            if meta_file.exists():
-                meta = json.loads(meta_file.read_text(encoding="utf-8"))
-                return escolher_recurso(meta["resources"], DATASETS_CONFIG[chave]["resource_pattern"])["url"].rsplit("/", 1)[-1]
             return ""
 
         self.assertEqual(arquivo("cursos_graduacao"), "cursos-de-graduao-08-2024.csv")

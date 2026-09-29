@@ -25,7 +25,6 @@ logger = logging.getLogger("quality_auditor")
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DOCS_DIR = BASE_DIR / "docs"
-BRONZE_DIR = BASE_DIR / "data" / "bronze"
 
 sys.path.insert(0, str(BASE_DIR))
 from src.db.tabelas import consultar, tem_linhas  # noqa: E402
@@ -192,16 +191,6 @@ def _publicado_em(chave: str) -> str:
                 return str(df.iloc[0]["baixado_em"])[:10]
     except Exception:
         pass
-    meta_file = BRONZE_DIR / f"metadata_{cfg['package_id']}.json"
-    if meta_file.exists():
-        try:
-            import json
-            with open(meta_file, encoding="utf-8") as f:
-                recurso = escolher_recurso(json.load(f)["resources"], cfg["resource_pattern"])
-            if recurso and recurso.get("created"):
-                return recurso["created"][:10]
-        except Exception:
-            pass
     return "2024-07-01"
 
 
