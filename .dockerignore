@@ -8,5 +8,6 @@ __pycache__
 *.pyc
 data/bronze/*.csv
 data/silver/*.csv
+export
 site
 *.pdf

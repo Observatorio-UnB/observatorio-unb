@@ -2,7 +2,7 @@
 
 **Projeto**: Retenção, Tempo Real de Formatura e Evasão nos Cursos de Graduação da UnB  
 **Stakeholder**: Decanato de Ensino de Graduação (DEG/DAA)  
-**Base Analítica**: Camada Gold (`data/gold/retencao_cursos_unb.csv`)  
+**Base Analítica**: Camada Gold (`gold.retencao_cursos_unb`, no PostgreSQL)  
 **Recorte**: vínculos de graduação do SIGRA (encerrados até 2020/1) e do SIGAA (extrato de 07/2024), coortes de ingresso 2010-2016 — as que têm pelo menos 8 anos de acompanhamento. Números da versão da Gold de 09/2026; a atualização mensal do portal pode alterá-los.  
 
 ---

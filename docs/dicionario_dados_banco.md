@@ -31,6 +31,7 @@ Bolsistas de iniciação científica PIBIC/PIVIC (bolsistas-de-iniciacao-cientif
 | `unidade` | `text` | sim | Campo composto "UNIDADE / CURSO", às vezes com sufixo de situação do aluno (- ALUNO: ATIVO, - FORMANDO). |
 | `status` | `text` | sim | Situação da avaliação do plano: 2 - ENVIADA, 6 - AVALIADA ou 10 - RECURSO AVALIADO. |
 | `_carregado_em` | `timestamp with time zone` | não | Momento em que a linha foi carregada no banco. |
+| `_ordem` | `integer` | sim | Posição do registro no arquivo de origem (1 = primeiro registro depois do cabeçalho). |
 
 ### `bronze.cursos_graduacao`
 
@@ -66,6 +67,7 @@ Catálogo de cursos de graduação: todas as versões publicadas no pacote curso
 | `id_servidor` | `text` | sim | Identificador do coordenador como servidor. Só nas versões de 2023 em diante. |
 | `arquivo_origem` | `text` | sim | Arquivo do portal de onde veio a linha (ex.: cursos-de-graduao-08-2024.csv). |
 | `publicado_em` | `text` | sim | Data de publicação do arquivo no CKAN (AAAA-MM-DD). |
+| `_ordem` | `integer` | sim | Posição do registro no arquivo de origem (1 = primeiro registro depois do cabeçalho). |
 
 ### `bronze.estrutura_curricular`
 
@@ -101,6 +103,65 @@ Estruturas curriculares (estrutura-curricular.csv). Uma linha por matriz curricu
 | `ano_entrada_vigor` | `text` | sim | Ano em que a matriz entrou em vigor. |
 | `observacao` | `text` | sim | Texto livre da coordenação sobre a matriz. |
 | `_carregado_em` | `timestamp with time zone` | não | Momento em que a linha foi carregada no banco. |
+| `_ordem` | `integer` | sim | Posição do registro no arquivo de origem (1 = primeiro registro depois do cabeçalho). |
+
+### `bronze.inep_censo_superior_federais`
+
+Censo da Educação Superior 2019 (INEP), recorte de cursos presenciais de universidades públicas federais. Uma linha por curso. Dado agregado por curso, sem registro individual de discente.
+
+**Linhas na última carga:** 0
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `NU_ANO_CENSO` | `smallint` | não | Ano de referência do Censo. |
+| `CO_IES` | `integer` | não | Código da instituição no INEP (UnB = 2). |
+| `NO_CURSO` | `text` | não | Nome do curso na nomenclatura do INEP. |
+| `CO_CURSO` | `bigint` | não | Código do curso no INEP. |
+| `TP_GRAU_ACADEMICO` | `smallint` | sim | Grau (1 bacharelado, 2 licenciatura, 3 tecnológico...). Nulo em 175 cursos na fonte. |
+| `TP_MODALIDADE_ENSINO` | `smallint` | não | Modalidade; o recorte só tem 1 (presencial). |
+| `QT_VG_TOTAL` | `integer` | sim | Vagas totais oferecidas. |
+| `QT_INSCRITO_TOTAL` | `integer` | sim | Inscritos no processo seletivo. |
+| `QT_ING` | `integer` | sim | Ingressantes no ano. |
+| `QT_MAT` | `integer` | sim | Matrículas no ano. |
+| `QT_CONC` | `integer` | sim | Concluintes no ano. |
+| `QT_SIT_TRANCADA` | `integer` | sim | Matrículas trancadas. |
+| `QT_SIT_DESVINCULADO` | `integer` | sim | Matrículas desvinculadas do curso. |
+| `QT_SIT_TRANSFERIDO` | `integer` | sim | Matrículas transferidas para outro curso da mesma instituição. |
+| `TP_ORGANIZACAO_ACADEMICA` | `smallint` | não | Organização acadêmica; o recorte só tem 1 (universidade). |
+| `TP_CATEGORIA_ADMINISTRATIVA` | `smallint` | não | Categoria administrativa; o recorte só tem 1 (pública federal). |
+| `NO_IES` | `text` | não | Nome da instituição. |
+| `_ordem` | `integer` | sim | Posição do registro no recorte gravado. |
+| `_carregado_em` | `timestamp with time zone` | não | Momento em que a linha foi carregada no banco. |
+
+### `bronze.ingestoes`
+
+Procedência do último download de cada tabela bronze: de onde veio, quando, com que encoding e separador, e o hash do arquivo. Substitui o arquivo bruto em disco como evidência da auditoria de qualidade.
+
+**Linhas na última carga:** 6
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `tabela` | `text` | não | Tabela bronze alimentada pelo arquivo. |
+| `fonte` | `text` | não | dados.unb.br (API CKAN) ou INEP. |
+| `pacote` | `text` | sim | Identificador do pacote no CKAN (vazio para o INEP). |
+| `recurso_url` | `text` | não | URL de onde o arquivo foi baixado. |
+| `baixado_em` | `timestamp with time zone` | não | Momento do download (hora de ingestão). |
+| `tamanho_bytes` | `bigint` | não | Tamanho do arquivo baixado, em bytes. |
+| `sha256` | `text` | não | Hash do arquivo baixado. Muda quando a fonte republica o dado. |
+| `encoding` | `text` | não | Encoding usado para decodificar o arquivo (utf-8 ou latin-1). |
+| `separador` | `text` | não | Separador de colunas do CSV de origem. |
+| `registros` | `integer` | não | Registros gravados na tabela bronze. |
+| `utf8_valido` | `boolean` | sim | Falso quando alguma das 15 primeiras linhas do arquivo não decodifica como UTF-8. Nulo quando não verificado (arquivo dentro de zip). |
+| `linha_invalida` | `integer` | sim | Primeira linha do arquivo que não decodifica como UTF-8. |
+| `evidencia_encoding` | `text` | sim | O byte inválido em UTF-8 e o início da linha em que aparece. |
+| `metadados` | `jsonb` | sim | Resposta de package_show da API CKAN (título, recursos, datas de atualização). |
+| `linhas_descartadas` | `integer` | não | Linhas malformadas descartadas durante a leitura do CSV. |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (tabela)`
+- Verificação: `CHECK ((registros >= 0))`
+- Verificação: `CHECK ((tamanho_bytes > 0))`
 
 ### `bronze.sigaa_ativos`
 
@@ -115,6 +176,7 @@ Lista de discentes ativos do SIGAA (sigaa_ativos_AAAA_S.csv, semestre mais recen
 | `ano_ingresso` | `text` | sim |  |
 | `periodo_ingresso` | `text` | sim | Semestre de ingresso: 1, 2 ou 0 (verão). |
 | `_carregado_em` | `timestamp with time zone` | não |  |
+| `_ordem` | `integer` | sim |  |
 
 ### `bronze.sigaa_discentes`
 
@@ -138,6 +200,7 @@ SIGAA (sigaa.csv, mesmo pacote do SIGRA). Uma linha por vínculo, todos os níve
 | `data_registro_diploma` | `text` | sim | Data de registro do diploma, dd/mm/aaaa. Única pista do momento da conclusão. |
 | `bolsa` | `text` | sim |  |
 | `_carregado_em` | `timestamp with time zone` | não |  |
+| `_ordem` | `integer` | sim |  |
 
 ### `bronze.sigra_discentes`
 
@@ -162,8 +225,35 @@ SIGRA (sigra.csv, pacote dados-referente-aos-alunos-de-graduacao-pos-graduacao-l
 | `data_registro_livro` | `text` | sim | Data de registro do diploma, dd/mm/aaaa. Vazia para quem não se formou. |
 | `periodo_saida` | `text` | sim | Período de saída no formato AAAAS (ex.: 20141). |
 | `_carregado_em` | `timestamp with time zone` | não | Momento em que a linha foi carregada no banco (hora de ingestão, não do evento). |
+| `_ordem` | `integer` | sim | Posição do registro no arquivo de origem (1 = primeiro registro depois do cabeçalho). |
 
 ## Esquema `silver`
+
+### `silver.cursos`
+
+Catálogo canônico de cursos da UnB normalizado em 3NF. Elimina repetição de campus, turno e grande área.
+
+**Linhas na última carga:** 158
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `id_curso` | `integer` | não |  |
+| `codigo_sigaa` | `text` | sim |  |
+| `nome_curso_norm` | `text` | não |  |
+| `campus` | `text` | não |  |
+| `turno` | `text` | não |  |
+| `grau_academico` | `text` | não |  |
+| `categoria_grau` | `text` | não |  |
+| `area_conhecimento` | `text` | não |  |
+| `departamento` | `text` | sim |  |
+| `is_tronco_abi` | `boolean` | não |  |
+| `ativo` | `boolean` | não |  |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (id_curso)`
+- Verificação: `CHECK ((categoria_grau = ANY (ARRAY['BACHARELADO'::text, 'LICENCIATURA'::text, 'MISTO'::text])))`
+- Verificação: `CHECK ((turno = ANY (ARRAY['DIURNO'::text, 'NOTURNO'::text, 'INTEGRAL'::text, 'DIURNO E NOTURNO'::text, 'MATUTINO'::text, 'VESPERTINO'::text, 'MATUTINO E VESPERTINO'::text])))`
 
 ### `silver.cursos_graduacao`
 
@@ -202,10 +292,32 @@ Catálogo de cursos de graduação consolidado: um registro por id_curso, com o 
 | `area_conhecimento_norm` | `text` | sim | Grande Área CNPq/MEC. Os 13 cursos classificados como "Outra" na fonte são remapeados à mão (AREA_CONHECIMENTO_OVERRIDES). |
 | `unidade_responsavel_norm` | `text` | sim | Unidade acadêmica normalizada. |
 | `no_catalogo_vigente` | `boolean` | não | Falso para código de curso que não está na versão mais recente do catálogo; mantido porque pode ter alunos nas coortes analisadas. |
+| `_ordem` | `integer` | sim | Ordem de gravação. A gold pega o primeiro registro de cada nome de curso, então a ordem faz parte do resultado. |
 
 **Restrições:**
 
 - Chave primária: `PRIMARY KEY (id_curso)`
+
+### `silver.discentes`
+
+Discentes únicos normalizados. Registro individual com quase-identificadores sob proteção de privilégio mínimo.
+
+**Linhas na última carga:** 125.154
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `id_discente` | `bigint (identity)` | não | Identificador numérico sintético do discente. |
+| `pseudonimo` | `text` | não | Pseudônimo original gerado pelo sistema acadêmico. |
+| `data_nascimento` | `date` | sim |  |
+| `sexo` | `character(1)` | sim |  |
+| `raca_cor` | `text` | sim |  |
+| `criado_em` | `timestamp with time zone` | não |  |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (id_discente)`
+- Única: `UNIQUE (pseudonimo)`
+- Verificação: `CHECK ((sexo = ANY (ARRAY['F'::bpchar, 'M'::bpchar])))`
 
 ### `silver.discentes_graduacao`
 
@@ -243,6 +355,7 @@ Vínculos de graduação do SIGRA (encerrados até 2020/1) e do SIGAA (ativos na
 | `fonte` | `text` | não | Sistema de origem: SIGRA (legado) ou SIGAA (atual). |
 | `status_aluno` | `text` | sim | Situação do vínculo no extrato do SIGAA. Nulo no SIGRA. |
 | `periodo_saida_estimado` | `boolean` | não | Verdadeiro quando ano/semestre de saída vêm da data de registro do diploma (SIGAA). A regra acerta 94,6% no SIGRA; no calendário da pandemia pode errar em 1 semestre. |
+| `_ordem` | `integer` | sim |  |
 
 **Restrições:**
 
@@ -271,6 +384,7 @@ Prazos regulamentares consolidados: uma linha por curso canônico, com a mediana
 | `ch_total_minima` | `integer` | sim | Maior carga horária total mínima entre as matrizes do curso, em horas. |
 | `cr_total_minimo` | `integer` | sim | Maior total mínimo de créditos entre as matrizes do curso. |
 | `id_curso` | `integer` | não | Curso da primeira matriz do grupo, no catálogo de cursos. |
+| `_ordem` | `integer` | sim | Ordem de gravação (alfabética por curso). |
 
 **Restrições:**
 
@@ -279,6 +393,209 @@ Prazos regulamentares consolidados: uma linha por curso canônico, com a mediana
 - Chave estrangeira: `FOREIGN KEY (id_curso) REFERENCES silver.cursos_graduacao(id_curso)`
 - Verificação: `CHECK ((semestre_conclusao_ideal >= semestre_conclusao_minimo))`
 - Verificação: `CHECK ((semestre_conclusao_minimo > (0)::numeric))`
+
+### `silver.estruturas_curriculares`
+
+Prazos e cargas horárias regulamentares por curso canônico (uma linha por matriz consolidada de silver.estrutura_curricular).
+
+**Linhas na última carga:** 112
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `id_estrutura` | `integer (identity)` | não |  |
+| `id_curso` | `integer` | não | Curso do catálogo dono da matriz. Pode ter outro nome (a matriz de COMUNICACAO SOCIAL aponta para JORNALISMO). |
+| `semestre_minimo` | `numeric(4,1)` | não |  |
+| `semestre_ideal` | `numeric(4,1)` | não |  |
+| `semestre_maximo` | `numeric(4,1)` | não |  |
+| `ch_total_minima` | `integer` | sim |  |
+| `cr_total_minimo` | `integer` | sim |  |
+| `nome_curso_canonico` | `text` | não | Nome canônico do curso, destino da harmonização SIGRA/SIGAA/PIBIC. Chave natural da gold.dim_curso. |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (id_estrutura)`
+- Única: `UNIQUE (nome_curso_canonico)`
+- Única: `UNIQUE (id_curso, semestre_ideal)`
+- Chave estrangeira: `FOREIGN KEY (id_curso) REFERENCES silver.cursos(id_curso) ON DELETE RESTRICT`
+- Verificação: `CHECK ((ch_total_minima >= 0))`
+- Verificação: `CHECK ((semestre_ideal >= semestre_minimo))`
+- Verificação: `CHECK ((cr_total_minimo >= 0))`
+- Verificação: `CHECK ((semestre_minimo > (0)::numeric))`
+
+### `silver.inep_censo_superior`
+
+Cursos presenciais das federais no Censo 2019, com as taxas por curso que permitem comparar a UnB com as demais. Uma linha por curso (CO_CURSO).
+
+**Linhas na última carga:** 0
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `NU_ANO_CENSO` | `smallint` | não | Ano de referência do Censo. |
+| `CO_IES` | `integer` | não | Código da instituição no INEP (UnB = 2). |
+| `NO_IES` | `text` | não | Nome da instituição. |
+| `is_unb` | `boolean` | não | Verdadeiro para cursos da UnB (CO_IES = 2). |
+| `CO_CURSO` | `bigint` | não | Código do curso no INEP. |
+| `NO_CURSO` | `text` | não | Nome do curso na nomenclatura do INEP. Chave de comparação entre instituições. |
+| `curso_inep_norm` | `text` | não | Nome do curso normalizado (sem acento, maiúsculas). |
+| `QT_VG_TOTAL` | `integer` | sim | Vagas totais oferecidas. |
+| `QT_INSCRITO_TOTAL` | `integer` | sim | Inscritos no processo seletivo. |
+| `QT_ING` | `integer` | sim | Ingressantes no ano. |
+| `QT_MAT` | `integer` | sim | Matrículas no ano. |
+| `QT_CONC` | `integer` | sim | Concluintes no ano. |
+| `QT_SIT_TRANCADA` | `integer` | sim | Matrículas trancadas. |
+| `QT_SIT_DESVINCULADO` | `integer` | sim | Matrículas desvinculadas do curso. |
+| `taxa_trancamento_pct` | `numeric(6,2)` | sim | QT_SIT_TRANCADA / QT_MAT x 100. Situação apurada no ano-censo, não por coorte. |
+| `taxa_desvinculacao_pct` | `numeric(6,2)` | sim | QT_SIT_DESVINCULADO / QT_MAT x 100. Não é comparável com a taxa de evasão do SIGRA. |
+| `concorrencia_vestibular` | `numeric(8,2)` | sim | QT_INSCRITO_TOTAL / QT_VG_TOTAL (inscritos por vaga). |
+| `_ordem` | `integer` | sim | Ordem de gravação. |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY ("CO_CURSO")`
+
+### `silver.movimentacoes_p2000_2015`
+
+_Sem descrição._
+
+**Linhas na última carga:** 57.982
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `id_vinculo` | `bigint (identity)` | não |  |
+| `id_discente` | `bigint` | não |  |
+| `id_curso` | `integer` | não |  |
+| `id_estrutura` | `integer` | não |  |
+| `ano_ingresso` | `smallint` | não |  |
+| `semestre_ingresso` | `smallint` | sim |  |
+| `forma_saida` | `text` | sim |  |
+| `tipo_saida_grupo` | `text` | não |  |
+| `ano_saida` | `smallint` | sim |  |
+| `semestre_saida` | `smallint` | sim |  |
+| `semestres_permanencia` | `smallint` | sim |  |
+| `semestres_permanencia_valida` | `smallint` | sim |  |
+| `periodo_saida_estimado` | `boolean` | não |  |
+| `status_aluno` | `text` | sim |  |
+| `fonte` | `text` | não |  |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (id_vinculo, ano_ingresso)`
+- Chave estrangeira: `FOREIGN KEY (id_curso) REFERENCES silver.cursos(id_curso) ON DELETE RESTRICT`
+- Chave estrangeira: `FOREIGN KEY (id_discente) REFERENCES silver.discentes(id_discente) ON DELETE RESTRICT`
+- Chave estrangeira: `FOREIGN KEY (id_estrutura) REFERENCES silver.estruturas_curriculares(id_estrutura)`
+- Verificação: `CHECK ((fonte = ANY (ARRAY['SIGRA'::text, 'SIGAA'::text])))`
+- Verificação: `CHECK ((semestre_ingresso = ANY (ARRAY[0, 1, 2])))`
+- Verificação: `CHECK ((semestre_saida = ANY (ARRAY[0, 1, 2])))`
+- Verificação: `CHECK (((semestres_permanencia_valida >= 1) AND (semestres_permanencia_valida <= 35)))`
+- Verificação: `CHECK ((tipo_saida_grupo = ANY (ARRAY['FORMATURA'::text, 'EVASAO'::text, 'ATIVO'::text, 'OUTROS'::text])))`
+
+### `silver.movimentacoes_p2016_2020`
+
+_Sem descrição._
+
+**Linhas na última carga:** 60.105
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `id_vinculo` | `bigint (identity)` | não |  |
+| `id_discente` | `bigint` | não |  |
+| `id_curso` | `integer` | não |  |
+| `id_estrutura` | `integer` | não |  |
+| `ano_ingresso` | `smallint` | não |  |
+| `semestre_ingresso` | `smallint` | sim |  |
+| `forma_saida` | `text` | sim |  |
+| `tipo_saida_grupo` | `text` | não |  |
+| `ano_saida` | `smallint` | sim |  |
+| `semestre_saida` | `smallint` | sim |  |
+| `semestres_permanencia` | `smallint` | sim |  |
+| `semestres_permanencia_valida` | `smallint` | sim |  |
+| `periodo_saida_estimado` | `boolean` | não |  |
+| `status_aluno` | `text` | sim |  |
+| `fonte` | `text` | não |  |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (id_vinculo, ano_ingresso)`
+- Chave estrangeira: `FOREIGN KEY (id_curso) REFERENCES silver.cursos(id_curso) ON DELETE RESTRICT`
+- Chave estrangeira: `FOREIGN KEY (id_discente) REFERENCES silver.discentes(id_discente) ON DELETE RESTRICT`
+- Chave estrangeira: `FOREIGN KEY (id_estrutura) REFERENCES silver.estruturas_curriculares(id_estrutura)`
+- Verificação: `CHECK ((fonte = ANY (ARRAY['SIGRA'::text, 'SIGAA'::text])))`
+- Verificação: `CHECK ((semestre_ingresso = ANY (ARRAY[0, 1, 2])))`
+- Verificação: `CHECK ((semestre_saida = ANY (ARRAY[0, 1, 2])))`
+- Verificação: `CHECK (((semestres_permanencia_valida >= 1) AND (semestres_permanencia_valida <= 35)))`
+- Verificação: `CHECK ((tipo_saida_grupo = ANY (ARRAY['FORMATURA'::text, 'EVASAO'::text, 'ATIVO'::text, 'OUTROS'::text])))`
+
+### `silver.movimentacoes_p2021_atual`
+
+_Sem descrição._
+
+**Linhas na última carga:** 34.593
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `id_vinculo` | `bigint (identity)` | não |  |
+| `id_discente` | `bigint` | não |  |
+| `id_curso` | `integer` | não |  |
+| `id_estrutura` | `integer` | não |  |
+| `ano_ingresso` | `smallint` | não |  |
+| `semestre_ingresso` | `smallint` | sim |  |
+| `forma_saida` | `text` | sim |  |
+| `tipo_saida_grupo` | `text` | não |  |
+| `ano_saida` | `smallint` | sim |  |
+| `semestre_saida` | `smallint` | sim |  |
+| `semestres_permanencia` | `smallint` | sim |  |
+| `semestres_permanencia_valida` | `smallint` | sim |  |
+| `periodo_saida_estimado` | `boolean` | não |  |
+| `status_aluno` | `text` | sim |  |
+| `fonte` | `text` | não |  |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (id_vinculo, ano_ingresso)`
+- Chave estrangeira: `FOREIGN KEY (id_curso) REFERENCES silver.cursos(id_curso) ON DELETE RESTRICT`
+- Chave estrangeira: `FOREIGN KEY (id_discente) REFERENCES silver.discentes(id_discente) ON DELETE RESTRICT`
+- Chave estrangeira: `FOREIGN KEY (id_estrutura) REFERENCES silver.estruturas_curriculares(id_estrutura)`
+- Verificação: `CHECK ((fonte = ANY (ARRAY['SIGRA'::text, 'SIGAA'::text])))`
+- Verificação: `CHECK ((semestre_ingresso = ANY (ARRAY[0, 1, 2])))`
+- Verificação: `CHECK ((semestre_saida = ANY (ARRAY[0, 1, 2])))`
+- Verificação: `CHECK (((semestres_permanencia_valida >= 1) AND (semestres_permanencia_valida <= 35)))`
+- Verificação: `CHECK ((tipo_saida_grupo = ANY (ARRAY['FORMATURA'::text, 'EVASAO'::text, 'ATIVO'::text, 'OUTROS'::text])))`
+
+### `silver.movimentacoes_p_default`
+
+_Sem descrição._
+
+**Linhas na última carga:** 0
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `id_vinculo` | `bigint (identity)` | não |  |
+| `id_discente` | `bigint` | não |  |
+| `id_curso` | `integer` | não |  |
+| `id_estrutura` | `integer` | não |  |
+| `ano_ingresso` | `smallint` | não |  |
+| `semestre_ingresso` | `smallint` | sim |  |
+| `forma_saida` | `text` | sim |  |
+| `tipo_saida_grupo` | `text` | não |  |
+| `ano_saida` | `smallint` | sim |  |
+| `semestre_saida` | `smallint` | sim |  |
+| `semestres_permanencia` | `smallint` | sim |  |
+| `semestres_permanencia_valida` | `smallint` | sim |  |
+| `periodo_saida_estimado` | `boolean` | não |  |
+| `status_aluno` | `text` | sim |  |
+| `fonte` | `text` | não |  |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (id_vinculo, ano_ingresso)`
+- Chave estrangeira: `FOREIGN KEY (id_curso) REFERENCES silver.cursos(id_curso) ON DELETE RESTRICT`
+- Chave estrangeira: `FOREIGN KEY (id_discente) REFERENCES silver.discentes(id_discente) ON DELETE RESTRICT`
+- Chave estrangeira: `FOREIGN KEY (id_estrutura) REFERENCES silver.estruturas_curriculares(id_estrutura)`
+- Verificação: `CHECK ((fonte = ANY (ARRAY['SIGRA'::text, 'SIGAA'::text])))`
+- Verificação: `CHECK ((semestre_ingresso = ANY (ARRAY[0, 1, 2])))`
+- Verificação: `CHECK ((semestre_saida = ANY (ARRAY[0, 1, 2])))`
+- Verificação: `CHECK (((semestres_permanencia_valida >= 1) AND (semestres_permanencia_valida <= 35)))`
+- Verificação: `CHECK ((tipo_saida_grupo = ANY (ARRAY['FORMATURA'::text, 'EVASAO'::text, 'ATIVO'::text, 'OUTROS'::text])))`
 
 ### `silver.pibic_bolsistas`
 
@@ -309,6 +626,38 @@ Planos de trabalho de iniciação científica, sem nome do bolsista e com matrí
 - Verificação: `CHECK ((tipo_bolsa_norm = ANY (ARRAY['REMUNERADA'::text, 'VOLUNTARIA'::text, 'NAO INFORMADO'::text])))`
 - Verificação: `CHECK ((valor_bolsa_anual_estimado >= (0)::numeric))`
 
+### `silver.pibic_projetos`
+
+Planos de trabalho de iniciação científica vinculados por chave estrangeira a discentes e cursos.
+
+**Linhas na última carga:** 12.793
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `id_projeto` | `bigint (identity)` | não |  |
+| `id_discente` | `bigint` | sim | Sempre nulo: a matrícula do bolsista não é gravada (0010_pibic.sql), então o plano não se liga ao discente. |
+| `id_curso` | `integer` | sim | Curso do catálogo dono da matriz do curso canônico do bolsista. Nulo quando o curso do PIBIC não casa com nenhuma matriz. |
+| `ano_edital` | `smallint` | não |  |
+| `tipo_bolsa` | `text` | não |  |
+| `linha_pesquisa` | `text` | sim |  |
+| `is_cotista` | `boolean` | não |  |
+| `cota_detalhe` | `text` | sim |  |
+| `faixa_renda` | `text` | sim |  |
+| `valor_bolsa_total` | `numeric(10,2)` | não |  |
+| `titulo_pesquisa` | `text` | não |  |
+| `status_projeto` | `text` | sim |  |
+| `perfil_social_macro` | `text` | sim |  |
+| `id_estrutura` | `integer` | sim | Matriz do curso canônico do bolsista, após a harmonização de nomes. Nula quando o curso do PIBIC não casa com nenhuma matriz. |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (id_projeto)`
+- Chave estrangeira: `FOREIGN KEY (id_curso) REFERENCES silver.cursos(id_curso)`
+- Chave estrangeira: `FOREIGN KEY (id_discente) REFERENCES silver.discentes(id_discente)`
+- Chave estrangeira: `FOREIGN KEY (id_estrutura) REFERENCES silver.estruturas_curriculares(id_estrutura)`
+- Verificação: `CHECK ((tipo_bolsa = ANY (ARRAY['REMUNERADA'::text, 'VOLUNTARIA'::text, 'NAO INFORMADO'::text])))`
+- Verificação: `CHECK ((valor_bolsa_total >= (0)::numeric))`
+
 ### `silver.sigaa_ativos`
 
 Discentes de graduação ativos no período de referência (lista do SIGAA), sem lato sensu nem pós stricto sensu. Um registro por discente, sem identificador.
@@ -325,6 +674,7 @@ Discentes de graduação ativos no período de referência (lista do SIGAA), sem
 | `ano_ingresso` | `smallint` | não |  |
 | `periodo_ingresso` | `smallint` | não |  |
 | `semestres_cursados` | `smallint` | não | Semestres do ingresso até o de referência, contando os dois; o verão (0) conta como 1º semestre. |
+| `_ordem` | `integer` | sim |  |
 
 **Restrições:**
 
@@ -351,6 +701,7 @@ Discentes de graduação ativos no semestre mais recente publicado pelo SIGAA (l
 | `ativos_acima_prazo_ideal` | `integer` | não | Discentes que já cursaram mais semestres que a duração ideal (semestres contados a partir do ano e do semestre de ingresso). |
 | `ativos_acima_prazo_maximo` | `integer` | não | Discentes que já passaram do prazo máximo de integralização. |
 | `pct_acima_prazo_ideal` | `numeric(5,2)` | não | ativos_acima_prazo_ideal / total_ativos_hoje * 100. |
+| `_ordem` | `integer` | sim |  |
 
 **Restrições:**
 
@@ -361,6 +712,214 @@ Discentes de graduação ativos no semestre mais recente publicado pelo SIGAA (l
 - Verificação: `CHECK (((pct_acima_prazo_ideal >= (0)::numeric) AND (pct_acima_prazo_ideal <= (100)::numeric)))`
 - Verificação: `CHECK ((periodo_referencia ~ '^\d{4}/[12]$'::text))`
 - Verificação: `CHECK ((total_ativos_hoje >= 5))`
+
+### `gold.dim_campus`
+
+Dimensão geográfica dos campi da UnB.
+
+**Linhas na última carga:** 5
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `sk_campus` | `integer (identity)` | não |  |
+| `campus` | `text` | não |  |
+| `regiao_admin` | `text` | não |  |
+| `municipio` | `text` | não |  |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (sk_campus)`
+- Única: `UNIQUE (campus)`
+
+### `gold.dim_curso`
+
+Dimensão de cursos canônicos de graduação. Chave natural nome_curso: a chave substituta sk_curso não muda quando entra curso novo.
+
+**Linhas na última carga:** 118
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `sk_curso` | `integer (identity)` | não |  |
+| `id_curso_origem` | `integer` | sim | id_curso do catálogo dono da matriz (silver.estruturas_curriculares). |
+| `nome_curso` | `text` | não |  |
+| `grau_academico` | `text` | não |  |
+| `categoria_grau` | `text` | não |  |
+| `area_conhecimento` | `text` | não |  |
+| `departamento` | `text` | sim |  |
+| `is_tronco_abi` | `boolean` | não |  |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (sk_curso)`
+- Única: `UNIQUE (nome_curso)`
+- Verificação: `CHECK ((categoria_grau = ANY (ARRAY['BACHARELADO'::text, 'LICENCIATURA'::text, 'MISTO'::text])))`
+
+### `gold.dim_perfil_social`
+
+Dimensão social e de ações afirmativas: combinações distintas de perfil observadas em silver.pibic_projetos.
+
+**Linhas na última carga:** 10
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `sk_perfil` | `integer (identity)` | não |  |
+| `perfil_macro` | `text` | não |  |
+| `categoria_cota` | `text` | não |  |
+| `faixa_renda` | `text` | sim |  |
+| `is_cotista` | `boolean` | não |  |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (sk_perfil)`
+- Única: `UNIQUE NULLS NOT DISTINCT (perfil_macro, categoria_cota, faixa_renda, is_cotista)`
+
+### `gold.dim_tempo`
+
+Dimensão temporal acadêmica com granularidade semestral.
+
+**Linhas na última carga:** 34
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `sk_tempo` | `integer` | não |  |
+| `ano` | `smallint` | não |  |
+| `semestre` | `smallint` | não |  |
+| `rotulo` | `text` | não |  |
+| `decada` | `smallint` | não |  |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (sk_tempo)`
+- Verificação: `CHECK ((semestre = ANY (ARRAY[1, 2])))`
+
+### `gold.fato_alunos_ativos`
+
+Discentes ativos no semestre de referência por curso canônico, a partir de gold.ativos_hoje_cursos_unb (lista de ativos do SIGAA).
+
+**Linhas na última carga:** 95
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `id_fato_ativo` | `bigint (identity)` | não |  |
+| `sk_curso` | `integer` | não |  |
+| `sk_tempo_referencia` | `integer` | não |  |
+| `total_ativos` | `integer` | não |  |
+| `ativos_acima_prazo_ideal` | `integer` | não |  |
+| `ativos_acima_prazo_maximo` | `integer` | não |  |
+| `pct_acima_prazo_ideal` | `numeric(5,2)` | não |  |
+| `atualizado_em` | `timestamp with time zone` | não |  |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (id_fato_ativo)`
+- Única: `UNIQUE (sk_curso)`
+- Chave estrangeira: `FOREIGN KEY (sk_curso) REFERENCES gold.dim_curso(sk_curso)`
+- Chave estrangeira: `FOREIGN KEY (sk_tempo_referencia) REFERENCES gold.dim_tempo(sk_tempo)`
+- Verificação: `CHECK ((ativos_acima_prazo_ideal >= 0))`
+- Verificação: `CHECK ((ativos_acima_prazo_maximo >= 0))`
+- Verificação: `CHECK (((pct_acima_prazo_ideal >= (0)::numeric) AND (pct_acima_prazo_ideal <= (100)::numeric)))`
+- Verificação: `CHECK ((total_ativos >= 5))`
+
+### `gold.fato_pibic_perfil`
+
+Planos de iniciação científica por curso canônico e perfil social do bolsista (todos os editais). Só entram grupos com 5 ou mais planos (k-anonimato).
+
+**Linhas na última carga:** 286
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `id_fato` | `bigint (identity)` | não |  |
+| `sk_curso` | `integer` | não |  |
+| `sk_perfil` | `integer` | não |  |
+| `total_projetos` | `integer` | não | Planos de trabalho de IC do grupo. Mínimo 5. |
+| `total_remuneradas` | `integer` | não | Planos com bolsa remunerada (PIBIC). |
+| `total_voluntarias` | `integer` | não | Planos voluntários (PIVIC). |
+| `valor_total_investido` | `numeric(14,2)` | não | Soma estimada das bolsas do grupo, em R$. |
+| `atualizado_em` | `timestamp with time zone` | não |  |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (id_fato)`
+- Única: `UNIQUE (sk_curso, sk_perfil)`
+- Chave estrangeira: `FOREIGN KEY (sk_curso) REFERENCES gold.dim_curso(sk_curso)`
+- Chave estrangeira: `FOREIGN KEY (sk_perfil) REFERENCES gold.dim_perfil_social(sk_perfil)`
+- Verificação: `CHECK (((total_remuneradas + total_voluntarias) <= total_projetos))`
+- Verificação: `CHECK ((total_projetos >= 5))`
+- Verificação: `CHECK ((total_remuneradas >= 0))`
+- Verificação: `CHECK ((total_voluntarias >= 0))`
+- Verificação: `CHECK ((valor_total_investido >= (0)::numeric))`
+
+### `gold.fato_retencao_curso`
+
+Retenção por curso canônico, calculada a partir de silver.movimentacoes_vinculos sobre as coortes maduras, com k >= 5: contagens, taxas, % no tempo ideal, atraso médio, IRC e classificação (mesmas regras de build_gold.py).
+
+**Linhas na última carga:** 95
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `id_fato` | `bigint (identity)` | não |  |
+| `sk_curso` | `integer` | não |  |
+| `sk_campus` | `integer` | não |  |
+| `total_ingressantes` | `integer` | não |  |
+| `total_formados` | `integer` | não |  |
+| `total_evadidos` | `integer` | não |  |
+| `total_ainda_ativos` | `integer` | não |  |
+| `taxa_formatura_pct` | `numeric(5,2)` | sim |  |
+| `taxa_evasao_pct` | `numeric(5,2)` | sim |  |
+| `formados_tempo_ideal_pct` | `numeric(5,2)` | sim |  |
+| `atraso_medio_semestres` | `numeric(5,2)` | sim |  |
+| `indice_retencao_critica` | `numeric(4,1)` | sim |  |
+| `classificacao_retencao` | `text` | sim |  |
+| `atualizado_em` | `timestamp with time zone` | não |  |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (id_fato)`
+- Única: `UNIQUE (sk_curso, sk_campus)`
+- Chave estrangeira: `FOREIGN KEY (sk_campus) REFERENCES gold.dim_campus(sk_campus)`
+- Chave estrangeira: `FOREIGN KEY (sk_curso) REFERENCES gold.dim_curso(sk_curso)`
+- Verificação: `CHECK ((classificacao_retencao = ANY (ARRAY['RETENÇÃO CRÍTICA'::text, 'RETENÇÃO ALTA'::text, 'RETENÇÃO MÉDIA'::text, 'RETENÇÃO BAIXA'::text])))`
+- Verificação: `CHECK (((formados_tempo_ideal_pct >= (0)::numeric) AND (formados_tempo_ideal_pct <= (100)::numeric)))`
+- Verificação: `CHECK (((indice_retencao_critica >= (0)::numeric) AND (indice_retencao_critica <= (100)::numeric)))`
+- Verificação: `CHECK (((taxa_evasao_pct >= (0)::numeric) AND (taxa_evasao_pct <= (100)::numeric)))`
+- Verificação: `CHECK (((taxa_formatura_pct >= (0)::numeric) AND (taxa_formatura_pct <= (100)::numeric)))`
+- Verificação: `CHECK ((total_ainda_ativos >= 0))`
+- Verificação: `CHECK ((total_evadidos >= 0))`
+- Verificação: `CHECK ((total_formados >= 0))`
+- Verificação: `CHECK ((total_ingressantes >= 5))`
+
+### `gold.inep_benchmark_cursos_unb`
+
+Cada curso da UnB comparado com o mesmo curso nas demais universidades federais (Censo INEP 2019). Uma linha por curso da UnB com 50 ou mais matrículas.
+
+**Linhas na última carga:** 0
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `curso_inep` | `text` | não | Nome do curso na nomenclatura do INEP. |
+| `qt_matriculas_unb` | `integer` | não | Matrículas da UnB no curso, somando as ofertas (turnos e campi). |
+| `qt_ingressantes_unb` | `integer` | sim | Ingressantes da UnB no curso. |
+| `qt_concluintes_unb` | `integer` | sim | Concluintes da UnB no curso. |
+| `qt_trancadas_unb` | `integer` | sim | Matrículas trancadas na UnB. |
+| `qt_desvinculados_unb` | `integer` | sim | Matrículas desvinculadas na UnB. |
+| `qt_vagas_unb` | `integer` | sim | Vagas oferecidas pela UnB. |
+| `qt_inscritos_unb` | `integer` | sim | Inscritos no processo seletivo da UnB. |
+| `taxa_trancamento_unb_pct` | `numeric(6,2)` | sim | qt_trancadas_unb / qt_matriculas_unb x 100. |
+| `taxa_desvinculacao_unb_pct` | `numeric(6,2)` | sim | qt_desvinculados_unb / qt_matriculas_unb x 100. |
+| `concorrencia_vestibular_unb` | `numeric(8,2)` | sim | Inscritos por vaga na UnB. |
+| `n_ies_comparadas` | `integer` | sim | Outras federais que oferecem o curso. Nulo quando nenhuma oferece. |
+| `mediana_trancamento_federais_pct` | `numeric(6,2)` | sim | Mediana da taxa de trancamento do curso nas demais federais. |
+| `mediana_desvinculacao_federais_pct` | `numeric(6,2)` | sim | Mediana da taxa de desvinculação do curso nas demais federais. |
+| `gap_trancamento_pp` | `numeric(6,2)` | sim | Trancamento da UnB menos a mediana das federais, em pontos percentuais. |
+| `gap_desvinculacao_pp` | `numeric(6,2)` | sim | Desvinculação da UnB menos a mediana das federais, em pontos percentuais. |
+| `razao_trancamento` | `numeric(8,2)` | sim | Trancamento da UnB dividido pela mediana das federais (1,9 = quase o dobro). |
+| `razao_desvinculacao` | `numeric(8,2)` | sim | Desvinculação da UnB dividida pela mediana das federais. |
+| `_ordem` | `integer` | sim | Ordem de gravação: do curso com mais para o com menos matrículas. |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (curso_inep)`
+- Verificação: `CHECK ((qt_matriculas_unb >= 0))`
 
 ### `gold.pibic_social_unb`
 
@@ -382,6 +941,7 @@ Iniciação científica por curso e campus: volume, bolsas e perfil social dos b
 | `valor_total_investido` | `numeric(14,2)` | não | Soma estimada das bolsas remuneradas, em R$. |
 | `taxa_cotistas_pct` | `numeric(5,2)` | sim | total_cotistas / total_projetos x 100. |
 | `taxa_voluntario_pct` | `numeric(5,2)` | sim | total_voluntarias_pivic / total_projetos x 100. |
+| `_ordem` | `integer` | sim | Ordem de gravação: do maior para o menor número de planos. |
 
 **Restrições:**
 
@@ -409,6 +969,7 @@ Regras de equivalência entre o nome do curso no SIGRA e o nome da matriz curric
 | `categoria` | `text` | sim | Motivo agrupado da regra (Correção de Typo no Portal, Habilitação Legada, Engenharias...). |
 | `justificativa` | `text` | sim | Explicação da equivalência, em texto. |
 | `discentes_impactados` | `integer` | não | Vínculos de SIGRA + SIGAA reclassificados por esta regra. |
+| `_ordem` | `integer` | sim | Ordem de gravação: da regra que mais reclassifica vínculos para a que menos reclassifica. |
 
 **Restrições:**
 
@@ -419,7 +980,7 @@ Regras de equivalência entre o nome do curso no SIGRA e o nome da matriz curric
 
 Relatórios JSON do pipeline: métricas gerais da UnB, métricas do PIBIC e auditoria de casamento dos joins. Uma linha por arquivo.
 
-**Linhas na última carga:** 3
+**Linhas na última carga:** 4
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -471,6 +1032,7 @@ Retenção, formatura e evasão por curso, sobre as coortes de ingresso com pelo
 | `pibic_investimento_total` | `numeric(14,2)` | sim | Soma estimada das bolsas remuneradas do curso, em R$. |
 | `pibic_projetos_por_100_alunos` | `numeric(7,2)` | sim | pibic_total_projetos / total_discentes_registrados x 100. |
 | `total_ainda_ativos` | `integer` | não | Vínculos das coortes analisadas ainda ativos ou trancados no extrato do SIGAA. |
+| `_ordem` | `integer` | sim | Ordem de gravação: do maior para o menor índice de retenção crítica. |
 
 **Restrições:**
 

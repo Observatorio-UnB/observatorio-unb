@@ -5,7 +5,7 @@
 > **Ciclo CBL**: Challenge 2 — Dados Abertos da UnB (Trilha T4: Pesquisa e Formação / Trilha T2: Assistência)  
 > **Base de Dados**: `bolsistas-de-iniciacao-cientifica.csv` (Portal dados.unb.br)  
 > **Cobertura**: 2018 a 2023 (12.793 planos de pesquisa aprovados)  
-> **Camadas**: Processado via Arquitetura Medalhão (`data/bronze` $\rightarrow$ `data/silver` $\rightarrow$ `data/gold`)
+> **Camadas**: Processado via Arquitetura Medalhão (`bronze.*` $\rightarrow$ `silver.*` $\rightarrow$ `gold.*` no PostgreSQL)
 
 ---
 

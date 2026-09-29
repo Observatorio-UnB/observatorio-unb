@@ -2,9 +2,12 @@
 Cliente de Ingestão de Dados via API CKAN 2.11 - dados.unb.br
 Responsável por consultar os metadados dos pacotes e baixar os recursos
 brutos de forma automatizada e reproduzível para a camada Bronze.
+
+O arquivo baixado não vai para o disco: é lido com o dialeto da fonte (encoding e
+separador, que variam entre os conjuntos do portal) e gravado em bronze.* como
+texto, do jeito que veio. A procedência do download fica em bronze.ingestoes.
 """
 
-import csv
 import io
 import json
 import logging
@@ -14,7 +17,16 @@ import sys
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+
+import pandas as pd
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(BASE_DIR))
+from src.db.conexao import conectar  # noqa: E402
+from src.db.migrar import aplicar_migracoes  # noqa: E402
+from src.db.tabelas import gravar  # noqa: E402
+from src.ingestion.procedencia import registrar_ingestao  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,8 +36,6 @@ logging.basicConfig(
 logger = logging.getLogger("ckan_ingestion")
 
 BASE_URL = "https://dados.unb.br/api/3/action"
-DEFAULT_BRONZE_DIR = Path(__file__).resolve(
-).parent.parent.parent / "data" / "bronze"
 
 # Mapeamento de pacotes e recursos prioritários para o projeto. `resource_pattern` é uma
 # regex sobre o nome do arquivo na URL; quando o portal publica uma versão nova (ex.:
@@ -35,7 +45,9 @@ DATASETS_CONFIG = {
     "sigra": {
         "package_id": DISCENTES_PKG,
         "resource_pattern": r"^sigra\.csv$",
-        "output_filename": "sigra_discentes.csv",
+        "tabela": "bronze.sigra_discentes",
+        "separador": ";",
+        "encoding": "utf-8",
         "description": "Histórico acadêmico de discentes, ano de ingresso e forma/período de saída.",
     },
     "sigaa": {
@@ -43,13 +55,17 @@ DATASETS_CONFIG = {
         # Só o arquivo pseudonimizado. Os recursos SIGAA_Concluintes_* e SIGAA Ativos do mesmo
         # portal trazem nome completo e CPF parcial e ficam de fora de propósito (LGPD).
         "resource_pattern": r"^sigaa(_\d{4}(_\d)?)?\.csv$",
-        "output_filename": "sigaa_discentes.csv",
+        "tabela": "bronze.sigaa_discentes",
+        "separador": ";",
+        "encoding": "utf-8",
         "description": "Discentes do SIGAA (sistema atual): situação do vínculo e registro de diploma.",
     },
     "sigaa_ativos": {
         "package_id": "lista-de-discentes-de-graduacao-pos-graduacao-latu-sensu-mestrado-e-doutorado",
         "resource_pattern": r"^sigaa_ativos_\d{4}_\d\.csv$",
-        "output_filename": "sigaa_ativos.csv",
+        "tabela": "bronze.sigaa_ativos",
+        "separador": ";",
+        "encoding": "utf-8-sig",
         # O arquivo traz nome, CPF parcial e nacionalidade. Só estas colunas são gravadas:
         # o resto é descartado em memória e nunca chega ao disco (minimização, LGPD art. 6º, III).
         "colunas": ["grau", "curso", "ano_ingresso", "periodo_ingresso"],
@@ -58,7 +74,9 @@ DATASETS_CONFIG = {
     "estrutura_curricular": {
         "package_id": "estrutura-curricular",
         "resource_pattern": r"^estrutura-curricular.*\.csv$",
-        "output_filename": "estrutura_curricular.csv",
+        "tabela": "bronze.estrutura_curricular",
+        "separador": ";",
+        "encoding": "latin-1",
         "description": "Estruturas curriculares, semestres mínimo/ideal/máximo e carga horária por curso.",
     },
     "cursos_graduacao": {
@@ -68,16 +86,18 @@ DATASETS_CONFIG = {
         # Comunicação Social - Jornalismo em 2022). A Silver junta tudo, com a versão mais recente valendo.
         "resource_pattern": r"^cursos?[-_](de-)?gradua\w*(-\d{2}-\d{4})?\.csv$",
         "todas_as_versoes": True,
-        "output_filename": "cursos_graduacao.csv",
+        "tabela": "bronze.cursos_graduacao",
+        "separador": ",",
+        "encoding": "utf-8",
         "description": "Catálogo de cursos de graduação, turnos, campus e unidades acadêmicas responsáveis.",
     },
     "pibic": {
         "package_id": "bolsistas-de-iniciacao-cientifica",
         "resource_pattern": r"^bolsistas-de-iniciacao-cientifica.*\.csv$",
-        "output_filename": "bolsistas_iniciacao_cientifica.csv",
+        "tabela": "bronze.bolsistas_iniciacao_cientifica",
         # O arquivo traz nome e matrícula do discente e nome do orientador. Só as colunas
         # usadas pela análise são gravadas (LGPD, art. 6º, III); os ids vêm zerados na fonte.
-        "colunas": ["ano", "titulo", "tipo_de_bolsa", "linha_pesquisa", "cota",
+        "colunas": ["titulo", "ano", "tipo_de_bolsa", "linha_pesquisa", "cota",
                     "inicio", "fim", "unidade", "status"],
         "separador": ",",
         "encoding": "latin-1",
@@ -128,81 +148,87 @@ def escolher_recurso(resources: List[Dict], pattern: str) -> Optional[Dict]:
     return casados[-1] if casados else None
 
 
-def download_resource(url: str, dest_path: Path) -> Path:
-    """Baixa um recurso do CKAN e salva no caminho de destino."""
-    dest_path.parent.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Baixando recurso de {url} -> {dest_path.name}...")
-
+def download_resource(url: str) -> bytes:
+    """Baixa um recurso do CKAN e devolve o conteúdo em memória."""
+    logger.info(f"Baixando recurso de {url}...")
     req = urllib.request.Request(
         url,
         headers={"User-Agent": "UnB-CBL-Challenge/1.0 (Data Science Agent)"},
     )
-    with urllib.request.urlopen(req, timeout=60) as resp, open(dest_path, "wb") as f:
-        bytes_copied = 0
-        while True:
-            chunk = resp.read(1024 * 1024)
-            if not chunk:
-                break
-            f.write(chunk)
-            bytes_copied += len(chunk)
-
-    size_mb = bytes_copied / (1024 * 1024)
-    logger.info(f"Download concluído: {dest_path.name} ({size_mb:.2f} MB)")
-    return dest_path
-
-
-def download_minimizado(url: str, dest_path: Path, colunas: List[str],
-                        separador: str = ";", encoding: str = "utf-8-sig") -> Path:
-    """Baixa um CSV para a memória e grava só as colunas pedidas (em UTF-8, separador ",")."""
-    dest_path.parent.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Baixando recurso de {url} -> {dest_path.name} (só {', '.join(colunas)})...")
-    req = urllib.request.Request(url, headers={"User-Agent": "UnB-CBL-Challenge/1.0 (Data Science Agent)"})
     with urllib.request.urlopen(req, timeout=60) as resp:
-        texto = resp.read().decode(encoding)
-    leitor = csv.DictReader(io.StringIO(texto, newline=""), delimiter=separador)
-    ausentes = set(colunas) - set(leitor.fieldnames or [])
-    if ausentes:
-        raise RuntimeError(f"{url}: colunas esperadas ausentes: {sorted(ausentes)}")
-    with open(dest_path, "w", encoding="utf-8", newline="") as f:
-        escritor = csv.DictWriter(f, fieldnames=colunas, extrasaction="ignore")
-        escritor.writeheader()
-        escritor.writerows(leitor)
-    logger.info(f"Download concluído: {dest_path.name}")
-    return dest_path
+        conteudo = resp.read()
+    logger.info(f"Download concluído ({len(conteudo) / (1024 * 1024):.2f} MB)")
+    return conteudo
 
 
-def download_versoes(recursos: List[Dict], dest_path: Path) -> Path:
-    """Empilha todas as versões de um CSV "," num arquivo só, marcando a origem de cada linha."""
-    linhas, colunas = [], []
+def ler_csv_bruto(conteudo: bytes, separador: str, encoding: str, colunas: Optional[List[str]] = None) -> Tuple[pd.DataFrame, int]:
+    """Lê o CSV da fonte como texto, sem converter nada em nulo (bronze guarda o que veio)."""
+    descartadas = 0
+
+    def contar_bad_lines(bad_line):
+        nonlocal descartadas
+        descartadas += 1
+        return None
+
+    try:
+        df = pd.read_csv(
+            io.BytesIO(conteudo),
+            sep=separador,
+            encoding=encoding,
+            dtype=str,
+            keep_default_na=False,
+            engine="c",
+            on_bad_lines="error",
+        )
+    except (pd.errors.ParserError, ValueError):
+        df = pd.read_csv(
+            io.BytesIO(conteudo),
+            sep=separador,
+            encoding=encoding,
+            dtype=str,
+            keep_default_na=False,
+            engine="python",
+            on_bad_lines=contar_bad_lines,
+        )
+    if descartadas > 0:
+        logger.warning(f"Descartadas {descartadas} linha(s) malformada(s) durante a leitura do CSV.")
+    if colunas:
+        ausentes = set(colunas) - set(df.columns)
+        if ausentes:
+            raise RuntimeError(f"Colunas esperadas ausentes: {sorted(ausentes)}")
+        df = df[colunas]
+    return df, descartadas
+
+
+def download_versoes(recursos: List[Dict], separador: str, encoding: str) -> Tuple[pd.DataFrame, bytes, str, int]:
+    """Empilha todas as versões de um CSV num DataFrame só, marcando a origem de cada linha."""
+    dfs = []
+    ultimo_conteudo = b""
+    ultima_url = ""
+    total_descartadas = 0
     for r in recursos:
         nome = r["url"].rsplit("/", 1)[-1]
-        logger.info(f"Baixando versão {nome} ({_data(r)[:10]})...")
-        req = urllib.request.Request(r["url"], headers={"User-Agent": "UnB-CBL-Challenge/1.0 (Data Science Agent)"})
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            leitor = csv.DictReader(io.StringIO(resp.read().decode("utf-8-sig"), newline=""))
-        colunas += [c for c in leitor.fieldnames if c not in colunas]
-        for linha in leitor:
-            linha.update(arquivo_origem=nome, publicado_em=_data(r)[:10])
-            linhas.append(linha)
-    dest_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(dest_path, "w", encoding="utf-8", newline="") as f:
-        escritor = csv.DictWriter(f, fieldnames=colunas + ["arquivo_origem", "publicado_em"])
-        escritor.writeheader()
-        escritor.writerows(linhas)
-    logger.info(f"Download concluído: {dest_path.name} ({len(recursos)} versões, {len(linhas):,} linhas)")
-    return dest_path
+        pub = _data(r)[:10]
+        logger.info(f"Baixando versão {nome} ({pub})...")
+        conteudo = download_resource(r["url"])
+        df, descartadas = ler_csv_bruto(conteudo, separador, encoding)
+        total_descartadas += descartadas
+        df["arquivo_origem"] = nome
+        df["publicado_em"] = pub
+        dfs.append(df)
+        ultimo_conteudo = conteudo
+        ultima_url = r["url"]
+    df_consolidado = pd.concat(dfs, ignore_index=True)
+    return df_consolidado, ultimo_conteudo, ultima_url, total_descartadas
 
 
-def run_ingestion(output_dir: Optional[Path] = None) -> Dict[str, Path]:
+def run_ingestion() -> Dict[str, int]:
     """
     Executa o processo completo de ingestão via API CKAN para a camada Bronze.
-    Salva os metadados brutos em JSON e os arquivos CSV brutos.
+    Grava cada recurso em sua tabela bronze e a procedência em bronze.ingestoes.
     """
-    out_dir = output_dir or DEFAULT_BRONZE_DIR
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    downloaded_files = {}
-    metadata_summary = {}
+    aplicar_migracoes()
+    registros_por_tabela = {}
 
     # Permite pular datasets via env (ex.: SKIP_DATASETS=pibic) para rodadas locais parciais.
     skip = {s.strip() for s in os.environ.get(
@@ -214,18 +240,28 @@ def run_ingestion(output_dir: Optional[Path] = None) -> Dict[str, Path]:
             continue
         pkg_id = config["package_id"]
         meta = fetch_package_metadata(pkg_id)
-        metadata_summary[pkg_id] = meta
-
-        # Salva o dump de metadados brutos da API
-        meta_file = out_dir / f"metadata_{pkg_id}.json"
-        with open(meta_file, "w", encoding="utf-8") as f:
-            json.dump(meta, f, indent=2, ensure_ascii=False)
 
         if config.get("todas_as_versoes"):
             versoes = recursos_casados(meta.get("resources", []), config["resource_pattern"])
             if not versoes:
                 raise RuntimeError(f"Nenhum recurso compatível com '{config['resource_pattern']}' em {pkg_id}")
-            downloaded_files[key] = download_versoes(versoes, out_dir / config["output_filename"])
+            df, conteudo_amostra, url_amostra, descartadas = download_versoes(versoes, config["separador"], config["encoding"])
+            with conectar(autocommit=True) as conn:
+                with conn.transaction():
+                    registros_por_tabela[config["tabela"]] = gravar(df, config["tabela"], conn=conn)
+                    registrar_ingestao(
+                        tabela=config["tabela"],
+                        fonte="dados.unb.br",
+                        recurso_url=url_amostra,
+                        conteudo=conteudo_amostra,
+                        encoding=config["encoding"],
+                        separador=config["separador"],
+                        registros=len(df),
+                        pacote=pkg_id,
+                        metadados=meta,
+                        conn=conn,
+                        linhas_descartadas=descartadas,
+                    )
             continue
 
         target_resource = escolher_recurso(
@@ -233,19 +269,30 @@ def run_ingestion(output_dir: Optional[Path] = None) -> Dict[str, Path]:
 
         if target_resource:
             res_url = target_resource["url"]
-            dest_file = out_dir / config["output_filename"]
-            if "colunas" in config:
-                download_minimizado(res_url, dest_file, config["colunas"],
-                                    config.get("separador", ";"), config.get("encoding", "utf-8-sig"))
-            else:
-                download_resource(res_url, dest_file)
-            downloaded_files[key] = dest_file
+            conteudo = download_resource(res_url)
+            df, descartadas = ler_csv_bruto(conteudo, config["separador"], config["encoding"], config.get("colunas"))
+            with conectar(autocommit=True) as conn:
+                with conn.transaction():
+                    registros_por_tabela[config["tabela"]] = gravar(df, config["tabela"], conn=conn)
+                    registrar_ingestao(
+                        tabela=config["tabela"],
+                        fonte="dados.unb.br",
+                        recurso_url=res_url,
+                        conteudo=conteudo,
+                        encoding=config["encoding"],
+                        separador=config["separador"],
+                        registros=len(df),
+                        pacote=pkg_id,
+                        metadados=meta,
+                        conn=conn,
+                        linhas_descartadas=descartadas,
+                    )
         else:
             logger.warning(
                 f"Recurso compatível com '{config['resource_pattern']}' não encontrado em {pkg_id}")
 
     logger.info("=== Ingestão da Camada Bronze Concluída com Sucesso ===")
-    return downloaded_files
+    return registros_por_tabela
 
 
 if __name__ == "__main__":

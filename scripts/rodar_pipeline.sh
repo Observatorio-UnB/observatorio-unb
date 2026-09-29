@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Pipeline completo, do portal ao banco: ingestão -> silver -> gold -> auditoria ->
-# privacidade -> carga no PostgreSQL -> vetorização -> dicionário do banco.
+# Pipeline completo, do portal ao banco. Cada etapa lê a camada anterior do
+# PostgreSQL e grava a sua nele: migrações -> bronze (CKAN e INEP) -> silver -> gold
+# -> auditoria -> privacidade -> Silver 3NF e Star Schema -> vetorização -> dicionário do banco.
 #
 # Requer o banco no ar (docker compose up -d db) ou DATABASE_URL apontando para ele.
 # Uso: bash scripts/rodar_pipeline.sh
@@ -14,15 +15,18 @@ fi
 
 etapa() { echo; echo "=== $1 ==="; }
 
+etapa "Banco: migrações do esquema"
+"$PYTHON" src/db/migrar.py
+
 etapa "Bronze: ingestão via API CKAN"
 "$PYTHON" src/ingestion/ckan_client.py
 
 # O servidor do INEP cai com frequência; sem o arquivo, Silver e Gold pulam o benchmark
-# e o painel usa o CSV Gold já versionado no repositório (mesma regra do CI).
+# e o painel segue sem o benchmark (mesma regra do CI).
 etapa "Bronze: Censo da Educação Superior (INEP)"
 "$PYTHON" src/ingestion/inep_censo_superior.py || echo "AVISO: download do INEP falhou; seguindo sem atualizar o benchmark."
 
-# Valor atual da bolsa IC na tabela do CNPq (uma requisição). O CSV de vigências é versionado: se a leitura
+# Valor atual da bolsa IC na tabela do CNPq (uma requisição). O JSON de vigências é versionado: se a leitura
 # falhar, a Silver usa as vigências já gravadas.
 etapa "Bronze: valor da bolsa IC do CNPq"
 "$PYTHON" src/ingestion/cnpq_valor_bolsa.py || echo "AVISO: coleta do valor da bolsa falhou; usando as vigências versionadas."
@@ -38,9 +42,6 @@ etapa "Auditoria de qualidade"
 
 etapa "Privacidade: k-anonimato"
 "$PYTHON" src/privacy/lgpd_check.py
-
-etapa "Banco: migrações e carga das camadas"
-"$PYTHON" src/db/carregar.py
 
 etapa "Banco: Silver 3NF e Star Schema"
 "$PYTHON" src/db/povoar_dimensional.py

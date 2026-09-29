@@ -14,18 +14,16 @@ import pandas as pd
 import psycopg
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SILVER_DIR = BASE_DIR / "data" / "silver"
-GOLD_DIR = BASE_DIR / "data" / "gold"
 
 sys.path.insert(0, str(BASE_DIR))
-from src.db.carregar import Coluna, ErroDeContrato, carregar, preparar
 from src.db.conexao import conectar
 from src.db.migrar import MIGRATIONS_DIR
+from src.db.tabelas import Coluna, ErroDeContrato, gravar, ler, preparar
 from src.pipeline.build_gold import ANOS_MATURACAO_COORTE
 
 
 class TestContratoDeCarga(unittest.TestCase):
-    """Regras do carregador que não dependem do banco."""
+    """Regras da gravação no banco que não dependem de um banco no ar."""
 
     COLUNAS = [
         Coluna("id", "bigint", False, True, True),
@@ -65,7 +63,7 @@ class TestBanco(unittest.TestCase):
         existe = cls.conn.execute("SELECT to_regclass('gold.retencao_cursos_unb')").fetchone()[0]
         if existe is None or cls.um("SELECT count(*) FROM gold.retencao_cursos_unb") == 0:
             cls.conn.close()
-            raise unittest.SkipTest("Banco sem carga. Rode: python3 src/db/carregar.py")
+            raise unittest.SkipTest("Banco sem dados. Rode: bash scripts/rodar_pipeline.sh")
 
     @classmethod
     def tearDownClass(cls):
@@ -78,25 +76,31 @@ class TestBanco(unittest.TestCase):
     def silver_carregada(self) -> bool:
         return self.um("SELECT count(*) FROM silver.discentes_graduacao") > 0
 
+    def bronze_carregada(self) -> bool:
+        return self.um("SELECT count(*) FROM bronze.ingestoes") > 0
+
     def test_01_todas_as_migracoes_aplicadas(self):
         arquivos = {p.name for p in MIGRATIONS_DIR.glob("*.sql")}
         aplicadas = {r[0] for r in self.conn.execute("SELECT versao FROM public.schema_migrations").fetchall()}
         self.assertEqual(arquivos, aplicadas)
 
-    def test_02_contagens_batem_com_os_arquivos(self):
-        pares = {"gold.retencao_cursos_unb": GOLD_DIR / "retencao_cursos_unb.csv",
-                 "gold.pibic_social_unb": GOLD_DIR / "pibic_social_unb.csv"}
-        if self.silver_carregada():
-            pares.update({
-                "silver.discentes_graduacao": SILVER_DIR / "discentes_graduacao_silver.csv",
-                "silver.estrutura_curricular": SILVER_DIR / "estrutura_curricular_silver.csv",
-                "silver.cursos_graduacao": SILVER_DIR / "cursos_graduacao_silver.csv",
-                "silver.pibic_bolsistas": SILVER_DIR / "pibic_bolsistas_silver.csv",
-            })
-        for tabela, arquivo in pares.items():
-            if arquivo.exists():
-                self.assertEqual(self.um(f"SELECT count(*) FROM {tabela}"),
-                                 len(pd.read_csv(arquivo, low_memory=False)), tabela)
+    def test_02_cada_tabela_bronze_tem_procedencia(self):
+        """Sem arquivo em disco, bronze.ingestoes é a evidência de onde cada tabela veio."""
+        if not self.bronze_carregada():
+            self.skipTest("bronze não carregada")
+        for tabela, registros, sha256 in self.conn.execute(
+            "SELECT tabela, registros, sha256 FROM bronze.ingestoes"
+        ).fetchall():
+            self.assertEqual(self.um(f"SELECT count(*) FROM {tabela}"), registros, tabela)
+            self.assertRegex(sha256, r"^[0-9a-f]{64}$")
+        vazias_sem_procedencia = [
+            t for (t,) in self.conn.execute(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'bronze' "
+                "AND table_name <> 'ingestoes' AND 'bronze.' || table_name NOT IN (SELECT tabela FROM bronze.ingestoes)"
+            ).fetchall()
+            if self.um(f"SELECT count(*) FROM bronze.{t}") > 0
+        ]
+        self.assertEqual(vazias_sem_procedencia, [], "Tabela bronze com dados mas sem registro de procedência")
 
     def test_03_volume_minimo(self):
         """A gold precisa cobrir a graduação da UnB, não uma amostra."""
@@ -178,11 +182,14 @@ class TestBanco(unittest.TestCase):
         self.assertTrue(self.um(
             "SELECT has_table_privilege('observatorio_leitura', 'gold.retencao_cursos_unb', 'SELECT')"))
 
-    def test_10_carga_e_idempotente(self):
-        antes = self.um("SELECT count(*) FROM gold.retencao_cursos_unb")
-        carregar(("gold",))
-        carregar(("gold",))
-        self.assertEqual(self.um("SELECT count(*) FROM gold.retencao_cursos_unb"), antes)
+    def test_10_gravar_e_idempotente_e_preserva_a_ordem(self):
+        antes = ler("gold.retencao_cursos_unb")
+        gravar(antes, "gold.retencao_cursos_unb")
+        gravar(antes, "gold.retencao_cursos_unb")
+        depois = ler("gold.retencao_cursos_unb")
+        pd.testing.assert_frame_equal(depois, antes)
+        # A gold é gravada do maior para o menor IRC; ler() devolve na ordem de gravação.
+        self.assertTrue(depois["indice_retencao_critica"].is_monotonic_decreasing)
 
 
 class TestBuscaSemantica(unittest.TestCase):

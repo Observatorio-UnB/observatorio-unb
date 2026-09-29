@@ -1,11 +1,11 @@
 """
 Módulo de Análise de Privacidade e Conformidade LGPD (Dia 5 - Semana 1)
-Avalia analiticamente a presença de quase-identificadores na base do SIGRA,
+Avalia analiticamente a presença de quase-identificadores na base do SIGRA e do SIGAA,
 mede o nível de k-anonimato e unicidade e documenta as salvaguardas éticas.
 """
 
-import csv
 import logging
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Dict, Tuple
@@ -18,24 +18,35 @@ logging.basicConfig(
 logger = logging.getLogger("lgpd_check")
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-BRONZE_DIR = BASE_DIR / "data" / "bronze"
 DOCS_DIR = BASE_DIR / "docs"
+sys.path.insert(0, str(BASE_DIR))
+from src.db.conexao import conectar  # noqa: E402
+from src.db.tabelas import tem_linhas  # noqa: E402
+
+TABELAS_DISCENTES = {
+    "SIGRA": "bronze.sigra_discentes",
+    "SIGAA": "bronze.sigaa_discentes",
+}
 
 
-BASES_DISCENTES = {"SIGRA": "sigra_discentes.csv",
-                   "SIGAA": "sigaa_discentes.csv"}
-
-
-def _grupos_de_equivalencia(arquivo: Path) -> Tuple[int, Counter]:
+def _grupos_de_equivalencia(tabela: str) -> Tuple[int, Counter]:
     """Conta os grupos de (curso, data_nascimento, sexo, raca_cor) entre os vínculos de graduação."""
+    if not tem_linhas(tabela):
+        return 0, Counter()
+    with conectar() as conn:
+        linhas = conn.execute(
+            f"SELECT nivel, curso, data_nascimento, sexo, raca_cor FROM {tabela}"
+        ).fetchall()
     total = 0
     grupos = Counter()
-    with open(arquivo, "r", encoding="utf-8", errors="replace") as f:
-        for row in csv.DictReader(f, delimiter=";"):
-            if (row.get("nivel") or "").strip() == "Graduação":
-                total += 1
-                grupos[tuple((row.get(c) or "").strip().upper() for c in
-                             ("curso", "data_nascimento", "sexo", "raca_cor"))] += 1
+    for nivel, curso, dt_nasc, sexo, raca in linhas:
+        if (nivel or "").strip().upper().startswith("GRADUA"):
+            total += 1
+            c = (curso or "").strip().upper()
+            dt = (dt_nasc or "").strip()
+            s = (sexo or "").strip().upper()
+            r = (raca or "").strip().upper()
+            grupos[(c, dt, s, r)] += 1
     return total, grupos
 
 
@@ -46,14 +57,11 @@ def analyze_quasi_identifiers() -> Tuple[Dict, str]:
     não se ligam entre si, então o risco de reidentificação é o de cada arquivo.
     """
     stats = {}
-    for base, nome in BASES_DISCENTES.items():
-        arquivo = BRONZE_DIR / nome
-        if not arquivo.exists():
-            raise FileNotFoundError(f"Arquivo não encontrado: {arquivo}")
-        total, grupos = _grupos_de_equivalencia(arquivo)
+    for base, tabela in TABELAS_DISCENTES.items():
+        total, grupos = _grupos_de_equivalencia(tabela)
         unicos = sum(1 for n in grupos.values() if n == 1)
         stats[base] = {
-            "arquivo": nome,
+            "tabela": tabela,
             "total_discentes_graduacao": total,
             "total_combinacoes": len(grupos),
             "registros_unicos_k1": unicos,
@@ -67,7 +75,7 @@ def analyze_quasi_identifiers() -> Tuple[Dict, str]:
         "# Registro de Risco de Privacidade e Avaliação LGPD (Dia 5 - Semana 1)")
     md.append("\n**Projeto**: Análise de Retenção e Formatura nos Cursos da UnB")
     md.append("**Bases Analisadas**: " + ", ".join(
-        f"`data/bronze/{b['arquivo']}`" for b in stats.values()) + " (Graduação)")
+        f"`{b['tabela']}`" for b in stats.values()) + " (Graduação)")
     md.append("\n---\n")
 
     md.append("## 1. Avaliação Analítica de Quase-Identificadores e k-Anonimato\n")

@@ -78,6 +78,7 @@ SINCRONIAS = [
     Sincronia("gold.ativos_hoje_cursos_unb", ["curso"]),
     Sincronia("gold.pibic_social_unb", ["curso_pibic_norm", "campus"]),
     Sincronia("gold.regras_harmonizacao_canonicas", ["origem_sigra"]),
+    Sincronia("gold.inep_benchmark_cursos_unb", ["curso_inep"]),
     Sincronia("gold.relatorios", ["nome"]),
     Sincronia("busca.documentos", ["tipo", "chave"]),
     Sincronia("gold.dim_campus", ["campus"]),

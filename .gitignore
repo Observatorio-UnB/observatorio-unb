@@ -15,14 +15,10 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Dados Brutos e Intermediários Pesados (reprodutíveis via script)
-data/bronze/*.csv
-data/silver/*.csv
-
-# Manter apenas as pastas no Git via .gitkeep
-!data/bronze/.gitkeep
-!data/silver/.gitkeep
-!data/gold/.gitkeep
+# O pipeline grava as camadas no PostgreSQL. data/ é resto da versão em CSV, e o
+# export da gold para o GitHub Pages é gerado pelo CI (src/db/exportar_gold.py).
+data/
+export/
 
 # IDEs e configurações locais
 .vscode/

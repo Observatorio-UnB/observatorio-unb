@@ -6,14 +6,16 @@ Dado público sob a Lei de Acesso à Informação (Lei 12.527/2011). Desde a LGP
 sem qualquer registro individual de discente - ver docs/fonte_inep_censo_superior.md.
 
 O arquivo bruto do INEP traz os ~253 mil cursos de graduação do Brasil (143 MB). Para a
-camada Bronze é gravado apenas o recorte comparável com a UnB - cursos presenciais de
-universidades públicas federais -, o que reduz o arquivo a poucos milhares de linhas.
+camada Bronze (tabela bronze.inep_censo_superior_federais) é gravado apenas o recorte
+comparável com a UnB - cursos presenciais de universidades públicas federais -, o que
+reduz o dado a poucos milhares de linhas.
 """
 
 import fnmatch
 import io
 import logging
 import ssl
+import sys
 import tempfile
 import time
 import zipfile
@@ -23,6 +25,12 @@ from typing import Optional
 import certifi
 import pandas as pd
 import requests
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(BASE_DIR))
+from src.db.migrar import aplicar_migracoes  # noqa: E402
+from src.db.tabelas import gravar  # noqa: E402
+from src.ingestion.procedencia import registrar_ingestao  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,8 +48,7 @@ ZIP_URL = f"https://download.inep.gov.br/microdados/microdados_censo_da_educacao
 # (extensão Authority Information Access) e é servida em HTTP simples.
 CA_INTERMEDIARIA_URL = "http://secure.globalsign.com/cacert/rnpicpedugr46ovtlsca2025.crt"
 
-DEFAULT_BRONZE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "bronze"
-OUTPUT_FILENAME = "inep_censo_superior_federais.csv"
+TABELA_BRONZE = "bronze.inep_censo_superior_federais"
 
 # Filtros do recorte comparável (códigos do dicionário de dados do INEP)
 CATEGORIA_PUBLICA_FEDERAL = 1
@@ -125,9 +132,9 @@ def _ler_csv_do_zip(zf: zipfile.ZipFile, padrao: str, colunas: list) -> pd.DataF
         )
 
 
-def fetch_censo_superior(bronze_dir: Path = DEFAULT_BRONZE_DIR) -> Path:
+def fetch_censo_superior() -> int:
     """Baixa o Censo da Educação Superior e grava o recorte de federais na camada Bronze."""
-    bronze_dir.mkdir(parents=True, exist_ok=True)
+    aplicar_migracoes()
     logger.info(f"Baixando microdados do Censo da Educação Superior {ANO_CENSO} (INEP)...")
     conteudo = baixar_zip_censo()
 
@@ -143,13 +150,17 @@ def fetch_censo_superior(bronze_dir: Path = DEFAULT_BRONZE_DIR) -> Path:
         & (df["TP_MODALIDADE_ENSINO"] == MODALIDADE_PRESENCIAL)
     ].copy()
 
-    out_path = bronze_dir / OUTPUT_FILENAME
-    df.to_csv(out_path, index=False, encoding="utf-8")
+    registros = gravar(df, TABELA_BRONZE)
+    # O CSV do INEP vem dentro de um zip: o encoding (latin-1) é o declarado pelo INEP, não verificado.
+    registrar_ingestao(
+        tabela=TABELA_BRONZE, fonte="INEP", recurso_url=ZIP_URL, conteudo=conteudo,
+        encoding="latin-1", separador=";", registros=registros, verificar_encoding=False,
+    )
     logger.info(
-        f"Salvo {out_path.name}: {len(df):,} cursos presenciais de {df['CO_IES'].nunique()} "
+        f"Gravados em {TABELA_BRONZE}: {len(df):,} cursos presenciais de {df['CO_IES'].nunique()} "
         f"universidades federais."
     )
-    return out_path
+    return registros
 
 
 if __name__ == "__main__":
