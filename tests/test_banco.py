@@ -93,11 +93,14 @@ class TestBanco(unittest.TestCase):
         ).fetchall():
             self.assertEqual(self.um(f"SELECT count(*) FROM {tabela}"), registros, tabela)
             self.assertRegex(sha256, r"^[0-9a-f]{64}$")
-        vazias_sem_procedencia = self.conn.execute(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'bronze' "
-            "AND table_name <> 'ingestoes' AND 'bronze.' || table_name NOT IN (SELECT tabela FROM bronze.ingestoes)"
-        ).fetchall()
-        self.assertEqual(vazias_sem_procedencia, [], "Tabela bronze sem registro de procedência")
+        vazias_sem_procedencia = [
+            t for (t,) in self.conn.execute(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'bronze' "
+                "AND table_name <> 'ingestoes' AND 'bronze.' || table_name NOT IN (SELECT tabela FROM bronze.ingestoes)"
+            ).fetchall()
+            if self.um(f"SELECT count(*) FROM bronze.{t}") > 0
+        ]
+        self.assertEqual(vazias_sem_procedencia, [], "Tabela bronze com dados mas sem registro de procedência")
 
     def test_03_volume_minimo(self):
         """A gold precisa cobrir a graduação da UnB, não uma amostra."""

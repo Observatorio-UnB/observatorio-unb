@@ -17,7 +17,7 @@ O banco guarda o medalhão inteiro, um esquema por camada. Bronze e silver têm 
 
 Bolsistas de iniciação científica PIBIC/PIVIC (bolsistas-de-iniciacao-cientifica.csv). Uma linha por plano de trabalho. O arquivo publicado traz nome e matrícula do discente e nome do orientador, descartados em memória pela ingestão: só estas colunas são gravadas (UTF-8, separador ",").
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 12.793
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -37,7 +37,7 @@ Bolsistas de iniciação científica PIBIC/PIVIC (bolsistas-de-iniciacao-cientif
 
 Catálogo de cursos de graduação: todas as versões publicadas no pacote cursos-de-graduacao, empilhadas. Uma linha por curso por versão.
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 470
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -73,7 +73,7 @@ Catálogo de cursos de graduação: todas as versões publicadas no pacote curso
 
 Estruturas curriculares (estrutura-curricular.csv). Uma linha por matriz curricular. Separador ";", publicado em Latin-1.
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 500
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -137,7 +137,7 @@ Censo da Educação Superior 2019 (INEP), recorte de cursos presenciais de unive
 
 Procedência do último download de cada tabela bronze: de onde veio, quando, com que encoding e separador, e o hash do arquivo. Substitui o arquivo bruto em disco como evidência da auditoria de qualidade.
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 6
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -155,6 +155,7 @@ Procedência do último download de cada tabela bronze: de onde veio, quando, co
 | `linha_invalida` | `integer` | sim | Primeira linha do arquivo que não decodifica como UTF-8. |
 | `evidencia_encoding` | `text` | sim | O byte inválido em UTF-8 e o início da linha em que aparece. |
 | `metadados` | `jsonb` | sim | Resposta de package_show da API CKAN (título, recursos, datas de atualização). |
+| `linhas_descartadas` | `integer` | não | Linhas malformadas descartadas durante a leitura do CSV. |
 
 **Restrições:**
 
@@ -166,7 +167,7 @@ Procedência do último download de cada tabela bronze: de onde veio, quando, co
 
 Lista de discentes ativos do SIGAA (sigaa_ativos_AAAA_S.csv, semestre mais recente publicado), todos os níveis. O arquivo publicado traz nome, CPF parcial e nacionalidade, descartados em memória pela ingestão: só estas quatro colunas são gravadas.
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 53.687
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -181,7 +182,7 @@ Lista de discentes ativos do SIGAA (sigaa_ativos_AAAA_S.csv, semestre mais recen
 
 SIGAA (sigaa.csv, mesmo pacote do SIGRA). Uma linha por vínculo, todos os níveis, com a situação atual do vínculo. Separador ";", UTF-8. ano_ingresso vem com separador de milhar ("2,010"). Contém quase-identificadores (nascimento, sexo, raça/cor).
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 111.385
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -205,7 +206,7 @@ SIGAA (sigaa.csv, mesmo pacote do SIGRA). Uma linha por vínculo, todos os níve
 
 SIGRA (sigra.csv, pacote dados-referente-aos-alunos-de-graduacao-pos-graduacao-latu-sensu-mestrado-e-doutorado). Uma linha por vínculo de discente, todos os níveis. Separador ";", UTF-8. Contém quase-identificadores (nascimento, sexo, raça/cor).
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 85.121
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -232,7 +233,7 @@ SIGRA (sigra.csv, pacote dados-referente-aos-alunos-de-graduacao-pos-graduacao-l
 
 Catálogo canônico de cursos da UnB normalizado em 3NF. Elimina repetição de campus, turno e grande área.
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 158
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -258,7 +259,7 @@ Catálogo canônico de cursos da UnB normalizado em 3NF. Elimina repetição de 
 
 Catálogo de cursos de graduação consolidado: um registro por id_curso, com o valor da versão mais recente em cada campo e, se vazio nela, o da última versão que o tinha.
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 158
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -301,7 +302,7 @@ Catálogo de cursos de graduação consolidado: um registro por id_curso, com o 
 
 Discentes únicos normalizados. Registro individual com quase-identificadores sob proteção de privilégio mínimo.
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 125.154
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -322,7 +323,7 @@ Discentes únicos normalizados. Registro individual com quase-identificadores so
 
 Vínculos de graduação do SIGRA (encerrados até 2020/1) e do SIGAA (ativos na migração ou posteriores). Uma linha por vínculo; os pseudônimos das duas bases não se ligam entre si.
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 152.680
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -372,7 +373,7 @@ Vínculos de graduação do SIGRA (encerrados até 2020/1) e do SIGAA (ativos na
 
 Prazos regulamentares consolidados: uma linha por curso canônico, com a mediana dos semestres entre as matrizes do curso e a maior carga horária. Não há CHECK de máximo >= ideal porque a matriz de ENGENHARIA (curso-tronco) publica máximo 3 e ideal 5 — anomalia da fonte, coberta por teste.
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 112
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -397,7 +398,7 @@ Prazos regulamentares consolidados: uma linha por curso canônico, com a mediana
 
 Prazos e cargas horárias regulamentares por curso canônico (uma linha por matriz consolidada de silver.estrutura_curricular).
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 112
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -456,7 +457,7 @@ Cursos presenciais das federais no Censo 2019, com as taxas por curso que permit
 
 _Sem descrição._
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 57.982
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -492,7 +493,7 @@ _Sem descrição._
 
 _Sem descrição._
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 60.105
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -528,7 +529,7 @@ _Sem descrição._
 
 _Sem descrição._
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 34.593
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -600,7 +601,7 @@ _Sem descrição._
 
 Planos de trabalho de iniciação científica, sem nome do bolsista e com matrícula mascarada. Uma linha por plano. Sem chave natural: a fonte traz 28 linhas idênticas.
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 12.793
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -629,7 +630,7 @@ Planos de trabalho de iniciação científica, sem nome do bolsista e com matrí
 
 Planos de trabalho de iniciação científica vinculados por chave estrangeira a discentes e cursos.
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 12.793
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -661,7 +662,7 @@ Planos de trabalho de iniciação científica vinculados por chave estrangeira a
 
 Discentes de graduação ativos no período de referência (lista do SIGAA), sem lato sensu nem pós stricto sensu. Um registro por discente, sem identificador.
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 39.354
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -734,7 +735,7 @@ Dimensão geográfica dos campi da UnB.
 
 Dimensão de cursos canônicos de graduação. Chave natural nome_curso: a chave substituta sk_curso não muda quando entra curso novo.
 
-**Linhas na última carga:** 101
+**Linhas na última carga:** 118
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -757,7 +758,7 @@ Dimensão de cursos canônicos de graduação. Chave natural nome_curso: a chave
 
 Dimensão social e de ações afirmativas: combinações distintas de perfil observadas em silver.pibic_projetos.
 
-**Linhas na última carga:** 7
+**Linhas na última carga:** 10
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -795,7 +796,7 @@ Dimensão temporal acadêmica com granularidade semestral.
 
 Discentes ativos no semestre de referência por curso canônico, a partir de gold.ativos_hoje_cursos_unb (lista de ativos do SIGAA).
 
-**Linhas na última carga:** 92
+**Linhas na última carga:** 95
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -823,7 +824,7 @@ Discentes ativos no semestre de referência por curso canônico, a partir de gol
 
 Planos de iniciação científica por curso canônico e perfil social do bolsista (todos os editais). Só entram grupos com 5 ou mais planos (k-anonimato).
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 286
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -852,7 +853,7 @@ Planos de iniciação científica por curso canônico e perfil social do bolsist
 
 Retenção por curso canônico, calculada a partir de silver.movimentacoes_vinculos sobre as coortes maduras, com k >= 5: contagens, taxas, % no tempo ideal, atraso médio, IRC e classificação (mesmas regras de build_gold.py).
 
-**Linhas na última carga:** 104
+**Linhas na última carga:** 95
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -979,7 +980,7 @@ Regras de equivalência entre o nome do curso no SIGRA e o nome da matriz curric
 
 Relatórios JSON do pipeline: métricas gerais da UnB, métricas do PIBIC e auditoria de casamento dos joins. Uma linha por arquivo.
 
-**Linhas na última carga:** 3
+**Linhas na última carga:** 4
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |

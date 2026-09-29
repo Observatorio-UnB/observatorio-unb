@@ -97,7 +97,7 @@ DATASETS_CONFIG = {
         "tabela": "bronze.bolsistas_iniciacao_cientifica",
         # O arquivo traz nome e matrícula do discente e nome do orientador. Só as colunas
         # usadas pela análise são gravadas (LGPD, art. 6º, III); os ids vêm zerados na fonte.
-        "colunas": ["ano", "titulo", "tipo_de_bolsa", "linha_pesquisa", "cota",
+        "colunas": ["titulo", "ano", "tipo_de_bolsa", "linha_pesquisa", "cota",
                     "inicio", "fim", "unidade", "status"],
         "separador": ",",
         "encoding": "latin-1",
@@ -170,10 +170,26 @@ def ler_csv_bruto(conteudo: bytes, separador: str, encoding: str, colunas: Optio
         descartadas += 1
         return None
 
-    df = pd.read_csv(
-        io.BytesIO(conteudo), sep=separador, encoding=encoding,
-        dtype=str, keep_default_na=False, on_bad_lines=contar_bad_lines,
-    )
+    try:
+        df = pd.read_csv(
+            io.BytesIO(conteudo),
+            sep=separador,
+            encoding=encoding,
+            dtype=str,
+            keep_default_na=False,
+            engine="c",
+            on_bad_lines="error",
+        )
+    except (pd.errors.ParserError, ValueError):
+        df = pd.read_csv(
+            io.BytesIO(conteudo),
+            sep=separador,
+            encoding=encoding,
+            dtype=str,
+            keep_default_na=False,
+            engine="python",
+            on_bad_lines=contar_bad_lines,
+        )
     if descartadas > 0:
         logger.warning(f"Descartadas {descartadas} linha(s) malformada(s) durante a leitura do CSV.")
     if colunas:

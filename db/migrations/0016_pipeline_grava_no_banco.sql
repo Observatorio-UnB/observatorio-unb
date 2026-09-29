@@ -7,20 +7,20 @@
 --    disco, é a única evidência de encoding, separador e integridade da fonte.
 -- 3. Tabelas do Censo da Educação Superior (INEP), usadas no benchmark nacional.
 
-ALTER TABLE bronze.sigra_discentes                ADD COLUMN _ordem INTEGER;
+ALTER TABLE bronze.sigra_discentes                ADD COLUMN IF NOT EXISTS _ordem INTEGER;
 ALTER TABLE bronze.sigaa_discentes                ADD COLUMN IF NOT EXISTS _ordem INTEGER;
 ALTER TABLE bronze.sigaa_ativos                   ADD COLUMN IF NOT EXISTS _ordem INTEGER;
-ALTER TABLE bronze.estrutura_curricular           ADD COLUMN _ordem INTEGER;
-ALTER TABLE bronze.cursos_graduacao               ADD COLUMN _ordem INTEGER;
-ALTER TABLE bronze.bolsistas_iniciacao_cientifica ADD COLUMN _ordem INTEGER;
+ALTER TABLE bronze.estrutura_curricular           ADD COLUMN IF NOT EXISTS _ordem INTEGER;
+ALTER TABLE bronze.cursos_graduacao               ADD COLUMN IF NOT EXISTS _ordem INTEGER;
+ALTER TABLE bronze.bolsistas_iniciacao_cientifica ADD COLUMN IF NOT EXISTS _ordem INTEGER;
 ALTER TABLE silver.discentes_graduacao            ADD COLUMN IF NOT EXISTS _ordem INTEGER;
 ALTER TABLE silver.sigaa_ativos                   ADD COLUMN IF NOT EXISTS _ordem INTEGER;
-ALTER TABLE silver.cursos_graduacao               ADD COLUMN _ordem INTEGER;
-ALTER TABLE silver.estrutura_curricular           ADD COLUMN _ordem INTEGER;
-ALTER TABLE gold.retencao_cursos_unb              ADD COLUMN _ordem INTEGER;
+ALTER TABLE silver.cursos_graduacao               ADD COLUMN IF NOT EXISTS _ordem INTEGER;
+ALTER TABLE silver.estrutura_curricular           ADD COLUMN IF NOT EXISTS _ordem INTEGER;
+ALTER TABLE gold.retencao_cursos_unb              ADD COLUMN IF NOT EXISTS _ordem INTEGER;
 ALTER TABLE gold.ativos_hoje_cursos_unb           ADD COLUMN IF NOT EXISTS _ordem INTEGER;
-ALTER TABLE gold.pibic_social_unb                 ADD COLUMN _ordem INTEGER;
-ALTER TABLE gold.regras_harmonizacao_canonicas    ADD COLUMN _ordem INTEGER;
+ALTER TABLE gold.pibic_social_unb                 ADD COLUMN IF NOT EXISTS _ordem INTEGER;
+ALTER TABLE gold.regras_harmonizacao_canonicas    ADD COLUMN IF NOT EXISTS _ordem INTEGER;
 
 COMMENT ON COLUMN bronze.sigra_discentes._ordem IS 'Posição do registro no arquivo de origem (1 = primeiro registro depois do cabeçalho).';
 COMMENT ON COLUMN bronze.estrutura_curricular._ordem IS 'Posição do registro no arquivo de origem (1 = primeiro registro depois do cabeçalho).';
@@ -32,7 +32,7 @@ COMMENT ON COLUMN gold.retencao_cursos_unb._ordem IS 'Ordem de gravação: do ma
 COMMENT ON COLUMN gold.pibic_social_unb._ordem IS 'Ordem de gravação: do maior para o menor número de planos.';
 COMMENT ON COLUMN gold.regras_harmonizacao_canonicas._ordem IS 'Ordem de gravação: da regra que mais reclassifica vínculos para a que menos reclassifica.';
 
-CREATE TABLE bronze.ingestoes (
+CREATE TABLE IF NOT EXISTS bronze.ingestoes (
   tabela             TEXT PRIMARY KEY,
   fonte              TEXT NOT NULL,
   pacote             TEXT,
@@ -69,7 +69,7 @@ COMMENT ON COLUMN bronze.ingestoes.metadados IS 'Resposta de package_show da API
 -- federais. Os nomes das colunas do INEP ficam em maiúsculas, entre aspas, como no
 -- dicionário de dados oficial. Diferente das tabelas bronze da UnB, esta é tipada: o
 -- arquivo do INEP é filtrado na ingestão e só entram contagens e códigos.
-CREATE TABLE bronze.inep_censo_superior_federais (
+CREATE TABLE IF NOT EXISTS bronze.inep_censo_superior_federais (
   "NU_ANO_CENSO"                SMALLINT NOT NULL,
   "CO_IES"                      INTEGER NOT NULL,
   "NO_CURSO"                    TEXT NOT NULL,
@@ -112,7 +112,7 @@ COMMENT ON COLUMN bronze.inep_censo_superior_federais."NO_IES" IS 'Nome da insti
 COMMENT ON COLUMN bronze.inep_censo_superior_federais._ordem IS 'Posição do registro no recorte gravado.';
 COMMENT ON COLUMN bronze.inep_censo_superior_federais._carregado_em IS 'Momento em que a linha foi carregada no banco.';
 
-CREATE TABLE silver.inep_censo_superior (
+CREATE TABLE IF NOT EXISTS silver.inep_censo_superior (
   "NU_ANO_CENSO"          SMALLINT NOT NULL,
   "CO_IES"                INTEGER NOT NULL,
   "NO_IES"                TEXT NOT NULL,
@@ -153,7 +153,7 @@ COMMENT ON COLUMN silver.inep_censo_superior.taxa_desvinculacao_pct IS 'QT_SIT_D
 COMMENT ON COLUMN silver.inep_censo_superior.concorrencia_vestibular IS 'QT_INSCRITO_TOTAL / QT_VG_TOTAL (inscritos por vaga).';
 COMMENT ON COLUMN silver.inep_censo_superior._ordem IS 'Ordem de gravação.';
 
-CREATE TABLE gold.inep_benchmark_cursos_unb (
+CREATE TABLE IF NOT EXISTS gold.inep_benchmark_cursos_unb (
   curso_inep                         TEXT PRIMARY KEY,
   qt_matriculas_unb                  INTEGER NOT NULL CHECK (qt_matriculas_unb >= 0),
   qt_ingressantes_unb                INTEGER,

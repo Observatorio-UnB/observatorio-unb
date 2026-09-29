@@ -8,6 +8,7 @@ Lê as tabelas silver.* e grava as gold.* no PostgreSQL; os relatórios JSON vã
 gold.relatorios.
 """
 
+import json
 import logging
 import sys
 from pathlib import Path
