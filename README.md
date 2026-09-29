@@ -22,9 +22,10 @@ bd2/
 │   ├── datasheet_gold.md            # Datasheet for Datasets (padrão Gebru et al.)
 │   ├── dicionario_dados_gold.md     # Dicionário de dados formal da tabela Gold
 │   ├── dicionario_dados_banco.md    # Dicionário de TODAS as tabelas do banco (gerado do catálogo)
-│   └── caderno_analise.md           # Caderno de análise com respostas às 5 GQs e dinâmicas
+│   ├── caderno_analise.md           # Caderno de análise com respostas às 5 GQs e dinâmicas
+│   └── adr/                         # Decisões de arquitetura (ADRs), uma por arquivo
 ├── db/
-│   └── migrations/                  # Esquema versionado do PostgreSQL (0001 ... 0007)
+│   └── migrations/                  # Esquema versionado do PostgreSQL (0001 ... 0016)
 ├── scripts/
 │   └── rodar_pipeline.sh            # Pipeline completo: portal -> medalhão -> banco -> vetores
 ├── src/
@@ -98,15 +99,18 @@ python3 src/pipeline/transform_silver.py
 # 3. Camada Gold com join heterogêneo: silver.* -> gold.* (Semana 2 - Dia 1)
 python3 src/pipeline/build_gold.py
 
-# 4. Auditoria de qualidade (8 achados) e análise de k-anonimato, lidas da bronze (Semana 1 - Dias 4 e 5)
+# 4. Auditoria de qualidade (12 achados) e análise de k-anonimato, lidas da bronze (Semana 1 - Dias 4 e 5)
 python3 src/audit/quality_auditor.py
 python3 src/privacy/lgpd_check.py
 
-# 5. Busca semântica e dicionário de dados do banco
+# 5. Povoamento dimensional (Silver 3NF e Star Schema da gold)
+python3 src/db/povoar_dimensional.py
+
+# 6. Busca semântica e dicionário de dados do banco
 python3 src/busca/vetorizar.py
 python3 src/db/gerar_dicionario.py
 ```
-Os passos 0 a 5 estão em sequência em `bash scripts/rodar_pipeline.sh` (com o banco no ar).
+Os passos 0 a 6 estão em sequência em `bash scripts/rodar_pipeline.sh` (com o banco no ar).
 
 ### C. Execução dos Testes Automatizados
 ```bash
@@ -158,6 +162,12 @@ scripts usam o banco do `docker-compose.yml` em `localhost:5435`.
 > pipeline num banco local ou restrito; o que é público (painel no GitHub Pages) só
 > recebe a gold, pelo export `export/gold.json` que o CI gera a partir do banco.
 
+**Supabase:** a última etapa do pipeline, `src/db/sincronizar_supabase.py`, envia a gold, o
+Star Schema e `busca.documentos` do banco local para `SUPABASE_DATABASE_URL`. A comparação é
+pela chave natural: insere o que é novo, atualiza o que mudou (`--somente-inserir` desliga a
+atualização) e não apaga nada; rodar de novo sem mudança não escreve nenhuma linha. No CI a
+etapa usa o secret `SUPABASE_DATABASE_URL` e não roda em pull request.
+
 ### Busca semântica
 Cada curso da gold, cada plano de iniciação científica (título, ano, curso e linha,
 sem nome nem matrícula) e cada seção da documentação em `docs/` vira um documento
@@ -182,8 +192,7 @@ SQL em `gold.retencao_cursos_unb` ou o painel.
 ## 🔄 CI/CD e Publicação
 
 O workflow [`.github/workflows/medalhao.yml`](.github/workflows/medalhao.yml) roda
-a cada `push` na `main`, em cada Pull Request, semanalmente (segunda 06:00 UTC) e
-sob demanda (`workflow_dispatch`):
+a cada `push` na `main`, em cada Pull Request e sob demanda (`workflow_dispatch`):
 
 1. **Job `pipeline`** — executa o medalhão do zero numa máquina limpa, com um
    PostgreSQL com pgvector como serviço: migrações → ingestão CKAN e INEP (bronze) →
@@ -195,6 +204,14 @@ sob demanda (`workflow_dispatch`):
 2. **Job `deploy`** — publica o dashboard Streamlit completo no **GitHub Pages**
    via [`stlite`](https://github.com/whitphx/stlite) (Python roda no navegador do
    usuário, sem servidor): **https://observatorio-unb.github.io/observatorio-unb/**
+
+A atualização dos dados fica em [`.github/workflows/atualiza-dados.yml`](.github/workflows/atualiza-dados.yml),
+que roda no dia 1 de cada mês (06:00 UTC) e sob demanda: coleta as fontes (portal
+dados.unb.br, INEP e valor da bolsa IC do CNPq), roda `scripts/rodar_pipeline.sh` e os
+testes e, se algo mudou, commita a Gold, os metadados do CKAN
+(`data/bronze/metadata_*.json`), a série do valor da bolsa e os relatórios gerados direto
+na `main` pelo `github-actions[bot]`. Em seguida dispara o `medalhao.yml` para republicar
+o painel.
 
 **Configuração única necessária:** em *Settings → Pages*, definir *Source* =
 **GitHub Actions**.
@@ -211,9 +228,11 @@ derivadas (Gold) seguem os termos de uso do portal de origem.
 
 ## 📊 3. Principais Resultados e Achados
 
-1. **Taxa de Formatura no Tempo Ideal**: Apenas **62.43%** dos formados na UnB concluem o curso dentro do prazo regulamentar da matriz curricular.
-2. **Tempo Médio Global de Conclusão**: **10.85 semestres** (~5.4 anos).
-3. **Cursos com Maior Retenção Crítica (IRC)**: *Engenharias*, *Física Computacional*, *Ciência da Computação* e *Computação* combinam atrasos médios de mais de 3 semestres e taxas de evasão superiores a 58%.
-4. **Cursos com Maior Pontualidade**: *Direito* (92.45% no tempo ideal), *Gestão do Agronegócio* (89.18%) e *Engenharia de Redes* (88.48%).
-5. **Cursos Noturnos**: Apresentam taxas de evasão significativamente maiores (**52.54%** vs. **29.43%** no diurno) devido à conciliação com trabalho.
-6. **Taxa de Casamento dos Joins**: **97.54%** de cobertura de discentes integrados com estruturas curriculares.
+Recorte: SIGRA + SIGAA, coortes de ingresso 2010-2016 (as com 8 anos ou mais de acompanhamento). Os números abaixo são da Gold de 09/2026; a atualização mensal pode alterá-los.
+
+1. **Taxa de Formatura no Tempo Ideal**: Apenas **50.36%** dos formados na UnB concluem o curso dentro do prazo regulamentar da matriz curricular.
+2. **Tempo Médio Global de Conclusão**: **11.77 semestres** (~5.9 anos).
+3. **Cursos com Maior Retenção Crítica (IRC)**: *Física Computacional*, *Computação*, *Ciência da Computação* e *Línguas Estrangeiras Aplicadas - MSI* combinam atrasos médios de 2,8 a 4,3 semestres e taxas de evasão acima de 59%.
+4. **Cursos com Maior Pontualidade**: *Medicina* (83.72% no tempo ideal), *Direito* (82.75%) e *Língua de Sinais Brasileira - Português como Segunda Língua* (81.82%).
+5. **Cursos Noturnos**: Apresentam evasão média maior (**50.90%** vs. **40.85%** no diurno; cursos com oferta diurna e noturna sob o mesmo nome ficam fora da comparação).
+6. **Taxa de Casamento dos Joins**: **100%** dos 152.680 vínculos de graduação integrados com estruturas curriculares.

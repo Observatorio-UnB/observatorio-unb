@@ -15,8 +15,8 @@ Entre 2018 e 2023, a Universidade de Brasília registrou **12.793 planos de trab
 
 * **Bolsas Remuneradas**: **8.741 bolsas** concedidas via CNPq, FAPDF e Decanato de Pós-Graduação/Pesquisa (DPG/UnB).
 * **Pesquisa Voluntária (PIVIC)**: **3.274 discentes** desenvolvendo pesquisa formal sem remuneração financeira direta.
-* **Investimento Público Total Estimado**: **R$ 43.069.200,00**
-  * *Metodologia de cálculo*: 12 parcelas de R$ 400,00/mês (R$ 4.800/ano) para bolsas vigentes entre 2018 e 2022, e reajuste federal para R$ 700,00/mês (R$ 8.400/ano) a partir de 2023.
+* **Investimento Público Total Estimado**: **R$ 44.332.500,00**
+  * *Metodologia de cálculo*: soma, mês a mês da vigência de cada bolsa (`inicio` a `fim`, 12 meses), do valor da bolsa IC em vigor no CNPq. As vigências ficam em `data/bronze/cnpq_valor_bolsa_ic.json`, atualizado pela leitura da tabela oficial do CNPq (`src/ingestion/cnpq_valor_bolsa.py`): R$ 400,00 até jan/2023 e R$ 700,00 desde fev/2023. O ciclo 2022 (jul/2022 a jun/2023) atravessa o reajuste.
 
 ### Evolução Histórica do Fomento Anual
 | Ano | Total de Projetos | Bolsas Remuneradas | Voluntários (PIVIC) | Cotistas | Volume Investido (R$) |

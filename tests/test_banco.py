@@ -19,6 +19,7 @@ sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conectar
 from src.db.migrar import MIGRATIONS_DIR
 from src.db.tabelas import Coluna, ErroDeContrato, gravar, ler, preparar
+from src.pipeline.build_gold import ANOS_MATURACAO_COORTE
 
 
 class TestContratoDeCarga(unittest.TestCase):
@@ -73,7 +74,10 @@ class TestBanco(unittest.TestCase):
         return cls.conn.execute(sql, params).fetchone()[0]
 
     def silver_carregada(self) -> bool:
-        return self.um("SELECT count(*) FROM silver.sigra_graduacao") > 0
+        return self.um("SELECT count(*) FROM silver.discentes_graduacao") > 0
+
+    def bronze_carregada(self) -> bool:
+        return self.um("SELECT count(*) FROM bronze.ingestoes") > 0
 
     def test_01_todas_as_migracoes_aplicadas(self):
         arquivos = {p.name for p in MIGRATIONS_DIR.glob("*.sql")}
@@ -82,6 +86,8 @@ class TestBanco(unittest.TestCase):
 
     def test_02_cada_tabela_bronze_tem_procedencia(self):
         """Sem arquivo em disco, bronze.ingestoes é a evidência de onde cada tabela veio."""
+        if not self.bronze_carregada():
+            self.skipTest("bronze não carregada")
         for tabela, registros, sha256 in self.conn.execute(
             "SELECT tabela, registros, sha256 FROM bronze.ingestoes"
         ).fetchall():
@@ -99,25 +105,29 @@ class TestBanco(unittest.TestCase):
         self.assertGreater(self.um("SELECT sum(total_discentes_registrados) FROM gold.retencao_cursos_unb"), 50_000)
 
     def test_04_gold_reconcilia_com_a_silver(self):
-        """Recalcula em SQL, a partir da silver, os vínculos e formados de cada curso da gold."""
+        """Recalcula em SQL, a partir da silver, os vínculos, formados e ativos de cada curso da gold."""
         if not self.silver_carregada():
             self.skipTest("silver não carregada")
         divergentes = self.conn.execute(
             """
             WITH canon AS (
               SELECT coalesce(r.destino_estrutura, s.curso_norm) AS curso, s.tipo_saida_grupo
-              FROM silver.sigra_graduacao s
+              FROM silver.discentes_graduacao s
               LEFT JOIN gold.regras_harmonizacao_canonicas r ON r.origem_sigra = s.curso_norm
+              WHERE s.ano_ingresso <= (SELECT max(ano_ingresso) FROM silver.discentes_graduacao) - %s
             ), agregado AS (
               SELECT curso, count(*) AS vinculos,
-                     count(*) FILTER (WHERE tipo_saida_grupo = 'FORMATURA') AS formados
+                     count(*) FILTER (WHERE tipo_saida_grupo = 'FORMATURA') AS formados,
+                     count(*) FILTER (WHERE tipo_saida_grupo = 'ATIVO') AS ativos
               FROM canon GROUP BY curso
             )
             SELECT g.curso FROM gold.retencao_cursos_unb g
             LEFT JOIN agregado a ON a.curso = g.curso
             WHERE a.vinculos IS DISTINCT FROM g.total_discentes_registrados
                OR a.formados IS DISTINCT FROM g.total_formados
-            """
+               OR a.ativos IS DISTINCT FROM g.total_ainda_ativos
+            """,
+            (ANOS_MATURACAO_COORTE,),
         ).fetchall()
         self.assertEqual(divergentes, [], "Cursos da gold que não batem com a silver")
 
@@ -141,7 +151,7 @@ class TestBanco(unittest.TestCase):
             with self.conn.transaction():
                 self.conn.execute(
                     "INSERT INTO gold.retencao_cursos_unb (curso, total_discentes_registrados, total_formados, "
-                    "total_evadidos_desligados) VALUES ('CURSO TESTE', 4, 1, 1)"
+                    "total_evadidos_desligados, total_ainda_ativos) VALUES ('CURSO TESTE', 4, 1, 1, 0)"
                 )
 
     def test_07_so_a_anomalia_conhecida_de_prazo_maximo(self):

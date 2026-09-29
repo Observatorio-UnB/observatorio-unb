@@ -8,12 +8,17 @@
 -- 3. Tabelas do Censo da Educação Superior (INEP), usadas no benchmark nacional.
 
 ALTER TABLE bronze.sigra_discentes                ADD COLUMN _ordem INTEGER;
+ALTER TABLE bronze.sigaa_discentes                ADD COLUMN IF NOT EXISTS _ordem INTEGER;
+ALTER TABLE bronze.sigaa_ativos                   ADD COLUMN IF NOT EXISTS _ordem INTEGER;
 ALTER TABLE bronze.estrutura_curricular           ADD COLUMN _ordem INTEGER;
 ALTER TABLE bronze.cursos_graduacao               ADD COLUMN _ordem INTEGER;
 ALTER TABLE bronze.bolsistas_iniciacao_cientifica ADD COLUMN _ordem INTEGER;
+ALTER TABLE silver.discentes_graduacao            ADD COLUMN IF NOT EXISTS _ordem INTEGER;
+ALTER TABLE silver.sigaa_ativos                   ADD COLUMN IF NOT EXISTS _ordem INTEGER;
 ALTER TABLE silver.cursos_graduacao               ADD COLUMN _ordem INTEGER;
 ALTER TABLE silver.estrutura_curricular           ADD COLUMN _ordem INTEGER;
 ALTER TABLE gold.retencao_cursos_unb              ADD COLUMN _ordem INTEGER;
+ALTER TABLE gold.ativos_hoje_cursos_unb           ADD COLUMN IF NOT EXISTS _ordem INTEGER;
 ALTER TABLE gold.pibic_social_unb                 ADD COLUMN _ordem INTEGER;
 ALTER TABLE gold.regras_harmonizacao_canonicas    ADD COLUMN _ordem INTEGER;
 

@@ -1,15 +1,14 @@
 name: Medalhão + Pages
 
 # Bronze -> Silver -> Gold a cada execução (prova o pipeline "roda do zero")
-# e publica o dashboard no GitHub Pages.
+# e publica o dashboard no GitHub Pages. A coleta mensal que versiona dados novos fica em
+# atualiza-dados.yml, que dispara este workflow quando algo muda.
 
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
-  schedule:
-    - cron: "0 6 * * 1" # toda segunda 06:00 UTC
 
 permissions:
   contents: read
@@ -58,7 +57,10 @@ jobs:
       - name: "Bronze — ingestão via API CKAN"
         run: python src/ingestion/ckan_client.py
 
+      # O servidor do INEP tem quedas frequentes; sem o arquivo, a Silver e a Gold pulam o
+      # benchmark e o painel segue publicado com o CSV Gold já versionado no repositório.
       - name: "Bronze — Censo da Educação Superior (INEP)"
+        continue-on-error: true
         run: python src/ingestion/inep_censo_superior.py
 
       - name: "Silver — limpeza, tipagem e normalização"
@@ -73,6 +75,8 @@ jobs:
       - name: "Privacidade — k-anonimato (LGPD)"
         run: python src/privacy/lgpd_check.py
 
+      - name: "Banco — Silver 3NF e Star Schema"
+        run: python src/db/povoar_dimensional.py
       - name: "Cache do modelo de embedding"
         uses: actions/cache@v4
         with:
@@ -90,6 +94,12 @@ jobs:
 
       - name: "Verificação determinística (contratos da Gold)"
         run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: "Supabase — sincronização incremental da gold"
+        if: github.event_name != 'pull_request'
+        env:
+          SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+        run: python src/db/sincronizar_supabase.py
 
       - name: "Resumo do medalhão"
         run: |

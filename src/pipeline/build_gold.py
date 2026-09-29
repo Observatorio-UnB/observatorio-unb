@@ -270,30 +270,6 @@ CANONICAL_RULES_METADATA = [
         "justificativa": "Prefixo formal 'LETRAS' adicionado pela matriz curricular.",
     },
     {
-        "origem_sigra": "JORNALISMO",
-        "destino_estrutura": "COMUNICACAO SOCIAL - JORNALISMO",
-        "categoria": "Comunicação",
-        "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco (nome padronizado com o prefixo do catálogo oficial).",
-    },
-    {
-        "origem_sigra": "COMUNICACAO ORGANIZACIONAL",
-        "destino_estrutura": "COMUNICACAO SOCIAL - COMUNICACAO ORGANIZACIONAL",
-        "categoria": "Comunicação",
-        "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
-    },
-    {
-        "origem_sigra": "PUBLICIDADE E PROPAGANDA",
-        "destino_estrutura": "COMUNICACAO SOCIAL - PUBLICIDADE E PROPAGANDA",
-        "categoria": "Comunicação",
-        "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
-    },
-    {
-        "origem_sigra": "AUDIOVISUAL",
-        "destino_estrutura": "COMUNICACAO SOCIAL - AUDIOVISUAL",
-        "categoria": "Comunicação",
-        "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
-    },
-    {
         "origem_sigra": "ADMINISTRACAO PUBLICA",
         "destino_estrutura": "ADMINISTRACAO",
         "categoria": "Administração",
@@ -310,18 +286,6 @@ CANONICAL_RULES_METADATA = [
         "destino_estrutura": "ARTES CENICAS",
         "categoria": "Artes",
         "justificativa": "Habilitação de Interpretação Teatral vinculada à matriz de Artes Cênicas.",
-    },
-    {
-        "origem_sigra": "SOCIOLOGIA",
-        "destino_estrutura": "CIENCIAS SOCIAIS - SOCIOLOGIA",
-        "categoria": "Ciências Sociais",
-        "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
-    },
-    {
-        "origem_sigra": "ANTROPOLOGIA",
-        "destino_estrutura": "CIENCIAS SOCIAIS - ANTROPOLOGIA",
-        "categoria": "Ciências Sociais",
-        "justificativa": "Habilitação com matriz própria e volume suficiente de discentes; mantida desagregada da matriz tronco.",
     },
     {
         "origem_sigra": "LICENCIATURA EM ARTES VISUAIS",
@@ -453,7 +417,7 @@ CANONICAL_RULES_METADATA = [
     },
     {
         "origem_sigra": "DAP / COMUNICACAO SOCIAL - AUDIOVISUAL",
-        "destino_estrutura": "COMUNICACAO SOCIAL - AUDIOVISUAL",
+        "destino_estrutura": "AUDIOVISUAL",
         "categoria": "Comunicação",
         "justificativa": "Sigla do departamento (DAP) remanescente da extração do campo 'unidade' do PIBIC.",
     },
@@ -465,7 +429,7 @@ CANONICAL_RULES_METADATA = [
     },
     {
         "origem_sigra": "JOR / JORNALISMO",
-        "destino_estrutura": "COMUNICACAO SOCIAL - JORNALISMO",
+        "destino_estrutura": "JORNALISMO",
         "categoria": "Comunicação",
         "justificativa": "Sigla do departamento (JOR) remanescente da extração do campo 'unidade' do PIBIC.",
     },
@@ -502,19 +466,28 @@ CANONICAL_RULES_METADATA = [
 ]
 
 # Dicionário dinâmico de mapeamento rápido
-COURSE_ALIASES = {rule["origem_sigra"]: rule["destino_estrutura"] for rule in CANONICAL_RULES_METADATA}
+COURSE_ALIASES = {rule["origem_sigra"]: rule["destino_estrutura"]
+                  for rule in CANONICAL_RULES_METADATA}
 
 # Cursos-tronco de ingresso comum (ex.: Engenharia na FGA/FT), onde o discente ainda não
 # escolheu a habilitação terminal. Permanecem na tabela Gold (compõem o panorama geral da
 # UnB), mas são descartados pelo dashboard nas telas de Visão Executiva e Detalhe por Curso,
 # que exigem um curso terminal para o raio-x individual — ver uso em src/dashboard/app.py.
-EXCLUDED_GENERIC_COURSES = {"ENGENHARIA"}
+# Educação Física - Ciclo Básico é a Área Básica de Ingresso (ABI) da FEF: quatro semestres
+# comuns e depois a escolha entre bacharelado e licenciatura. Ninguém se forma nela.
+EXCLUDED_GENERIC_COURSES = {"ENGENHARIA", "EDUCACAO FISICA - CICLO BASICO"}
 
 # Limiares do benchmark com o Censo da Educação Superior (INEP). Em cursos com poucas
 # matrículas um único aluno desloca a taxa em vários pontos percentuais, e comparar contra
 # meia dúzia de instituições não caracteriza um padrão nacional do curso.
 MIN_MATRICULAS_BENCHMARK = 50
 MIN_IES_BENCHMARK = 10
+
+# As taxas por curso só usam coortes que já tiveram tempo de concluir: ingresso até
+# (último ano de ingresso na base - ANOS_MATURACAO_COORTE). Coortes recentes, ainda quase
+# todas ativas, derrubariam artificialmente a formatura e a evasão. Com 6 anos a coorte de
+# 2018 ainda tinha 34% de ativos no extrato de 07/2024; com 8 anos a mais recente fica com 9%.
+ANOS_MATURACAO_COORTE = 8
 
 
 def normalize_turno_grupo(turno_norm: str) -> str:
@@ -530,7 +503,8 @@ def normalize_turno_grupo(turno_norm: str) -> str:
 def normalize_categoria_grau(grau_norm: str) -> str:
     """Agrupa a titulação conferida em Bacharelado ou Licenciatura para fins de análise."""
     valor = grau_norm or ""
-    if "LICENCIAD" in valor:
+    # "LICENCIADO" no catálogo de 2022, "LICENCIATURA" nas versões seguintes.
+    if "LICENCI" in valor:
         return "LICENCIATURA"
     return "BACHARELADO"
 
@@ -569,16 +543,73 @@ def build_area_por_curso(df_cur: pd.DataFrame, cursos_canonicos) -> Dict[str, st
     for nome_base in cursos_canonicos:
         if not nome_base or nome_base in area_dict:
             continue
-        candidatas = area_por_curso[area_por_curso.index.str.startswith(f"{nome_base} - ")]
+        candidatas = area_por_curso[area_por_curso.index.str.startswith(
+            f"{nome_base} - ")]
         if not candidatas.empty and candidatas.nunique() == 1:
             area_dict[nome_base] = candidatas.iloc[0]
     return area_dict
 
 
+def ofertas_por_curso(df_cur: pd.DataFrame) -> Dict[str, Tuple[str, str]]:
+    """Turno e campus de cada nome de curso, considerando todas as ofertas do catálogo.
+
+    Nenhuma fonte liga o discente à oferta (turno/campus) em que estudou. Nome com oferta
+    diurna e noturna vira "DIURNO E NOTURNO", e com mais de um campus, "MULTICAMPUS", em vez de
+    escolher uma oferta arbitrária (mesma lógica do grau MISTO).
+    """
+    resultado = {}
+    for nome, grp in df_cur.groupby("nome_curso_norm"):
+        turnos = sorted({normalize_turno_grupo(t) for t in grp["turno_norm"].dropna()}) or ["DIURNO"]
+        campi = sorted({normalize_campus_nome(c) for c in grp["campus_norm"].dropna()}) or ["DARCY RIBEIRO"]
+        # ponytail: hoje só há DIURNO+NOTURNO; outra combinação (ex.: com INTEGRAL) quebra o CHECK
+        # de gold.retencao_cursos_unb.turno de propósito, para ser tratada quando aparecer.
+        turno = turnos[0] if len(turnos) == 1 else " E ".join(turnos)
+        resultado[nome] = (turno, campi[0] if len(campi) == 1 else "MULTICAMPUS")
+    return resultado
+
+
+def build_ativos_hoje(df_est: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
+    """Retrato dos discentes ativos no semestre mais recente publicado, por curso, com quem já passou do prazo."""
+    if not tem_linhas("silver.sigaa_ativos"):
+        logger.warning("silver.sigaa_ativos está vazia. Pulando Ativos Hoje.")
+        return pd.DataFrame(), ""
+    ativos = ler("silver.sigaa_ativos")
+    referencia = ativos["periodo_referencia"].iloc[0]
+    ativos["curso_canonico"] = ativos["curso_norm"].replace(COURSE_ALIASES)
+    prazos = df_est.drop_duplicates("nome_curso_norm")[
+        ["nome_curso_norm", "semestre_conclusao_ideal", "semestre_conclusao_maximo"]]
+    ativos = ativos.merge(prazos, left_on="curso_canonico", right_on="nome_curso_norm")
+    # Cursos-tronco ficam de fora: o aluno escolhe a habilitação no meio do curso, e a estrutura
+    # do tronco de Engenharia tem prazo máximo (3) menor que o ideal (5), o que não mede atraso.
+    # Educação Física - Ciclo Básico (criado depois de 2020) não tem estrutura publicada e cai no merge.
+    ativos = ativos[~ativos["curso_canonico"].isin(EXCLUDED_GENERIC_COURSES)]
+    ativos["acima_ideal"] = ativos["semestres_cursados"] > ativos["semestre_conclusao_ideal"]
+    ativos["acima_maximo"] = ativos["semestres_cursados"] > ativos["semestre_conclusao_maximo"]
+
+    df = ativos.groupby("curso_canonico").agg(
+        semestre_ideal_previsto=("semestre_conclusao_ideal", "first"),
+        semestre_maximo_previsto=("semestre_conclusao_maximo", "first"),
+        total_ativos_hoje=("curso", "size"),
+        ativos_acima_prazo_ideal=("acima_ideal", "sum"),
+        ativos_acima_prazo_maximo=("acima_maximo", "sum"),
+    ).reset_index().rename(columns={"curso_canonico": "curso"})
+    # k-anonimato, como na tabela de retenção
+    df = df[df["total_ativos_hoje"] >= 5]
+    df.insert(1, "periodo_referencia", referencia)
+    df["pct_acima_prazo_ideal"] = (
+        df["ativos_acima_prazo_ideal"] / df["total_ativos_hoje"] * 100).round(2)
+    df = df.sort_values(["pct_acima_prazo_ideal", "curso"], ascending=[False, True])
+
+    gravar(df, "gold.ativos_hoje_cursos_unb")
+    logger.info(
+        f"Ativos hoje ({referencia}) gravados em gold.ativos_hoje_cursos_unb: {int(df['total_ativos_hoje'].sum()):,} discentes em {len(df)} cursos.")
+    return df, referencia
+
+
 def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     """Executa o merge heterogêneo e a agregação analítica da camada Gold."""
     # 1. Carregar datasets da camada Silver
-    df_sig = ler("silver.sigra_graduacao")
+    df_sig = ler("silver.discentes_graduacao")
     df_est = ler("silver.estrutura_curricular")
     df_cur = ler("silver.cursos_graduacao")
 
@@ -595,9 +626,11 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     # ao grau errado, como visto quando o menor código de opção de Física isolou um subgrupo
     # minoritário sem nenhum formado —, esses cursos são mantidos como uma única linha na Gold,
     # com o grau explicitamente marcado como "MISTO" em vez de assumir Bacharelado ou Licenciatura.
-    df_cur["categoria_grau"] = df_cur["grau_academico_norm"].apply(normalize_categoria_grau)
+    df_cur["categoria_grau"] = df_cur["grau_academico_norm"].apply(
+        normalize_categoria_grau)
     mixed_courses = set(
-        df_cur.groupby("nome_curso_norm")["categoria_grau"].nunique().loc[lambda s: s > 1].index
+        df_cur.groupby("nome_curso_norm")[
+            "categoria_grau"].nunique().loc[lambda s: s > 1].index
     )
 
     # 3. Join com Estrutura Curricular
@@ -612,17 +645,22 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
 
     # 4. Join com Cursos de Graduação (metadados de campus, turno e unidade)
     # Deduplica catálogo de cursos por nome canônico
-    cur_dedup = df_cur.groupby("nome_curso_norm", as_index=False).first()
+    # Um nome pode ter várias ofertas (turno, campus). Fica a de menor id_curso entre as do
+    # catálogo vigente, para o resultado não depender da ordem das linhas no arquivo.
+    cur_dedup = (df_cur.sort_values(["no_catalogo_vigente", "id_curso"], ascending=[False, True])
+                 .groupby("nome_curso_norm", as_index=False).first())
     df_merged = pd.merge(
         df_merged,
-        cur_dedup[["nome_curso_norm", "turno_norm", "campus_norm", "grau_academico_norm", "area_conhecimento_norm", "unidade_responsavel_norm"]],
+        cur_dedup[["nome_curso_norm", "turno_norm", "campus_norm",
+                   "grau_academico_norm", "area_conhecimento_norm", "unidade_responsavel_norm"]],
         left_on="curso_canonico",
         right_on="nome_curso_norm",
         how="left",
     )
     # Cursos-tronco (ex.: "COMUNICACAO SOCIAL") não têm entrada própria no catálogo e
     # ficam sem área após o merge acima — completa com a área herdada das habilitações.
-    area_lookup = build_area_por_curso(df_cur, df_sig["curso_canonico"].unique())
+    area_lookup = build_area_por_curso(
+        df_cur, df_sig["curso_canonico"].unique())
     df_merged["area_conhecimento_norm"] = df_merged["area_conhecimento_norm"].fillna(
         df_merged["curso_canonico"].map(area_lookup)
     )
@@ -632,14 +670,14 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     matched_count = int(matched_mask.sum())
     unmatched_count = total_discentes - matched_count
     match_rate_pct = (matched_count / total_discentes) * 100
-    
+
     unmatched_courses = (
         df_merged[~matched_mask]["curso_norm"]
         .value_counts()
         .head(10)
         .to_dict()
     )
-    
+
     # Contagem de alunos impactados por cada regra de harmonização canônica
     orig_counts = df_sig["curso_norm"].value_counts().to_dict()
     regras_auditadas = []
@@ -655,13 +693,15 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
             "justificativa": rule["justificativa"],
             "discentes_impactados": cnt,
         })
-    regras_auditadas.sort(key=lambda r: r["discentes_impactados"], reverse=True)
+    regras_auditadas.sort(
+        key=lambda r: r["discentes_impactados"], reverse=True)
 
     gravar(pd.DataFrame(regras_auditadas), "gold.regras_harmonizacao_canonicas")
     gravar_relatorio("regras_harmonizacao_canonicas", {
         "total_regras": len(regras_auditadas),
         "total_discentes_harmonizados": total_discentes_harmonizados,
-        "metodologia": "Entity Resolution e Harmonização Canônica (SIGRA -> Matrizes Curriculares Ativas)",
+        "metodologia": "Entity Resolution e Harmonização Canônica (SIGRA/SIGAA -> Matrizes Curriculares Ativas)",
+        "regras": regras_auditadas,
     })
 
     join_report = {
@@ -674,29 +714,37 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
         "total_discentes_harmonizados": total_discentes_harmonizados,
         "justificativa_descartes": (
             "Taxa de 100.00% alcançada através de Harmonização Canônica transparente "
-            "e auditável de regras de equivalência entre sistemas legados (SIGRA) e matrizes curriculares ativas. "
+            "e auditável de regras de equivalência entre os sistemas acadêmicos (SIGRA e SIGAA) e matrizes curriculares ativas. "
             "Zero registros descartados."
         ) if unmatched_count == 0 else (
             f"{unmatched_count} registros não casados restantes."
         ),
     }
-    
-    gravar_relatorio("relatorio_casamento_joins", join_report)
 
-    logger.info(f"Taxa de Casamento dos Joins: {match_rate_pct:.2f}% ({matched_count:,}/{total_discentes:,} discentes)")
+    gravar_relatorio("relatorio_casamento_joins", join_report)
+    logger.info(
+        f"Taxa de Casamento dos Joins: {match_rate_pct:.2f}% ({matched_count:,}/{total_discentes:,} discentes)")
+
+    df_ativos_hoje, referencia_ativos = build_ativos_hoje(df_est)
 
     # 6. Cálculo de Indicadores no Nível Individual
     # Cursos-tronco de ingresso comum (ex.: Engenharia genérica) permanecem na tabela e nas
     # métricas globais; são descartados apenas nas telas de Visão Executiva e Detalhe por Curso
     # do dashboard (ver EXCLUDED_GENERIC_COURSES em src/dashboard/app.py), pois não são cursos
     # terminais válidos para um raio-x individual, mas ainda compõem o panorama geral da UnB.
-    df_valid = df_merged[matched_mask].copy()
+    ultima_coorte = int(
+        df_merged["ano_ingresso"].max()) - ANOS_MATURACAO_COORTE
+    df_valid = df_merged[matched_mask & (
+        df_merged["ano_ingresso"] <= ultima_coorte)].copy()
+    primeira_coorte = int(df_valid["ano_ingresso"].min())
+    logger.info(
+        f"Coortes analisadas: {primeira_coorte}-{ultima_coorte} ({len(df_valid):,} vínculos).")
 
     is_formado = df_valid["tipo_saida_grupo"] == "FORMATURA"
     df_valid["is_formado"] = is_formado
-    df_valid["is_evadido"] = df_valid["tipo_saida_grupo"] == "EVASAO_DESLIGAMENTO"
-    df_valid["is_mudanca_interna"] = df_valid["tipo_saida_grupo"] == "MUDANCA_INTERNA"
-    
+    df_valid["is_evadido"] = df_valid["tipo_saida_grupo"] == "EVASAO"
+    df_valid["is_ativo"] = df_valid["tipo_saida_grupo"] == "ATIVO"
+
     # Comparações de tempo para formados
     df_valid["formou_tempo_minimo"] = np.where(
         is_formado,
@@ -720,61 +768,71 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     )
     df_valid["desvio_semestres_individual"] = np.where(
         is_formado,
-        df_valid["semestres_permanencia_valida"] - df_valid["semestre_conclusao_ideal"],
+        df_valid["semestres_permanencia_valida"] -
+        df_valid["semestre_conclusao_ideal"],
         np.nan,
     )
 
     # 7. Agregação Analítica por Curso
+    ofertas = ofertas_por_curso(df_cur)
     course_groups = df_valid.groupby("curso_canonico")
-    
+
     gold_rows = []
     for curso, grp in course_groups:
         total_ing = len(grp)
         # Supressão ética de grupos muito pequenos (< 5 discentes)
         if total_ing < 5:
             continue
-            
+
         grp_formados = grp[grp["is_formado"]]
         n_formados = len(grp_formados)
         n_evadidos = grp["is_evadido"].sum()
-        n_mudanca = grp["is_mudanca_interna"].sum()
-        
+        n_ativos = grp["is_ativo"].sum()
+
         taxa_formatura = (n_formados / total_ing * 100) if total_ing else 0.0
         taxa_evasao = (n_evadidos / total_ing * 100) if total_ing else 0.0
-        
-        if n_formados > 0:
-            pct_minimo = (grp_formados["formou_tempo_minimo"].sum() / n_formados) * 100
-            pct_ideal = (grp_formados["formou_tempo_ideal"].sum() / n_formados) * 100
-            pct_acima = (grp_formados["formou_acima_ideal"].sum() / n_formados) * 100
-            pct_maximo = (grp_formados["formou_limite_maximo"].sum() / n_formados) * 100
-            
+
+        # Percentuais de prazo só sobre formados com permanência calculável (há formados do
+        # SIGAA sem data_registro_diploma); assim tempo ideal + acima do ideal somam 100%.
+        n_com_prazo = int(grp_formados["semestres_permanencia_valida"].notna().sum())
+        if n_com_prazo > 0:
+            pct_minimo = (
+                grp_formados["formou_tempo_minimo"].sum() / n_com_prazo) * 100
+            pct_ideal = (
+                grp_formados["formou_tempo_ideal"].sum() / n_com_prazo) * 100
+            pct_acima = (
+                grp_formados["formou_acima_ideal"].sum() / n_com_prazo) * 100
+            pct_maximo = (
+                grp_formados["formou_limite_maximo"].sum() / n_com_prazo) * 100
+
             tempo_medio = grp_formados["semestres_permanencia_valida"].mean()
-            tempo_mediano = grp_formados["semestres_permanencia_valida"].median()
+            tempo_mediano = grp_formados["semestres_permanencia_valida"].median(
+            )
             desvio_medio = grp_formados["desvio_semestres_individual"].mean()
         else:
             pct_minimo = pct_ideal = pct_acima = pct_maximo = 0.0
             tempo_medio = tempo_mediano = desvio_medio = np.nan
-            
+
         # Prazos regulamentares da estrutura
         sem_min = grp["semestre_conclusao_minimo"].iloc[0]
         sem_ideal = grp["semestre_conclusao_ideal"].iloc[0]
         sem_max = grp["semestre_conclusao_maximo"].iloc[0]
         ch_total = grp["ch_total_minima"].iloc[0]
-        
+
         # Metadados
-        campus_raw = grp["campus_norm"].dropna().iloc[0] if grp["campus_norm"].notna().any() else "DARCY RIBEIRO"
-        campus = normalize_campus_nome(campus_raw)
-        turno_raw = grp["turno_norm"].dropna().iloc[0] if grp["turno_norm"].notna().any() else "DIURNO"
-        turno = normalize_turno_grupo(turno_raw)
-        area = grp["area_conhecimento_norm"].dropna().iloc[0] if grp["area_conhecimento_norm"].notna().any() else "OUTRA"
-        grau_raw = grp["grau_academico_norm"].dropna().iloc[0] if grp["grau_academico_norm"].notna().any() else "BACHAREL"
+        turno, campus = ofertas.get(curso, ("DIURNO", "DARCY RIBEIRO"))
+        area = grp["area_conhecimento_norm"].dropna(
+        ).iloc[0] if grp["area_conhecimento_norm"].notna().any() else "OUTRA"
+        grau_raw = grp["grau_academico_norm"].dropna(
+        ).iloc[0] if grp["grau_academico_norm"].notna().any() else "BACHAREL"
         categoria_grau = normalize_categoria_grau(grau_raw)
         if curso in mixed_courses:
             # Curso com Bacharelado e Licenciatura sob o mesmo nome, mas sem forma confiável de
             # separar os discentes (ver comentário 2.1) — não assume um grau único arbitrário.
             grau_raw = "MISTO (BACHARELADO + LICENCIATURA)"
             categoria_grau = "MISTO"
-        depto = grp["departamento_norm"].dropna().iloc[0] if grp["departamento_norm"].notna().any() else "UNB"
+        depto = grp["departamento_norm"].dropna(
+        ).iloc[0] if grp["departamento_norm"].notna().any() else "UNB"
 
         gold_rows.append({
             "curso": curso,
@@ -791,6 +849,7 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
             "total_discentes_registrados": total_ing,
             "total_formados": n_formados,
             "total_evadidos_desligados": n_evadidos,
+            "total_ainda_ativos": n_ativos,
             "taxa_formatura_pct": round(taxa_formatura, 2),
             "taxa_evasao_pct": round(taxa_evasao, 2),
             "formados_tempo_minimo_pct": round(pct_minimo, 2),
@@ -801,16 +860,16 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
             "tempo_mediano_real_semestres": round(tempo_mediano, 2) if pd.notna(tempo_mediano) else np.nan,
             "desvio_medio_semestres": round(desvio_medio, 2) if pd.notna(desvio_medio) else np.nan,
         })
-        
+
     df_gold = pd.DataFrame(gold_rows)
-    
+
     # 8. Cálculo do Índice de Retenção Crítica (IRC) e Classificação de Dificuldade
     # IRC combina atraso médio (desvio) e taxa de evasão.
     desv_clean = df_gold["desvio_medio_semestres"].fillna(0).clip(lower=0)
     evas_clean = df_gold["taxa_evasao_pct"].fillna(0)
 
     # Normalização min-max robusta: satura nos percentis 5/95 antes de normalizar, para que um
-    # único curso outlier (ex.: Engenharia com 74% de evasão) não comprima a escala dos demais.
+    # único curso outlier (ex.: Engenharia com 93% de evasão) não comprima a escala dos demais.
     def norm_robusto(serie: pd.Series) -> pd.Series:
         p05, p95 = serie.quantile(0.05), serie.quantile(0.95)
         serie_sat = serie.clip(lower=p05, upper=p95)
@@ -821,14 +880,16 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
 
     # Score ponderado: evasão pesa mais que atraso — perder o aluno (evasão) é mais grave para o
     # DEG do que ele se formar mais devagar (atraso), que ainda é uma conclusão bem-sucedida.
-    df_gold["indice_retencao_critica"] = (0.3 * norm_desv + 0.7 * norm_evas) * 100
-    df_gold["indice_retencao_critica"] = df_gold["indice_retencao_critica"].round(1)
-    
+    df_gold["indice_retencao_critica"] = (
+        0.3 * norm_desv + 0.7 * norm_evas) * 100
+    df_gold["indice_retencao_critica"] = df_gold["indice_retencao_critica"].round(
+        1)
+
     # Classificação em quartis
     q75 = df_gold["indice_retencao_critica"].quantile(0.75)
     q50 = df_gold["indice_retencao_critica"].quantile(0.50)
     q25 = df_gold["indice_retencao_critica"].quantile(0.25)
-    
+
     def classificar(score):
         if score >= q75:
             return "RETENÇÃO CRÍTICA"
@@ -837,23 +898,27 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
         elif score >= q25:
             return "RETENÇÃO MÉDIA"
         return "RETENÇÃO BAIXA"
-        
-    df_gold["classificacao_retencao"] = df_gold["indice_retencao_critica"].apply(classificar)
-    
+
+    df_gold["classificacao_retencao"] = df_gold["indice_retencao_critica"].apply(
+        classificar)
+
     # Enriquecimento com dados do PIBIC (Iniciação Científica) se disponível
     if tem_linhas("silver.pibic_bolsistas"):
         df_pibic_raw = ler("silver.pibic_bolsistas")
         # Canonicaliza antes de agregar, para não perder projetos por causa de grafias
         # inconsistentes no campo "unidade" de origem (ver comentário em build_pibic_gold).
-        df_pibic_raw["curso_pibic_norm"] = df_pibic_raw["curso_pibic_norm"].replace(COURSE_ALIASES)
+        df_pibic_raw["curso_pibic_norm"] = df_pibic_raw["curso_pibic_norm"].replace(
+            COURSE_ALIASES)
         pibic_course_agg = df_pibic_raw.groupby("curso_pibic_norm").agg(
             pibic_total_projetos=("ano", "count"),
-            pibic_bolsas_remuneradas=("tipo_bolsa_norm", lambda s: (s == "REMUNERADA").sum()),
-            pibic_bolsas_voluntarias=("tipo_bolsa_norm", lambda s: (s == "VOLUNTARIA").sum()),
+            pibic_bolsas_remuneradas=(
+                "tipo_bolsa_norm", lambda s: (s == "REMUNERADA").sum()),
+            pibic_bolsas_voluntarias=(
+                "tipo_bolsa_norm", lambda s: (s == "VOLUNTARIA").sum()),
             pibic_cotistas=("is_cotista", "sum"),
             pibic_investimento_total=("valor_bolsa_anual_estimado", "sum"),
         ).reset_index()
-        
+
         df_gold = pd.merge(
             df_gold,
             pibic_course_agg,
@@ -861,17 +926,22 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
             right_on="curso_pibic_norm",
             how="left",
         )
-        df_gold["pibic_total_projetos"] = df_gold["pibic_total_projetos"].fillna(0).astype(int)
-        df_gold["pibic_investimento_total"] = df_gold["pibic_investimento_total"].fillna(0.0)
+        df_gold["pibic_total_projetos"] = df_gold["pibic_total_projetos"].fillna(
+            0).astype(int)
+        df_gold["pibic_investimento_total"] = df_gold["pibic_investimento_total"].fillna(
+            0.0)
         df_gold["pibic_projetos_por_100_alunos"] = (
-            df_gold["pibic_total_projetos"] / df_gold["total_discentes_registrados"] * 100
+            df_gold["pibic_total_projetos"] /
+            df_gold["total_discentes_registrados"] * 100
         ).round(2)
         if "curso_pibic_norm" in df_gold.columns:
             df_gold.drop(columns=["curso_pibic_norm"], inplace=True)
 
     # Ordenar por índice de retenção decrescente
-    df_gold = df_gold.sort_values(by="indice_retencao_critica", ascending=False)
-    
+    # Nome do curso desempata, para a ordem não depender da versão do pandas
+    df_gold = df_gold.sort_values(
+        by=["indice_retencao_critica", "curso"], ascending=[False, True])
+
     # Salvar tabela Gold
     gravar(df_gold, "gold.retencao_cursos_unb")
     logger.info(f"Tabela analítica Gold gravada em gold.retencao_cursos_unb com {len(df_gold)} cursos.")
@@ -883,18 +953,26 @@ def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     total_formados_unb = int(df_valid["is_formado"].sum())
     formados_ideal_unb = int(df_valid["formou_tempo_ideal"].sum())
     formados_acima_unb = int(df_valid["formou_acima_ideal"].sum())
-    
+    formados_com_prazo_unb = int(
+        df_valid.loc[df_valid["is_formado"], "semestres_permanencia_valida"].notna().sum())
+
     global_metrics = {
+        "coortes_ingresso_analisadas": f"{primeira_coorte}-{ultima_coorte}",
         "total_discentes_analisados": len(df_valid),
         "total_formados_unb": total_formados_unb,
-        "taxa_conclusao_tempo_ideal_global_pct": round(formados_ideal_unb / total_formados_unb * 100, 2),
-        "taxa_conclusao_acima_ideal_global_pct": round(formados_acima_unb / total_formados_unb * 100, 2),
+        "taxa_conclusao_tempo_ideal_global_pct": round(formados_ideal_unb / formados_com_prazo_unb * 100, 2),
+        "taxa_conclusao_acima_ideal_global_pct": round(formados_acima_unb / formados_com_prazo_unb * 100, 2),
         "tempo_medio_formatura_global_semestres": round(df_valid[df_valid["is_formado"]]["semestres_permanencia_valida"].mean(), 2),
         "desvio_medio_global_semestres": round(df_valid[df_valid["is_formado"]]["desvio_semestres_individual"].mean(), 2),
         "top_5_cursos_maior_retencao": df_gold.head(5)[["curso", "tempo_medio_real_semestres", "taxa_evasao_pct", "indice_retencao_critica"]].to_dict(orient="records"),
+        "cursos_tronco": sorted(EXCLUDED_GENERIC_COURSES),
+        "ativos_hoje_referencia": referencia_ativos,
+        "ativos_hoje_total": int(df_ativos_hoje["total_ativos_hoje"].sum()) if not df_ativos_hoje.empty else 0,
+        "ativos_hoje_acima_prazo_ideal": int(df_ativos_hoje["ativos_acima_prazo_ideal"].sum()) if not df_ativos_hoje.empty else 0,
+        "ativos_hoje_acima_prazo_maximo": int(df_ativos_hoje["ativos_acima_prazo_maximo"].sum()) if not df_ativos_hoje.empty else 0,
         "top_5_cursos_maior_pontualidade": df_gold.sort_values("formados_tempo_ideal_pct", ascending=False).head(5)[["curso", "formados_tempo_ideal_pct", "tempo_medio_real_semestres"]].to_dict(orient="records"),
     }
-    
+
     gravar_relatorio("metricas_gerais_unb", global_metrics)
     logger.info("Métricas globais da UnB consolidadas em gold.relatorios (metricas_gerais_unb)")
     return df_gold, global_metrics
@@ -920,61 +998,80 @@ def build_inep_benchmark_gold() -> pd.DataFrame:
 
     df = ler("silver.inep_censo_superior")
 
+    # O Censo registra cada oferta (turno/campus) como um curso distinto. Os dois lados somam
+    # as ofertas da mesma instituição antes de calcular a taxa, para que a UnB e as demais
+    # federais sejam comparadas na mesma unidade (curso x instituição) e uma federal com três
+    # turnos do mesmo curso não conte três vezes na mediana.
+    soma_cols = {
+        "qt_matriculas": ("QT_MAT", "sum"),
+        "qt_ingressantes": ("QT_ING", "sum"),
+        "qt_concluintes": ("QT_CONC", "sum"),
+        "qt_trancadas": ("QT_SIT_TRANCADA", "sum"),
+        "qt_desvinculados": ("QT_SIT_DESVINCULADO", "sum"),
+        "qt_vagas": ("QT_VG_TOTAL", "sum"),
+        "qt_inscritos": ("QT_INSCRITO_TOTAL", "sum"),
+    }
+    por_ies = df.groupby(["NO_CURSO", "CO_IES", "is_unb"]
+                         ).agg(**soma_cols).reset_index()
+
     # Cursos muito pequenos produzem taxas instáveis (1 aluno move vários pontos percentuais).
-    df = df[df["QT_MAT"] >= MIN_MATRICULAS_BENCHMARK].copy()
+    # O corte vale para o curso já somado: aplicado por oferta, descartaria turnos pequenos e
+    # tiraria parte dos alunos do cálculo do curso.
+    por_ies = por_ies[por_ies["qt_matriculas"]
+                      >= MIN_MATRICULAS_BENCHMARK].copy()
 
-    unb = df[df["is_unb"]]
-    pares = df[~df["is_unb"]]
+    matriculas = por_ies["qt_matriculas"].replace(0, np.nan)
+    por_ies["taxa_trancamento_pct"] = por_ies["qt_trancadas"] / matriculas * 100
+    por_ies["taxa_desvinculacao_pct"] = por_ies["qt_desvinculados"] / \
+        matriculas * 100
+    por_ies["concorrencia_vestibular"] = (
+        por_ies["qt_inscritos"] / por_ies["qt_vagas"].replace(0, np.nan)
+    )
 
-    # Lado UnB: soma as várias ofertas do mesmo curso (turnos e campi entram como registros
-    # distintos no Censo) antes de calcular a taxa, para não dar peso igual a ofertas de
-    # tamanhos muito diferentes.
-    agg_unb = unb.groupby("NO_CURSO").agg(
-        qt_matriculas_unb=("QT_MAT", "sum"),
-        qt_ingressantes_unb=("QT_ING", "sum"),
-        qt_concluintes_unb=("QT_CONC", "sum"),
-        qt_trancadas_unb=("QT_SIT_TRANCADA", "sum"),
-        qt_desvinculados_unb=("QT_SIT_DESVINCULADO", "sum"),
-        qt_vagas_unb=("QT_VG_TOTAL", "sum"),
-        qt_inscritos_unb=("QT_INSCRITO_TOTAL", "sum"),
-    ).reset_index()
-    agg_unb["taxa_trancamento_unb_pct"] = (
-        agg_unb["qt_trancadas_unb"] / agg_unb["qt_matriculas_unb"] * 100
-    ).round(2)
-    agg_unb["taxa_desvinculacao_unb_pct"] = (
-        agg_unb["qt_desvinculados_unb"] / agg_unb["qt_matriculas_unb"] * 100
-    ).round(2)
-    agg_unb["concorrencia_vestibular_unb"] = (
-        agg_unb["qt_inscritos_unb"] / agg_unb["qt_vagas_unb"].replace(0, np.nan)
-    ).round(2)
+    # Lado UnB: uma linha por curso (CO_IES único).
+    agg_unb = por_ies[por_ies["is_unb"]].drop(
+        columns=["CO_IES", "is_unb"]).round(2)
+    agg_unb = agg_unb.rename(
+        columns={
+            **{c: f"{c}_unb" for c in soma_cols},
+            "taxa_trancamento_pct": "taxa_trancamento_unb_pct",
+            "taxa_desvinculacao_pct": "taxa_desvinculacao_unb_pct",
+            "concorrencia_vestibular": "concorrencia_vestibular_unb",
+        }
+    )
 
     # Lado nacional: mediana entre as demais federais (mediana, não média, para não deixar uma
     # instituição atípica distorcer o padrão de referência do curso).
-    agg_pares = pares.groupby("NO_CURSO").agg(
+    agg_pares = por_ies[~por_ies["is_unb"]].groupby("NO_CURSO").agg(
         n_ies_comparadas=("CO_IES", "nunique"),
         mediana_trancamento_federais_pct=("taxa_trancamento_pct", "median"),
-        mediana_desvinculacao_federais_pct=("taxa_desvinculacao_pct", "median"),
+        mediana_desvinculacao_federais_pct=(
+            "taxa_desvinculacao_pct", "median"),
     ).reset_index().round(2)
 
     df_bench = agg_unb.merge(agg_pares, on="NO_CURSO", how="left")
     df_bench["gap_trancamento_pp"] = (
-        df_bench["taxa_trancamento_unb_pct"] - df_bench["mediana_trancamento_federais_pct"]
+        df_bench["taxa_trancamento_unb_pct"] -
+        df_bench["mediana_trancamento_federais_pct"]
     ).round(2)
     df_bench["gap_desvinculacao_pp"] = (
-        df_bench["taxa_desvinculacao_unb_pct"] - df_bench["mediana_desvinculacao_federais_pct"]
+        df_bench["taxa_desvinculacao_unb_pct"] -
+        df_bench["mediana_desvinculacao_federais_pct"]
     ).round(2)
 
     # A diferença em pontos percentuais achata a gravidade relativa: +6 pp sobre um curso que
     # já perde 24% em todo o país é bem menos grave que +7 pp sobre um que perde 8%. A razão
     # expõe isso (1,9x = a UnB quase dobra o padrão nacional daquele curso).
     df_bench["razao_trancamento"] = (
-        df_bench["taxa_trancamento_unb_pct"] / df_bench["mediana_trancamento_federais_pct"]
+        df_bench["taxa_trancamento_unb_pct"] /
+        df_bench["mediana_trancamento_federais_pct"]
     ).round(2)
     df_bench["razao_desvinculacao"] = (
-        df_bench["taxa_desvinculacao_unb_pct"] / df_bench["mediana_desvinculacao_federais_pct"]
+        df_bench["taxa_desvinculacao_unb_pct"] /
+        df_bench["mediana_desvinculacao_federais_pct"]
     ).round(2)
     df_bench = df_bench.rename(columns={"NO_CURSO": "curso_inep"}).sort_values(
-        "qt_matriculas_unb", ascending=False
+        ["qt_matriculas_unb", "curso_inep"], ascending=[False, True]
     )
 
     gravar(df_bench, "gold.inep_benchmark_cursos_unb")
@@ -1004,67 +1101,78 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
     df_pibic["campus"] = df_pibic["campus"].apply(normalize_campus_nome)
 
     # 0. Canonicalização do curso e Grande Área oficial (CNPq/MEC)
-    # O campo "unidade" da base de bolsistas gera grafias inconsistentes para o mesmo curso
-    # (ex.: variações de "Letras - Tradução"), por isso passa pela mesma harmonização canônica
-    # usada para o SIGRA. A "Grande Área" exibida não usa o campo "linha_pesquisa" (autodeclarado
-    # pela própria base de IC, que classifica cursos como Farmácia em "ARTES E HUMANIDADE"),
-    # e sim `area_conhecimento_norm` do catálogo oficial de cursos.
-    df_pibic["curso_canonico"] = df_pibic["curso_pibic_norm"].replace(COURSE_ALIASES)
+    df_pibic["curso_canonico"] = df_pibic["curso_pibic_norm"].replace(
+        COURSE_ALIASES)
 
     if tem_linhas("silver.cursos_graduacao"):
         df_cur_cat = ler("silver.cursos_graduacao")
-        area_dict = build_area_por_curso(df_cur_cat, df_pibic["curso_canonico"].unique())
-        df_pibic["area_conhecimento"] = df_pibic["curso_canonico"].map(area_dict).fillna("OUTRA")
+        area_dict = build_area_por_curso(
+            df_cur_cat, df_pibic["curso_canonico"].unique())
+        df_pibic["area_conhecimento"] = df_pibic["curso_canonico"].map(
+            area_dict).fillna("OUTRA")
     else:
         df_pibic["area_conhecimento"] = df_pibic["linha_pesquisa_norm"]
 
     # 1. Indicadores Financeiros e Totais
-    total_remuneradas = int((df_pibic["tipo_bolsa_norm"] == "REMUNERADA").sum())
-    total_voluntarias = int((df_pibic["tipo_bolsa_norm"] == "VOLUNTARIA").sum())
+    total_remuneradas = int(
+        (df_pibic["tipo_bolsa_norm"] == "REMUNERADA").sum())
+    total_voluntarias = int(
+        (df_pibic["tipo_bolsa_norm"] == "VOLUNTARIA").sum())
     total_investido = float(df_pibic["valor_bolsa_anual_estimado"].sum())
-    
+
     # 2. Indicadores Sociais (Cotas e Inclusão)
     total_cotistas = int(df_pibic["is_cotista"].sum())
-    taxa_inclusao_cotistas = round((total_cotistas / total_registros * 100), 2) if total_registros else 0.0
-    taxa_trabalho_voluntario = round((total_voluntarias / total_registros * 100), 2) if total_registros else 0.0
-    
+    taxa_inclusao_cotistas = round(
+        (total_cotistas / total_registros * 100), 2) if total_registros else 0.0
+    taxa_trabalho_voluntario = round(
+        (total_voluntarias / total_registros * 100), 2) if total_registros else 0.0
+
     # Distribuição por Perfil Social Macro
     dist_social = (
         df_pibic["perfil_social_macro"].value_counts(normalize=True) * 100
     ).round(2).to_dict()
-    
+
     # Distribuição por Cota Detalhe
     dist_cota_detalhe = df_pibic["cota_detalhe"].value_counts().to_dict()
-    
+
     # Distribuição por Campi
     campi_agg = df_pibic.groupby("campus").agg(
         total_projetos=("ano", "count"),
-        total_remuneradas=("tipo_bolsa_norm", lambda s: (s == "REMUNERADA").sum()),
+        total_remuneradas=("tipo_bolsa_norm",
+                           lambda s: (s == "REMUNERADA").sum()),
         total_cotistas=("is_cotista", "sum"),
         valor_investido=("valor_bolsa_anual_estimado", "sum"),
     ).reset_index()
-    campi_agg["pct_projetos"] = (campi_agg["total_projetos"] / total_registros * 100).round(2)
-    campi_agg["pct_cotistas"] = (campi_agg["total_cotistas"] / campi_agg["total_projetos"] * 100).round(2)
+    campi_agg["pct_projetos"] = (
+        campi_agg["total_projetos"] / total_registros * 100).round(2)
+    campi_agg["pct_cotistas"] = (
+        campi_agg["total_cotistas"] / campi_agg["total_projetos"] * 100).round(2)
     dist_campi = campi_agg.to_dict(orient="records")
-    
+
     # Distribuição por Grande Área
     area_agg = df_pibic.groupby("area_conhecimento").agg(
         total_projetos=("ano", "count"),
-        total_remuneradas=("tipo_bolsa_norm", lambda s: (s == "REMUNERADA").sum()),
+        total_remuneradas=("tipo_bolsa_norm",
+                           lambda s: (s == "REMUNERADA").sum()),
         total_cotistas=("is_cotista", "sum"),
         valor_investido=("valor_bolsa_anual_estimado", "sum"),
     ).reset_index()
-    area_agg["pct_projetos"] = (area_agg["total_projetos"] / total_registros * 100).round(2)
-    area_agg["pct_cotistas"] = (area_agg["total_cotistas"] / area_agg["total_projetos"] * 100).round(2)
+    area_agg["pct_projetos"] = (
+        area_agg["total_projetos"] / total_registros * 100).round(2)
+    area_agg["pct_cotistas"] = (
+        area_agg["total_cotistas"] / area_agg["total_projetos"] * 100).round(2)
 
     # Taxa de participação: projetos PIBIC / total de alunos matriculados na área (não só
     # % de composição do programa). Requer a tabela de retenção (roda antes no __main__).
     if tem_linhas("gold.retencao_cursos_unb"):
         df_retencao = ler("gold.retencao_cursos_unb")
-        alunos_por_area = df_retencao.groupby("area_conhecimento")["total_discentes_registrados"].sum()
-        area_agg["total_discentes_area"] = area_agg["area_conhecimento"].map(alunos_por_area).fillna(0).astype(int)
+        alunos_por_area = df_retencao.groupby("area_conhecimento")[
+            "total_discentes_registrados"].sum()
+        area_agg["total_discentes_area"] = area_agg["area_conhecimento"].map(
+            alunos_por_area).fillna(0).astype(int)
         area_agg["taxa_participacao_pibic_pct"] = (
-            area_agg["total_projetos"] / area_agg["total_discentes_area"].replace(0, np.nan) * 100
+            area_agg["total_projetos"] /
+            area_agg["total_discentes_area"].replace(0, np.nan) * 100
         ).round(2)
         # "OUTRA" (curso não classificado) não tem alunos associados na área; NaN quebraria o
         # JSON estrito, então vira null explícito em vez do valor incorreto de 0%.
@@ -1072,7 +1180,7 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
             area_agg["taxa_participacao_pibic_pct"].notna(), None
         )
     dist_area = area_agg.to_dict(orient="records")
-    
+
     # Evolução Anual
     ano_agg = df_pibic.groupby("ano").agg(
         total_projetos=("tipo_bolsa_norm", "count"),
@@ -1082,29 +1190,36 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
         investimento_reais=("valor_bolsa_anual_estimado", "sum"),
     ).reset_index()
     dist_ano = ano_agg.to_dict(orient="records")
-    
+
     # 3. Tabela Analítica Agregada por Curso / Unidade (com k-anônimo >= 5)
-    # Agrupa pelo curso canônico (não o nome bruto extraído do campo "unidade"), para não
-    # espalhar o mesmo curso em várias linhas por causa de grafias inconsistentes na origem.
     curso_agg = df_pibic.groupby(["curso_canonico", "campus", "area_conhecimento"]).agg(
         total_projetos=("ano", "count"),
-        total_remuneradas=("tipo_bolsa_norm", lambda s: (s == "REMUNERADA").sum()),
-        total_voluntarias_pivic=("tipo_bolsa_norm", lambda s: (s == "VOLUNTARIA").sum()),
+        total_remuneradas=("tipo_bolsa_norm",
+                           lambda s: (s == "REMUNERADA").sum()),
+        total_voluntarias_pivic=(
+            "tipo_bolsa_norm", lambda s: (s == "VOLUNTARIA").sum()),
         total_cotistas=("is_cotista", "sum"),
-        total_cotistas_ppi=("perfil_social_macro", lambda s: (s == "PPI / ETNICO-RACIAL").sum()),
-        total_baixa_renda=("faixa_renda", lambda s: (s == "BAIXA RENDA (<= 1.5 SM)").sum()),
+        total_cotistas_ppi=("perfil_social_macro", lambda s: (
+            s == "PPI / ETNICO-RACIAL").sum()),
+        total_baixa_renda=("faixa_renda", lambda s: (
+            s == "BAIXA RENDA (<= 1.5 SM)").sum()),
         valor_total_investido=("valor_bolsa_anual_estimado", "sum"),
     ).reset_index().rename(columns={"curso_canonico": "curso_pibic_norm"})
 
     # Exclui registros sem nome de curso e aplica supressão ética k < 5
-    curso_agg = curso_agg[(curso_agg["curso_pibic_norm"] != "") & (curso_agg["total_projetos"] >= 5)].copy()
-    curso_agg["taxa_cotistas_pct"] = (curso_agg["total_cotistas"] / curso_agg["total_projetos"] * 100).round(1)
-    curso_agg["taxa_voluntario_pct"] = (curso_agg["total_voluntarias_pivic"] / curso_agg["total_projetos"] * 100).round(1)
-    curso_agg = curso_agg.sort_values(by="total_projetos", ascending=False)
-    
+    curso_agg = curso_agg[(curso_agg["curso_pibic_norm"] != "") & (
+        curso_agg["total_projetos"] >= 5)].copy()
+    curso_agg["taxa_cotistas_pct"] = (
+        curso_agg["total_cotistas"] / curso_agg["total_projetos"] * 100).round(1)
+    curso_agg["taxa_voluntario_pct"] = (
+        curso_agg["total_voluntarias_pivic"] / curso_agg["total_projetos"] * 100).round(1)
+    curso_agg = curso_agg.sort_values(
+        by=["total_projetos", "curso_pibic_norm", "campus", "area_conhecimento"],
+        ascending=[False, True, True, True])
+
     # Salvar tabela Gold do PIBIC
     gravar(curso_agg, "gold.pibic_social_unb")
-    
+
     # 4. Consolidar JSON de Métricas
     pibic_metrics = {
         "total_projetos_ic": total_registros,
@@ -1119,8 +1234,13 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
         "distribuicao_campi": dist_campi,
         "distribuicao_grande_area": dist_area,
         "evolucao_anual": dist_ano,
+        # Valor mensal em vigor na coleta mais recente da tabela do CNPq (simulador do painel).
+        "valor_bolsa_ic_mensal_vigente": float(
+            pd.DataFrame(json.loads((BASE_DIR / "data" / "bronze" / "cnpq_valor_bolsa_ic.json")
+                                    .read_text(encoding="utf-8"))["vigencias"])
+            .sort_values("vigente_desde")["valor_mensal"].iloc[-1]),
     }
-    
+
     gravar_relatorio("pibic_metricas_gerais", pibic_metrics)
 
     logger.info(f"Tabela Gold PIBIC gravada em gold.pibic_social_unb com {len(curso_agg)} cursos agregados.")
@@ -1131,4 +1251,3 @@ def build_pibic_gold() -> Tuple[pd.DataFrame, Dict]:
 if __name__ == "__main__":
     build_gold_layer()
     build_pibic_gold()
-

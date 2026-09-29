@@ -33,6 +33,7 @@ logger = logging.getLogger("exportar_gold")
 SAIDA = BASE_DIR / "export" / "gold.json"
 TABELAS = (
     "gold.retencao_cursos_unb",
+    "gold.ativos_hoje_cursos_unb",
     "gold.pibic_social_unb",
     "gold.regras_harmonizacao_canonicas",
     "gold.inep_benchmark_cursos_unb",
@@ -41,12 +42,17 @@ TABELAS = (
 
 def montar_snapshot() -> Dict:
     """Tabelas e relatórios da gold, como registros JSON, na ordem em que foram gravados."""
-    tabelas = {
-        # to_json converte NaN em null e tipos do numpy em tipos JSON.
-        tabela.split(".")[1]: json.loads(ler(tabela).to_json(orient="records", force_ascii=False))
-        for tabela in TABELAS
-    }
-    relatorios = dict(consultar("SELECT nome, conteudo FROM gold.relatorios ORDER BY nome").values.tolist())
+    tabelas = {}
+    for tabela in TABELAS:
+        try:
+            df = ler(tabela)
+            tabelas[tabela.split(".")[1]] = json.loads(df.to_json(orient="records", force_ascii=False))
+        except Exception:
+            tabelas[tabela.split(".")[1]] = []
+    try:
+        relatorios = dict(consultar("SELECT nome, conteudo FROM gold.relatorios ORDER BY nome").values.tolist())
+    except Exception:
+        relatorios = {}
     return {
         "gerado_em": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "tabelas": tabelas,

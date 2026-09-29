@@ -31,6 +31,7 @@ services:
     command: ["bash", "scripts/rodar_pipeline.sh"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-observatorio}:${POSTGRES_PASSWORD:-observatorio}@db:5432/${POSTGRES_DB:-observatorio}
+      SUPABASE_DATABASE_URL: ${SUPABASE_DATABASE_URL:-}
       FASTEMBED_CACHE_PATH: /cache/fastembed
     volumes:
       - modelos:/cache

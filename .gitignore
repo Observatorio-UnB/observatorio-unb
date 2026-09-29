@@ -28,3 +28,7 @@ export/
 # Configuração local e cache do modelo de embedding (~240 MB)
 .env
 .cache/
+
+# Documentação interna de arquitetura e planejamento
+.blueprint/
+

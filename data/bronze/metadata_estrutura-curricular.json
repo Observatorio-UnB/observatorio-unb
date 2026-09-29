@@ -1,0 +1,119 @@
+{
+  "author": "",
+  "author_email": "",
+  "creator_user_id": "b41248a8-6759-4476-8465-9850ccdf1836",
+  "id": "a7af9d37-bdef-4325-b899-32e5e8e71439",
+  "isopen": true,
+  "license_id": "cc-by",
+  "license_title": "Creative Commons Attribution",
+  "license_url": "http://www.opendefinition.org/licenses/cc-by",
+  "maintainer": "",
+  "maintainer_email": "",
+  "metadata_created": "2020-10-20T17:44:44.764505",
+  "metadata_modified": "2021-05-03T15:31:48.103422",
+  "name": "estrutura-curricular",
+  "notes": "Relação das estruturas curriculares da UnB.",
+  "num_resources": 2,
+  "num_tags": 3,
+  "organization": {
+    "id": "617d98ce-cd0d-48af-8b4e-31050823db2d",
+    "name": "unb",
+    "title": "UnB",
+    "type": "organization",
+    "description": "Universidade de Brasília",
+    "image_url": "2019-10-30-130725.446390asvertcor.jpg",
+    "created": "2019-10-30T13:07:25.460432",
+    "is_organization": true,
+    "approval_status": "approved",
+    "state": "active"
+  },
+  "owner_org": "617d98ce-cd0d-48af-8b4e-31050823db2d",
+  "private": false,
+  "state": "active",
+  "title": "Estrutura Curricular",
+  "type": "dataset",
+  "url": "",
+  "version": "",
+  "groups": [
+    {
+      "description": "",
+      "display_name": "Ensino",
+      "id": "001e792a-92b1-4d77-a61b-127609a18d85",
+      "image_display_url": "https://dados.unb.br/uploads/group/2019-11-01-175835.512234iconensino.png",
+      "name": "ensino",
+      "title": "Ensino"
+    }
+  ],
+  "resources": [
+    {
+      "cache_last_updated": null,
+      "cache_url": null,
+      "created": "2020-10-20T17:45:46.195070",
+      "datastore_active": false,
+      "description": "Relação das estruturas curriculares da UnB.",
+      "format": "CSV",
+      "hash": "",
+      "id": "27e84759-2ed5-4781-8197-c41f3be1d620",
+      "last_modified": "2020-10-20T17:45:46.165045",
+      "metadata_modified": "2020-10-20T17:45:46.195070",
+      "mimetype": "text/csv",
+      "mimetype_inner": null,
+      "name": "Estrutura Curricular",
+      "package_id": "a7af9d37-bdef-4325-b899-32e5e8e71439",
+      "position": 0,
+      "resource_type": null,
+      "size": 76410,
+      "state": "active",
+      "url": "https://dados.unb.br/dataset/a7af9d37-bdef-4325-b899-32e5e8e71439/resource/27e84759-2ed5-4781-8197-c41f3be1d620/download/estrutura-curricular.csv",
+      "url_type": "upload"
+    },
+    {
+      "cache_last_updated": null,
+      "cache_url": null,
+      "created": "2020-10-20T17:46:04.592311",
+      "datastore_active": false,
+      "description": "Dicionário de Dados - Estrutura Curricular",
+      "format": "PDF",
+      "hash": "",
+      "id": "917c81ea-820d-473c-bfb1-4edfb8df4b04",
+      "last_modified": "2020-10-20T17:46:04.559830",
+      "metadata_modified": "2020-10-20T17:46:04.592311",
+      "mimetype": "application/pdf",
+      "mimetype_inner": null,
+      "name": "Dicionário de Dados - Estrutura Curricular",
+      "package_id": "a7af9d37-bdef-4325-b899-32e5e8e71439",
+      "position": 1,
+      "resource_type": null,
+      "size": 141599,
+      "state": "active",
+      "url": "https://dados.unb.br/dataset/a7af9d37-bdef-4325-b899-32e5e8e71439/resource/917c81ea-820d-473c-bfb1-4edfb8df4b04/download/dicionario-de-dados-estrutura-curricular.pdf",
+      "url_type": "upload"
+    }
+  ],
+  "tags": [
+    {
+      "display_name": "curso",
+      "id": "0f324919-7435-45d6-a192-8786d47336f3",
+      "name": "curso",
+      "state": "active",
+      "vocabulary_id": null
+    },
+    {
+      "display_name": "ensino",
+      "id": "94b2391a-ab9e-447d-bfc4-cfc4bb84a843",
+      "name": "ensino",
+      "state": "active",
+      "vocabulary_id": null
+    },
+    {
+      "display_name": "estrutura curricular",
+      "id": "e3209171-dbc0-4403-aed5-4e7fd6623c67",
+      "name": "estrutura curricular",
+      "state": "active",
+      "vocabulary_id": null
+    }
+  ],
+  "extras": [],
+  "relationships_as_subject": [],
+  "relationships_as_object": []
+}

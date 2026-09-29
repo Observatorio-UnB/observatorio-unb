@@ -186,7 +186,8 @@ def ler(tabela: str, colunas_de_controle: bool = False) -> pd.DataFrame:
 def ler_bronze(tabela: str) -> pd.DataFrame:
     """Lê uma tabela bronze como texto, com os nulos que o read_csv(dtype=str) produziria."""
     df = ler(tabela)
-    return df.mask(df.isin(NULOS_DO_READ_CSV)).astype("str")
+    df = df.mask(df.isin(NULOS_DO_READ_CSV))
+    return df.astype(object).where(df.notna(), np.nan)
 
 
 def tem_linhas(tabela: str) -> bool:
