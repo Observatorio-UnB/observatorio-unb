@@ -608,12 +608,19 @@ def build_ativos_hoje(df_est: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
 
 def build_gold_layer() -> Tuple[pd.DataFrame, Dict]:
     """Executa o merge heterogêneo e a agregação analítica da camada Gold."""
+    if not tem_linhas("silver.discentes_graduacao"):
+        logger.warning("silver.discentes_graduacao está vazia. Pulando construção da camada Gold.")
+        return pd.DataFrame(), {}
+
     # 1. Carregar datasets da camada Silver
     df_sig = ler("silver.discentes_graduacao")
     df_est = ler("silver.estrutura_curricular")
     df_cur = ler("silver.cursos_graduacao")
 
     total_discentes = len(df_sig)
+    if total_discentes == 0:
+        logger.warning("Nenhum discente encontrado em silver.discentes_graduacao. Pulando Gold.")
+        return pd.DataFrame(), {}
 
     # 2. Aplicar mapeamento canônico de cursos
     df_sig["curso_canonico"] = df_sig["curso_norm"].replace(COURSE_ALIASES)

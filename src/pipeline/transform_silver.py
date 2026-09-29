@@ -373,7 +373,31 @@ def process_cursos_graduacao() -> pd.DataFrame:
     df["turno_norm"] = df["turno"].apply(normalize_text)
     df["campus_norm"] = df["campus"].apply(normalize_text)
     df["grau_academico_norm"] = df["grau_academico"].apply(normalize_text)
-    df["modalidade_norm"] = df["modalidade_educacao"].apply(normalize_text)
+    df["area_conhecimento_norm"] = df["area_conhecimento"].apply(normalize_text)
+    df["unidade_responsavel_norm"] = df["unidade_responsavel"].apply(normalize_text)
+
+    AREA_CONHECIMENTO_OVERRIDES = {
+        "ARQUITETURA E URBANISMO": "CIENCIAS SOCIAIS APLICADAS",
+        "CIENCIAS NATURAIS": "CIENCIAS HUMANAS",
+        "CIENCIAS SOCIAIS": "CIENCIAS HUMANAS",
+        "EDUCACAO DO CAMPO - MATEMATICA": "CIENCIAS HUMANAS",
+        "EDUCACAO FISICA": "CIENCIAS DA SAUDE",
+        "ENGENHARIA": "ENGENHARIAS",
+        "ENGENHARIA AUTOMOTIVA": "ENGENHARIAS",
+        "LETRAS - LINGUA INGLESA E RESPECTIVA LITERATURA": "LINGUISTICA, LETRAS E ARTES",
+        "MUSEOLOGIA": "CIENCIAS SOCIAIS APLICADAS",
+        "MUSICA": "LINGUISTICA, LETRAS E ARTES",
+        "TEATRO": "LINGUISTICA, LETRAS E ARTES",
+    }
+    mask_outra = df["area_conhecimento_norm"] == "OUTRA"
+    df.loc[mask_outra, "area_conhecimento_norm"] = (
+        df.loc[mask_outra, "nome_curso_norm"].map(AREA_CONHECIMENTO_OVERRIDES).fillna("OUTRA")
+    )
+    ainda_outra = df.loc[df["area_conhecimento_norm"] == "OUTRA", "nome_curso_norm"].unique()
+    if len(ainda_outra):
+        logger.warning(
+            f"Cursos sem Grande Área mapeada, adicione a AREA_CONHECIMENTO_OVERRIDES: {list(ainda_outra)}"
+        )
 
     # Tratamento de códigos de centro e datas
     df["id_curso"] = pd.to_numeric(df["id_curso"], errors="coerce")

@@ -117,7 +117,7 @@ def copiar(conn: psycopg.Connection, tabela: str, df: pd.DataFrame) -> int:
         return cur.rowcount
 
 
-def gravar_varias(tabelas: Dict[str, pd.DataFrame]) -> Dict[str, int]:
+def gravar_varias(tabelas: Dict[str, pd.DataFrame], conn: Optional[psycopg.Connection] = None) -> Dict[str, int]:
     """Substitui o conteúdo das tabelas numa transação só (TRUNCATE + COPY).
 
     Quem lê o banco nunca vê a camada pela metade, e regravar dá o mesmo resultado.
@@ -126,30 +126,40 @@ def gravar_varias(tabelas: Dict[str, pd.DataFrame]) -> Dict[str, int]:
     que não rodou, ex.: PIBIC sem dado na bronze) só esvazia a tabela.
     """
     contagens = {}
-    with conectar(autocommit=True) as conn:
-        with conn.transaction():
-            # Datas das fontes chegam como dd/mm/aaaa.
-            conn.execute("SET LOCAL datestyle = 'ISO, DMY'")
-            conn.execute(f"TRUNCATE {', '.join(tabelas)} RESTART IDENTITY")
-            for tabela, df in tabelas.items():
-                if len(df.columns) == 0:
-                    contagens[tabela] = 0
-                    continue
-                colunas = colunas_da_tabela(conn, tabela)
-                df = df.reset_index(drop=True)
-                if "_ordem" in {c.nome for c in colunas} and "_ordem" not in df.columns:
-                    df = df.assign(_ordem=np.arange(1, len(df) + 1))
-                contagens[tabela] = copiar(conn, tabela, preparar(df, colunas, tabela))
-        for tabela in tabelas:
-            conn.execute(f"ANALYZE {tabela}")
+    if not tabelas:
+        return contagens
+
+    def _executar(c: psycopg.Connection):
+        # Datas das fontes chegam como dd/mm/aaaa.
+        c.execute("SET LOCAL datestyle = 'ISO, DMY'")
+        c.execute(f"TRUNCATE {', '.join(tabelas)} RESTART IDENTITY")
+        for tabela, df in tabelas.items():
+            if len(df.columns) == 0:
+                contagens[tabela] = 0
+                continue
+            colunas = colunas_da_tabela(c, tabela)
+            df = df.reset_index(drop=True)
+            if "_ordem" in {col.nome for col in colunas} and "_ordem" not in df.columns:
+                df = df.assign(_ordem=np.arange(1, len(df) + 1))
+            contagens[tabela] = copiar(c, tabela, preparar(df, colunas, tabela))
+
+    if conn is not None:
+        _executar(conn)
+    else:
+        with conectar(autocommit=True) as c:
+            with c.transaction():
+                _executar(c)
+            for tabela in tabelas:
+                c.execute(f"ANALYZE {tabela}")
+
     for tabela, total in contagens.items():
         logger.info(f"{tabela}: {total:,} linhas gravadas.")
     return contagens
 
 
-def gravar(df: pd.DataFrame, tabela: str) -> int:
+def gravar(df: pd.DataFrame, tabela: str, conn: Optional[psycopg.Connection] = None) -> int:
     """Substitui o conteúdo de uma tabela pelo DataFrame."""
-    return gravar_varias({tabela: df})[tabela]
+    return gravar_varias({tabela: df}, conn=conn)[tabela]
 
 
 def _conectar_leitura() -> psycopg.Connection:

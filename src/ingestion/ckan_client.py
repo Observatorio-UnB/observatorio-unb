@@ -23,6 +23,7 @@ import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
+from src.db.conexao import conectar  # noqa: E402
 from src.db.migrar import aplicar_migracoes  # noqa: E402
 from src.db.tabelas import gravar  # noqa: E402
 from src.ingestion.procedencia import registrar_ingestao  # noqa: E402
@@ -160,38 +161,49 @@ def download_resource(url: str) -> bytes:
     return conteudo
 
 
-def ler_csv_bruto(conteudo: bytes, separador: str, encoding: str, colunas: Optional[List[str]] = None) -> pd.DataFrame:
+def ler_csv_bruto(conteudo: bytes, separador: str, encoding: str, colunas: Optional[List[str]] = None) -> Tuple[pd.DataFrame, int]:
     """Lê o CSV da fonte como texto, sem converter nada em nulo (bronze guarda o que veio)."""
+    descartadas = 0
+
+    def contar_bad_lines(bad_line):
+        nonlocal descartadas
+        descartadas += 1
+        return None
+
     df = pd.read_csv(
         io.BytesIO(conteudo), sep=separador, encoding=encoding,
-        dtype=str, keep_default_na=False, on_bad_lines="skip",
+        dtype=str, keep_default_na=False, on_bad_lines=contar_bad_lines,
     )
+    if descartadas > 0:
+        logger.warning(f"Descartadas {descartadas} linha(s) malformada(s) durante a leitura do CSV.")
     if colunas:
         ausentes = set(colunas) - set(df.columns)
         if ausentes:
             raise RuntimeError(f"Colunas esperadas ausentes: {sorted(ausentes)}")
         df = df[colunas]
-    return df
+    return df, descartadas
 
 
-def download_versoes(recursos: List[Dict], separador: str, encoding: str) -> Tuple[pd.DataFrame, bytes, str]:
+def download_versoes(recursos: List[Dict], separador: str, encoding: str) -> Tuple[pd.DataFrame, bytes, str, int]:
     """Empilha todas as versões de um CSV num DataFrame só, marcando a origem de cada linha."""
     dfs = []
     ultimo_conteudo = b""
     ultima_url = ""
+    total_descartadas = 0
     for r in recursos:
         nome = r["url"].rsplit("/", 1)[-1]
         pub = _data(r)[:10]
         logger.info(f"Baixando versão {nome} ({pub})...")
         conteudo = download_resource(r["url"])
-        df = ler_csv_bruto(conteudo, separador, encoding)
+        df, descartadas = ler_csv_bruto(conteudo, separador, encoding)
+        total_descartadas += descartadas
         df["arquivo_origem"] = nome
         df["publicado_em"] = pub
         dfs.append(df)
         ultimo_conteudo = conteudo
         ultima_url = r["url"]
     df_consolidado = pd.concat(dfs, ignore_index=True)
-    return df_consolidado, ultimo_conteudo, ultima_url
+    return df_consolidado, ultimo_conteudo, ultima_url, total_descartadas
 
 
 def run_ingestion() -> Dict[str, int]:
@@ -217,19 +229,23 @@ def run_ingestion() -> Dict[str, int]:
             versoes = recursos_casados(meta.get("resources", []), config["resource_pattern"])
             if not versoes:
                 raise RuntimeError(f"Nenhum recurso compatível com '{config['resource_pattern']}' em {pkg_id}")
-            df, conteudo_amostra, url_amostra = download_versoes(versoes, config["separador"], config["encoding"])
-            registros_por_tabela[config["tabela"]] = gravar(df, config["tabela"])
-            registrar_ingestao(
-                tabela=config["tabela"],
-                fonte="dados.unb.br",
-                recurso_url=url_amostra,
-                conteudo=conteudo_amostra,
-                encoding=config["encoding"],
-                separador=config["separador"],
-                registros=len(df),
-                pacote=pkg_id,
-                metadados=meta,
-            )
+            df, conteudo_amostra, url_amostra, descartadas = download_versoes(versoes, config["separador"], config["encoding"])
+            with conectar(autocommit=True) as conn:
+                with conn.transaction():
+                    registros_por_tabela[config["tabela"]] = gravar(df, config["tabela"], conn=conn)
+                    registrar_ingestao(
+                        tabela=config["tabela"],
+                        fonte="dados.unb.br",
+                        recurso_url=url_amostra,
+                        conteudo=conteudo_amostra,
+                        encoding=config["encoding"],
+                        separador=config["separador"],
+                        registros=len(df),
+                        pacote=pkg_id,
+                        metadados=meta,
+                        conn=conn,
+                        linhas_descartadas=descartadas,
+                    )
             continue
 
         target_resource = escolher_recurso(
@@ -238,19 +254,23 @@ def run_ingestion() -> Dict[str, int]:
         if target_resource:
             res_url = target_resource["url"]
             conteudo = download_resource(res_url)
-            df = ler_csv_bruto(conteudo, config["separador"], config["encoding"], config.get("colunas"))
-            registros_por_tabela[config["tabela"]] = gravar(df, config["tabela"])
-            registrar_ingestao(
-                tabela=config["tabela"],
-                fonte="dados.unb.br",
-                recurso_url=res_url,
-                conteudo=conteudo,
-                encoding=config["encoding"],
-                separador=config["separador"],
-                registros=len(df),
-                pacote=pkg_id,
-                metadados=meta,
-            )
+            df, descartadas = ler_csv_bruto(conteudo, config["separador"], config["encoding"], config.get("colunas"))
+            with conectar(autocommit=True) as conn:
+                with conn.transaction():
+                    registros_por_tabela[config["tabela"]] = gravar(df, config["tabela"], conn=conn)
+                    registrar_ingestao(
+                        tabela=config["tabela"],
+                        fonte="dados.unb.br",
+                        recurso_url=res_url,
+                        conteudo=conteudo,
+                        encoding=config["encoding"],
+                        separador=config["separador"],
+                        registros=len(df),
+                        pacote=pkg_id,
+                        metadados=meta,
+                        conn=conn,
+                        linhas_descartadas=descartadas,
+                    )
         else:
             logger.warning(
                 f"Recurso compatível com '{config['resource_pattern']}' não encontrado em {pkg_id}")
