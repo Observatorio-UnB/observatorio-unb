@@ -1,0 +1,827 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1940 1820" width="100%" height="100%" style="background-color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <filter id="shadow" x="-3%" y="-2%" width="106%" height="108%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+    <marker id="dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5">
+      <circle cx="5" cy="5" r="3.5" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+
+  <!-- Banner do Topo (Sem Emojis) -->
+  <text x="60" y="44" fill="#f8fafc" font-size="22" font-weight="700">Camada Silver: Modelo Relacional 3NF e Engenharia Física</text>
+  <text x="60" y="68" fill="#94a3b8" font-size="13">Observatório UnB — PostgreSQL 16/17 • 15 Tabelas Catalogadas (5 Canônicas 3NF, 4 Partições Físicas e 6 de Staging/Auditoria)</text>
+
+  <!-- Rótulos e Limites das Zonas -->
+  <rect x="45" y="90" width="665" height="1700" rx="10" fill="none" stroke="#334155" stroke-dasharray="6,4" stroke-width="1"/>
+  <text x="60" y="108" fill="#64748b" font-size="11" font-weight="700">ZONA 1: STAGING &amp; AUDITORIA LEGADA (6 TABELAS)</text>
+
+  <rect x="735" y="90" width="765" height="1700" rx="10" fill="none" stroke="#0284c7" stroke-dasharray="6,4" stroke-width="1.2"/>
+  <text x="750" y="108" fill="#38bdf8" font-size="11" font-weight="700">ZONA 2: MODELO RELACIONAL CANÔNICO EM 3NF (5 TABELAS)</text>
+
+  <rect x="1520" y="90" width="375" height="1700" rx="10" fill="none" stroke="#475569" stroke-dasharray="6,4" stroke-width="1"/>
+  <text x="1535" y="108" fill="#94a3b8" font-size="11" font-weight="700">ZONA 3: PARTIÇÕES FÍSICAS DECLARATIVAS (4 TABELAS)</text>
+
+  <!-- Tabela: silver.discentes_graduacao -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="120" width="300" height="711" rx="8" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+    <rect x="60" y="120" width="300" height="36" rx="8" fill="#334155"/>
+    <rect x="60" y="151" width="300" height="5" fill="#334155"/>
+    <text x="74" y="143" fill="#94a3b8" font-size="13" font-weight="700">silver.discentes_graduacao</text>
+
+<rect x="70" y="161" width="26" height="14" rx="3" fill="#f59e0b"/><text x="76" y="172" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="102" y="172" fill="#f8fafc" font-size="11.5" font-weight="600">id</text>
+    <text x="348" y="172" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<rect x="70" y="184" width="26" height="14" rx="3" fill="#10b981"/><text x="76" y="195" fill="#0f172a" font-size="9" font-weight="bold">UK</text>
+    <text x="102" y="195" fill="#f8fafc" font-size="11.5" font-weight="600">aluno</text>
+    <text x="348" y="195" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="214" r="2" fill="#64748b"/>
+    <text x="102" y="218" fill="#cbd5e1" font-size="11.5" font-weight="400">nivel</text>
+    <text x="348" y="218" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<rect x="70" y="230" width="26" height="14" rx="3" fill="#10b981"/><text x="76" y="241" fill="#0f172a" font-size="9" font-weight="bold">UK</text>
+    <text x="102" y="241" fill="#f8fafc" font-size="11.5" font-weight="600">opcao</text>
+    <text x="348" y="241" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="83" cy="260" r="2" fill="#64748b"/>
+    <text x="102" y="264" fill="#cbd5e1" font-size="11.5" font-weight="400">curso</text>
+    <text x="348" y="264" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="283" r="2" fill="#64748b"/>
+    <text x="102" y="287" fill="#cbd5e1" font-size="11.5" font-weight="400">departamento</text>
+    <text x="348" y="287" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<rect x="70" y="299" width="26" height="14" rx="3" fill="#10b981"/><text x="76" y="310" fill="#0f172a" font-size="9" font-weight="bold">UK</text>
+    <text x="102" y="310" fill="#f8fafc" font-size="11.5" font-weight="600">ano_ingresso</text>
+    <text x="348" y="310" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="83" cy="329" r="2" fill="#64748b"/>
+    <text x="102" y="333" fill="#cbd5e1" font-size="11.5" font-weight="400">forma_ingresso</text>
+    <text x="348" y="333" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="352" r="2" fill="#64748b"/>
+    <text x="102" y="356" fill="#cbd5e1" font-size="11.5" font-weight="400">cota_ingresso</text>
+    <text x="348" y="356" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="375" r="2" fill="#64748b"/>
+    <text x="102" y="379" fill="#cbd5e1" font-size="11.5" font-weight="400">data_nascimento</text>
+    <text x="348" y="379" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">DATE</text>
+<circle cx="83" cy="398" r="2" fill="#64748b"/>
+    <text x="102" y="402" fill="#cbd5e1" font-size="11.5" font-weight="400">sexo</text>
+    <text x="348" y="402" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">CHARACTER(1)</text>
+<circle cx="83" cy="421" r="2" fill="#64748b"/>
+    <text x="102" y="425" fill="#cbd5e1" font-size="11.5" font-weight="400">raca_cor</text>
+    <text x="348" y="425" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="444" r="2" fill="#64748b"/>
+    <text x="102" y="448" fill="#cbd5e1" font-size="11.5" font-weight="400">forma_saida</text>
+    <text x="348" y="448" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="467" r="2" fill="#64748b"/>
+    <text x="102" y="471" fill="#cbd5e1" font-size="11.5" font-weight="400">data_registro_diploma</text>
+    <text x="348" y="471" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">DATE</text>
+<rect x="70" y="483" width="26" height="14" rx="3" fill="#10b981"/><text x="76" y="494" fill="#0f172a" font-size="9" font-weight="bold">UK</text>
+    <text x="102" y="494" fill="#f8fafc" font-size="11.5" font-weight="600">periodo_saida</text>
+    <text x="348" y="494" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="83" cy="513" r="2" fill="#64748b"/>
+    <text x="102" y="517" fill="#cbd5e1" font-size="11.5" font-weight="400">nivel_norm</text>
+    <text x="348" y="517" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="536" r="2" fill="#64748b"/>
+    <text x="102" y="540" fill="#cbd5e1" font-size="11.5" font-weight="400">curso_raw</text>
+    <text x="348" y="540" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="559" r="2" fill="#64748b"/>
+    <text x="102" y="563" fill="#cbd5e1" font-size="11.5" font-weight="400">curso_norm</text>
+    <text x="348" y="563" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="582" r="2" fill="#64748b"/>
+    <text x="102" y="586" fill="#cbd5e1" font-size="11.5" font-weight="400">departamento_norm</text>
+    <text x="348" y="586" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="605" r="2" fill="#64748b"/>
+    <text x="102" y="609" fill="#cbd5e1" font-size="11.5" font-weight="400">forma_saida_norm</text>
+    <text x="348" y="609" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="628" r="2" fill="#64748b"/>
+    <text x="102" y="632" fill="#cbd5e1" font-size="11.5" font-weight="400">tipo_saida_grupo</text>
+    <text x="348" y="632" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="651" r="2" fill="#64748b"/>
+    <text x="102" y="655" fill="#cbd5e1" font-size="11.5" font-weight="400">ano_saida</text>
+    <text x="348" y="655" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="83" cy="674" r="2" fill="#64748b"/>
+    <text x="102" y="678" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_saida</text>
+    <text x="348" y="678" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="83" cy="697" r="2" fill="#64748b"/>
+    <text x="102" y="701" fill="#cbd5e1" font-size="11.5" font-weight="400">semestres_permanencia</text>
+    <text x="348" y="701" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="83" cy="720" r="2" fill="#64748b"/>
+    <text x="102" y="724" fill="#cbd5e1" font-size="11.5" font-weight="400">semestres_permanencia_valida</text>
+    <text x="348" y="724" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="83" cy="743" r="2" fill="#64748b"/>
+    <text x="102" y="747" fill="#cbd5e1" font-size="11.5" font-weight="400">fonte</text>
+    <text x="348" y="747" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="766" r="2" fill="#64748b"/>
+    <text x="102" y="770" fill="#cbd5e1" font-size="11.5" font-weight="400">status_aluno</text>
+    <text x="348" y="770" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="789" r="2" fill="#64748b"/>
+    <text x="102" y="793" fill="#cbd5e1" font-size="11.5" font-weight="400">periodo_saida_estimado</text>
+    <text x="348" y="793" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BOOLEAN</text>
+<circle cx="83" cy="812" r="2" fill="#64748b"/>
+    <text x="102" y="816" fill="#cbd5e1" font-size="11.5" font-weight="400">_ordem</text>
+    <text x="348" y="816" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+  </g>
+  <!-- Tabela: silver.sigaa_ativos -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="860" width="300" height="251" rx="8" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+    <rect x="60" y="860" width="300" height="36" rx="8" fill="#334155"/>
+    <rect x="60" y="891" width="300" height="5" fill="#334155"/>
+    <text x="74" y="883" fill="#94a3b8" font-size="13" font-weight="700">silver.sigaa_ativos</text>
+
+<rect x="70" y="901" width="26" height="14" rx="3" fill="#f59e0b"/><text x="76" y="912" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="102" y="912" fill="#f8fafc" font-size="11.5" font-weight="600">id</text>
+    <text x="348" y="912" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<circle cx="83" cy="931" r="2" fill="#64748b"/>
+    <text x="102" y="935" fill="#cbd5e1" font-size="11.5" font-weight="400">periodo_referencia</text>
+    <text x="348" y="935" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="954" r="2" fill="#64748b"/>
+    <text x="102" y="958" fill="#cbd5e1" font-size="11.5" font-weight="400">curso</text>
+    <text x="348" y="958" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="977" r="2" fill="#64748b"/>
+    <text x="102" y="981" fill="#cbd5e1" font-size="11.5" font-weight="400">curso_norm</text>
+    <text x="348" y="981" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="1000" r="2" fill="#64748b"/>
+    <text x="102" y="1004" fill="#cbd5e1" font-size="11.5" font-weight="400">grau</text>
+    <text x="348" y="1004" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="1023" r="2" fill="#64748b"/>
+    <text x="102" y="1027" fill="#cbd5e1" font-size="11.5" font-weight="400">ano_ingresso</text>
+    <text x="348" y="1027" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="83" cy="1046" r="2" fill="#64748b"/>
+    <text x="102" y="1050" fill="#cbd5e1" font-size="11.5" font-weight="400">periodo_ingresso</text>
+    <text x="348" y="1050" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="83" cy="1069" r="2" fill="#64748b"/>
+    <text x="102" y="1073" fill="#cbd5e1" font-size="11.5" font-weight="400">semestres_cursados</text>
+    <text x="348" y="1073" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="83" cy="1092" r="2" fill="#64748b"/>
+    <text x="102" y="1096" fill="#cbd5e1" font-size="11.5" font-weight="400">_ordem</text>
+    <text x="348" y="1096" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+  </g>
+  <!-- Tabela: silver.inep_censo_superior -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="1140" width="300" height="458" rx="8" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+    <rect x="60" y="1140" width="300" height="36" rx="8" fill="#334155"/>
+    <rect x="60" y="1171" width="300" height="5" fill="#334155"/>
+    <text x="74" y="1163" fill="#94a3b8" font-size="13" font-weight="700">silver.inep_censo_superior</text>
+
+<circle cx="83" cy="1188" r="2" fill="#64748b"/>
+    <text x="102" y="1192" fill="#cbd5e1" font-size="11.5" font-weight="400">NU_ANO_CENSO</text>
+    <text x="348" y="1192" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="83" cy="1211" r="2" fill="#64748b"/>
+    <text x="102" y="1215" fill="#cbd5e1" font-size="11.5" font-weight="400">CO_IES</text>
+    <text x="348" y="1215" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="83" cy="1234" r="2" fill="#64748b"/>
+    <text x="102" y="1238" fill="#cbd5e1" font-size="11.5" font-weight="400">NO_IES</text>
+    <text x="348" y="1238" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="1257" r="2" fill="#64748b"/>
+    <text x="102" y="1261" fill="#cbd5e1" font-size="11.5" font-weight="400">is_unb</text>
+    <text x="348" y="1261" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BOOLEAN</text>
+<rect x="70" y="1273" width="26" height="14" rx="3" fill="#f59e0b"/><text x="76" y="1284" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="102" y="1284" fill="#f8fafc" font-size="11.5" font-weight="600">CO_CURSO</text>
+    <text x="348" y="1284" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<circle cx="83" cy="1303" r="2" fill="#64748b"/>
+    <text x="102" y="1307" fill="#cbd5e1" font-size="11.5" font-weight="400">NO_CURSO</text>
+    <text x="348" y="1307" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="1326" r="2" fill="#64748b"/>
+    <text x="102" y="1330" fill="#cbd5e1" font-size="11.5" font-weight="400">curso_inep_norm</text>
+    <text x="348" y="1330" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="83" cy="1349" r="2" fill="#64748b"/>
+    <text x="102" y="1353" fill="#cbd5e1" font-size="11.5" font-weight="400">QT_VG_TOTAL</text>
+    <text x="348" y="1353" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="83" cy="1372" r="2" fill="#64748b"/>
+    <text x="102" y="1376" fill="#cbd5e1" font-size="11.5" font-weight="400">QT_INSCRITO_TOTAL</text>
+    <text x="348" y="1376" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="83" cy="1395" r="2" fill="#64748b"/>
+    <text x="102" y="1399" fill="#cbd5e1" font-size="11.5" font-weight="400">QT_ING</text>
+    <text x="348" y="1399" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="83" cy="1418" r="2" fill="#64748b"/>
+    <text x="102" y="1422" fill="#cbd5e1" font-size="11.5" font-weight="400">QT_MAT</text>
+    <text x="348" y="1422" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="83" cy="1441" r="2" fill="#64748b"/>
+    <text x="102" y="1445" fill="#cbd5e1" font-size="11.5" font-weight="400">QT_CONC</text>
+    <text x="348" y="1445" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="83" cy="1464" r="2" fill="#64748b"/>
+    <text x="102" y="1468" fill="#cbd5e1" font-size="11.5" font-weight="400">QT_SIT_TRANCADA</text>
+    <text x="348" y="1468" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="83" cy="1487" r="2" fill="#64748b"/>
+    <text x="102" y="1491" fill="#cbd5e1" font-size="11.5" font-weight="400">QT_SIT_DESVINCULADO</text>
+    <text x="348" y="1491" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="83" cy="1510" r="2" fill="#64748b"/>
+    <text x="102" y="1514" fill="#cbd5e1" font-size="11.5" font-weight="400">taxa_trancamento_pct</text>
+    <text x="348" y="1514" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="83" cy="1533" r="2" fill="#64748b"/>
+    <text x="102" y="1537" fill="#cbd5e1" font-size="11.5" font-weight="400">taxa_desvinculacao_pct</text>
+    <text x="348" y="1537" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="83" cy="1556" r="2" fill="#64748b"/>
+    <text x="102" y="1560" fill="#cbd5e1" font-size="11.5" font-weight="400">concorrencia_vestibular</text>
+    <text x="348" y="1560" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="83" cy="1579" r="2" fill="#64748b"/>
+    <text x="102" y="1583" fill="#cbd5e1" font-size="11.5" font-weight="400">_ordem</text>
+    <text x="348" y="1583" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+  </g>
+  <!-- Tabela: silver.cursos_graduacao -->
+  <g filter="url(#shadow)">
+    <rect x="390" y="120" width="300" height="734" rx="8" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+    <rect x="390" y="120" width="300" height="36" rx="8" fill="#334155"/>
+    <rect x="390" y="151" width="300" height="5" fill="#334155"/>
+    <text x="404" y="143" fill="#94a3b8" font-size="13" font-weight="700">silver.cursos_graduacao</text>
+
+<rect x="400" y="161" width="26" height="14" rx="3" fill="#f59e0b"/><text x="406" y="172" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="432" y="172" fill="#f8fafc" font-size="11.5" font-weight="600">id_curso</text>
+    <text x="678" y="172" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="413" cy="191" r="2" fill="#64748b"/>
+    <text x="432" y="195" fill="#cbd5e1" font-size="11.5" font-weight="400">nome</text>
+    <text x="678" y="195" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="214" r="2" fill="#64748b"/>
+    <text x="432" y="218" fill="#cbd5e1" font-size="11.5" font-weight="400">id_coordenador</text>
+    <text x="678" y="218" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="413" cy="237" r="2" fill="#64748b"/>
+    <text x="432" y="241" fill="#cbd5e1" font-size="11.5" font-weight="400">coordenador</text>
+    <text x="678" y="241" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="260" r="2" fill="#64748b"/>
+    <text x="432" y="264" fill="#cbd5e1" font-size="11.5" font-weight="400">situacao_curso</text>
+    <text x="678" y="264" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="283" r="2" fill="#64748b"/>
+    <text x="432" y="287" fill="#cbd5e1" font-size="11.5" font-weight="400">nivel_ensino</text>
+    <text x="678" y="287" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="306" r="2" fill="#64748b"/>
+    <text x="432" y="310" fill="#cbd5e1" font-size="11.5" font-weight="400">grau_academico</text>
+    <text x="678" y="310" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="329" r="2" fill="#64748b"/>
+    <text x="432" y="333" fill="#cbd5e1" font-size="11.5" font-weight="400">modalidade_educacao</text>
+    <text x="678" y="333" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="352" r="2" fill="#64748b"/>
+    <text x="432" y="356" fill="#cbd5e1" font-size="11.5" font-weight="400">area_conhecimento</text>
+    <text x="678" y="356" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="375" r="2" fill="#64748b"/>
+    <text x="432" y="379" fill="#cbd5e1" font-size="11.5" font-weight="400">tipo_oferta</text>
+    <text x="678" y="379" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="398" r="2" fill="#64748b"/>
+    <text x="432" y="402" fill="#cbd5e1" font-size="11.5" font-weight="400">turno</text>
+    <text x="678" y="402" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="421" r="2" fill="#64748b"/>
+    <text x="432" y="425" fill="#cbd5e1" font-size="11.5" font-weight="400">tipo_ciclo_formacao</text>
+    <text x="678" y="425" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="444" r="2" fill="#64748b"/>
+    <text x="432" y="448" fill="#cbd5e1" font-size="11.5" font-weight="400">municipio</text>
+    <text x="678" y="448" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="467" r="2" fill="#64748b"/>
+    <text x="432" y="471" fill="#cbd5e1" font-size="11.5" font-weight="400">campus</text>
+    <text x="678" y="471" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="490" r="2" fill="#64748b"/>
+    <text x="432" y="494" fill="#cbd5e1" font-size="11.5" font-weight="400">id_unidade_responsavel</text>
+    <text x="678" y="494" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="413" cy="513" r="2" fill="#64748b"/>
+    <text x="432" y="517" fill="#cbd5e1" font-size="11.5" font-weight="400">unidade_responsavel</text>
+    <text x="678" y="517" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="536" r="2" fill="#64748b"/>
+    <text x="432" y="540" fill="#cbd5e1" font-size="11.5" font-weight="400">website</text>
+    <text x="678" y="540" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="559" r="2" fill="#64748b"/>
+    <text x="432" y="563" fill="#cbd5e1" font-size="11.5" font-weight="400">data_funcionamento</text>
+    <text x="678" y="563" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">DATE</text>
+<circle cx="413" cy="582" r="2" fill="#64748b"/>
+    <text x="432" y="586" fill="#cbd5e1" font-size="11.5" font-weight="400">codigo_inep</text>
+    <text x="678" y="586" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="413" cy="605" r="2" fill="#64748b"/>
+    <text x="432" y="609" fill="#cbd5e1" font-size="11.5" font-weight="400">dou</text>
+    <text x="678" y="609" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">DATE</text>
+<circle cx="413" cy="628" r="2" fill="#64748b"/>
+    <text x="432" y="632" fill="#cbd5e1" font-size="11.5" font-weight="400">portaria_reconhecimento</text>
+    <text x="678" y="632" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="413" cy="651" r="2" fill="#64748b"/>
+    <text x="432" y="655" fill="#cbd5e1" font-size="11.5" font-weight="400">convenio_academico</text>
+    <text x="678" y="655" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="674" r="2" fill="#64748b"/>
+    <text x="432" y="678" fill="#cbd5e1" font-size="11.5" font-weight="400">nome_curso_norm</text>
+    <text x="678" y="678" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="697" r="2" fill="#64748b"/>
+    <text x="432" y="701" fill="#cbd5e1" font-size="11.5" font-weight="400">turno_norm</text>
+    <text x="678" y="701" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="720" r="2" fill="#64748b"/>
+    <text x="432" y="724" fill="#cbd5e1" font-size="11.5" font-weight="400">campus_norm</text>
+    <text x="678" y="724" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="743" r="2" fill="#64748b"/>
+    <text x="432" y="747" fill="#cbd5e1" font-size="11.5" font-weight="400">grau_academico_norm</text>
+    <text x="678" y="747" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="766" r="2" fill="#64748b"/>
+    <text x="432" y="770" fill="#cbd5e1" font-size="11.5" font-weight="400">area_conhecimento_norm</text>
+    <text x="678" y="770" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="789" r="2" fill="#64748b"/>
+    <text x="432" y="793" fill="#cbd5e1" font-size="11.5" font-weight="400">unidade_responsavel_norm</text>
+    <text x="678" y="793" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="812" r="2" fill="#64748b"/>
+    <text x="432" y="816" fill="#cbd5e1" font-size="11.5" font-weight="400">no_catalogo_vigente</text>
+    <text x="678" y="816" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BOOLEAN</text>
+<circle cx="413" cy="835" r="2" fill="#64748b"/>
+    <text x="432" y="839" fill="#cbd5e1" font-size="11.5" font-weight="400">_ordem</text>
+    <text x="678" y="839" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+  </g>
+  <!-- Tabela: silver.estrutura_curricular -->
+  <g filter="url(#shadow)">
+    <rect x="390" y="880" width="300" height="228" rx="8" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+    <rect x="390" y="880" width="300" height="36" rx="8" fill="#334155"/>
+    <rect x="390" y="911" width="300" height="5" fill="#334155"/>
+    <text x="404" y="903" fill="#94a3b8" font-size="13" font-weight="700">silver.estrutura_curricular</text>
+
+<rect x="400" y="921" width="26" height="14" rx="3" fill="#f59e0b"/><text x="406" y="932" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="432" y="932" fill="#f8fafc" font-size="11.5" font-weight="600">nome_curso_norm</text>
+    <text x="678" y="932" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="951" r="2" fill="#64748b"/>
+    <text x="432" y="955" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_conclusao_minimo</text>
+    <text x="678" y="955" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="413" cy="974" r="2" fill="#64748b"/>
+    <text x="432" y="978" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_conclusao_ideal</text>
+    <text x="678" y="978" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="413" cy="997" r="2" fill="#64748b"/>
+    <text x="432" y="1001" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_conclusao_maximo</text>
+    <text x="678" y="1001" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="413" cy="1020" r="2" fill="#64748b"/>
+    <text x="432" y="1024" fill="#cbd5e1" font-size="11.5" font-weight="400">ch_total_minima</text>
+    <text x="678" y="1024" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="413" cy="1043" r="2" fill="#64748b"/>
+    <text x="432" y="1047" fill="#cbd5e1" font-size="11.5" font-weight="400">cr_total_minimo</text>
+    <text x="678" y="1047" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<rect x="400" y="1059" width="26" height="14" rx="3" fill="#38bdf8"/><text x="406" y="1070" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="432" y="1070" fill="#f8fafc" font-size="11.5" font-weight="600">id_curso</text>
+    <text x="678" y="1070" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="413" cy="1089" r="2" fill="#64748b"/>
+    <text x="432" y="1093" fill="#cbd5e1" font-size="11.5" font-weight="400">_ordem</text>
+    <text x="678" y="1093" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+  </g>
+  <!-- Tabela: silver.pibic_bolsistas -->
+  <g filter="url(#shadow)">
+    <rect x="390" y="1140" width="300" height="366" rx="8" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+    <rect x="390" y="1140" width="300" height="36" rx="8" fill="#334155"/>
+    <rect x="390" y="1171" width="300" height="5" fill="#334155"/>
+    <text x="404" y="1163" fill="#94a3b8" font-size="13" font-weight="700">silver.pibic_bolsistas</text>
+
+<rect x="400" y="1181" width="26" height="14" rx="3" fill="#f59e0b"/><text x="406" y="1192" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="432" y="1192" fill="#f8fafc" font-size="11.5" font-weight="600">id</text>
+    <text x="678" y="1192" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<circle cx="413" cy="1211" r="2" fill="#64748b"/>
+    <text x="432" y="1215" fill="#cbd5e1" font-size="11.5" font-weight="400">ano</text>
+    <text x="678" y="1215" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="413" cy="1234" r="2" fill="#64748b"/>
+    <text x="432" y="1238" fill="#cbd5e1" font-size="11.5" font-weight="400">tipo_bolsa_norm</text>
+    <text x="678" y="1238" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="1257" r="2" fill="#64748b"/>
+    <text x="432" y="1261" fill="#cbd5e1" font-size="11.5" font-weight="400">linha_pesquisa_norm</text>
+    <text x="678" y="1261" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="1280" r="2" fill="#64748b"/>
+    <text x="432" y="1284" fill="#cbd5e1" font-size="11.5" font-weight="400">campus</text>
+    <text x="678" y="1284" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="1303" r="2" fill="#64748b"/>
+    <text x="432" y="1307" fill="#cbd5e1" font-size="11.5" font-weight="400">departamento_pibic_norm</text>
+    <text x="678" y="1307" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="1326" r="2" fill="#64748b"/>
+    <text x="432" y="1330" fill="#cbd5e1" font-size="11.5" font-weight="400">curso_pibic_norm</text>
+    <text x="678" y="1330" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="1349" r="2" fill="#64748b"/>
+    <text x="432" y="1353" fill="#cbd5e1" font-size="11.5" font-weight="400">perfil_social_macro</text>
+    <text x="678" y="1353" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="1372" r="2" fill="#64748b"/>
+    <text x="432" y="1376" fill="#cbd5e1" font-size="11.5" font-weight="400">cota_detalhe</text>
+    <text x="678" y="1376" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="1395" r="2" fill="#64748b"/>
+    <text x="432" y="1399" fill="#cbd5e1" font-size="11.5" font-weight="400">faixa_renda</text>
+    <text x="678" y="1399" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="1418" r="2" fill="#64748b"/>
+    <text x="432" y="1422" fill="#cbd5e1" font-size="11.5" font-weight="400">is_cotista</text>
+    <text x="678" y="1422" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BOOLEAN</text>
+<circle cx="413" cy="1441" r="2" fill="#64748b"/>
+    <text x="432" y="1445" fill="#cbd5e1" font-size="11.5" font-weight="400">valor_bolsa_anual_estimado</text>
+    <text x="678" y="1445" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="413" cy="1464" r="2" fill="#64748b"/>
+    <text x="432" y="1468" fill="#cbd5e1" font-size="11.5" font-weight="400">titulo_norm</text>
+    <text x="678" y="1468" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="413" cy="1487" r="2" fill="#64748b"/>
+    <text x="432" y="1491" fill="#cbd5e1" font-size="11.5" font-weight="400">status_norm</text>
+    <text x="678" y="1491" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+  </g>
+  <!-- Tabela: silver.discentes -->
+  <g filter="url(#shadow)">
+    <rect x="760" y="120" width="320" height="182" rx="8" fill="#1e293b" stroke="#0284c7" stroke-width="1.5"/>
+    <rect x="760" y="120" width="320" height="36" rx="8" fill="#0369a1"/>
+    <rect x="760" y="151" width="320" height="5" fill="#0369a1"/>
+    <text x="774" y="143" fill="#e0f2fe" font-size="13" font-weight="700">silver.discentes</text>
+
+<rect x="770" y="161" width="26" height="14" rx="3" fill="#f59e0b"/><text x="776" y="172" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="802" y="172" fill="#f8fafc" font-size="11.5" font-weight="600">id_discente</text>
+    <text x="1068" y="172" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<rect x="770" y="184" width="26" height="14" rx="3" fill="#10b981"/><text x="776" y="195" fill="#0f172a" font-size="9" font-weight="bold">UK</text>
+    <text x="802" y="195" fill="#f8fafc" font-size="11.5" font-weight="600">pseudonimo</text>
+    <text x="1068" y="195" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="214" r="2" fill="#64748b"/>
+    <text x="802" y="218" fill="#cbd5e1" font-size="11.5" font-weight="400">data_nascimento</text>
+    <text x="1068" y="218" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">DATE</text>
+<circle cx="783" cy="237" r="2" fill="#64748b"/>
+    <text x="802" y="241" fill="#cbd5e1" font-size="11.5" font-weight="400">sexo</text>
+    <text x="1068" y="241" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">CHARACTER(1)</text>
+<circle cx="783" cy="260" r="2" fill="#64748b"/>
+    <text x="802" y="264" fill="#cbd5e1" font-size="11.5" font-weight="400">raca_cor</text>
+    <text x="1068" y="264" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="283" r="2" fill="#64748b"/>
+    <text x="802" y="287" fill="#cbd5e1" font-size="11.5" font-weight="400">criado_em</text>
+    <text x="1068" y="287" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TIMESTAMPTZ</text>
+  </g>
+  <!-- Tabela: silver.pibic_projetos -->
+  <g filter="url(#shadow)">
+    <rect x="760" y="340" width="320" height="366" rx="8" fill="#1e293b" stroke="#0284c7" stroke-width="1.5"/>
+    <rect x="760" y="340" width="320" height="36" rx="8" fill="#0369a1"/>
+    <rect x="760" y="371" width="320" height="5" fill="#0369a1"/>
+    <text x="774" y="363" fill="#e0f2fe" font-size="13" font-weight="700">silver.pibic_projetos</text>
+
+<rect x="770" y="381" width="26" height="14" rx="3" fill="#f59e0b"/><text x="776" y="392" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="802" y="392" fill="#f8fafc" font-size="11.5" font-weight="600">id_projeto</text>
+    <text x="1068" y="392" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<rect x="770" y="404" width="26" height="14" rx="3" fill="#38bdf8"/><text x="776" y="415" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="802" y="415" fill="#f8fafc" font-size="11.5" font-weight="600">id_discente</text>
+    <text x="1068" y="415" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<rect x="770" y="427" width="26" height="14" rx="3" fill="#38bdf8"/><text x="776" y="438" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="802" y="438" fill="#f8fafc" font-size="11.5" font-weight="600">id_curso</text>
+    <text x="1068" y="438" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="783" cy="457" r="2" fill="#64748b"/>
+    <text x="802" y="461" fill="#cbd5e1" font-size="11.5" font-weight="400">ano_edital</text>
+    <text x="1068" y="461" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="783" cy="480" r="2" fill="#64748b"/>
+    <text x="802" y="484" fill="#cbd5e1" font-size="11.5" font-weight="400">tipo_bolsa</text>
+    <text x="1068" y="484" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="503" r="2" fill="#64748b"/>
+    <text x="802" y="507" fill="#cbd5e1" font-size="11.5" font-weight="400">linha_pesquisa</text>
+    <text x="1068" y="507" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="526" r="2" fill="#64748b"/>
+    <text x="802" y="530" fill="#cbd5e1" font-size="11.5" font-weight="400">is_cotista</text>
+    <text x="1068" y="530" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BOOLEAN</text>
+<circle cx="783" cy="549" r="2" fill="#64748b"/>
+    <text x="802" y="553" fill="#cbd5e1" font-size="11.5" font-weight="400">cota_detalhe</text>
+    <text x="1068" y="553" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="572" r="2" fill="#64748b"/>
+    <text x="802" y="576" fill="#cbd5e1" font-size="11.5" font-weight="400">faixa_renda</text>
+    <text x="1068" y="576" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="595" r="2" fill="#64748b"/>
+    <text x="802" y="599" fill="#cbd5e1" font-size="11.5" font-weight="400">valor_bolsa_total</text>
+    <text x="1068" y="599" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="783" cy="618" r="2" fill="#64748b"/>
+    <text x="802" y="622" fill="#cbd5e1" font-size="11.5" font-weight="400">titulo_pesquisa</text>
+    <text x="1068" y="622" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="641" r="2" fill="#64748b"/>
+    <text x="802" y="645" fill="#cbd5e1" font-size="11.5" font-weight="400">status_projeto</text>
+    <text x="1068" y="645" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="664" r="2" fill="#64748b"/>
+    <text x="802" y="668" fill="#cbd5e1" font-size="11.5" font-weight="400">perfil_social_macro</text>
+    <text x="1068" y="668" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<rect x="770" y="680" width="26" height="14" rx="3" fill="#38bdf8"/><text x="776" y="691" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="802" y="691" fill="#f8fafc" font-size="11.5" font-weight="600">id_estrutura</text>
+    <text x="1068" y="691" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+  </g>
+  <!-- Tabela: silver.cursos -->
+  <g filter="url(#shadow)">
+    <rect x="760" y="750" width="320" height="297" rx="8" fill="#1e293b" stroke="#0284c7" stroke-width="1.5"/>
+    <rect x="760" y="750" width="320" height="36" rx="8" fill="#0369a1"/>
+    <rect x="760" y="781" width="320" height="5" fill="#0369a1"/>
+    <text x="774" y="773" fill="#e0f2fe" font-size="13" font-weight="700">silver.cursos</text>
+
+<rect x="770" y="791" width="26" height="14" rx="3" fill="#f59e0b"/><text x="776" y="802" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="802" y="802" fill="#f8fafc" font-size="11.5" font-weight="600">id_curso</text>
+    <text x="1068" y="802" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="783" cy="821" r="2" fill="#64748b"/>
+    <text x="802" y="825" fill="#cbd5e1" font-size="11.5" font-weight="400">codigo_sigaa</text>
+    <text x="1068" y="825" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="844" r="2" fill="#64748b"/>
+    <text x="802" y="848" fill="#cbd5e1" font-size="11.5" font-weight="400">nome_curso_norm</text>
+    <text x="1068" y="848" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="867" r="2" fill="#64748b"/>
+    <text x="802" y="871" fill="#cbd5e1" font-size="11.5" font-weight="400">campus</text>
+    <text x="1068" y="871" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="890" r="2" fill="#64748b"/>
+    <text x="802" y="894" fill="#cbd5e1" font-size="11.5" font-weight="400">turno</text>
+    <text x="1068" y="894" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="913" r="2" fill="#64748b"/>
+    <text x="802" y="917" fill="#cbd5e1" font-size="11.5" font-weight="400">grau_academico</text>
+    <text x="1068" y="917" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="936" r="2" fill="#64748b"/>
+    <text x="802" y="940" fill="#cbd5e1" font-size="11.5" font-weight="400">categoria_grau</text>
+    <text x="1068" y="940" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="959" r="2" fill="#64748b"/>
+    <text x="802" y="963" fill="#cbd5e1" font-size="11.5" font-weight="400">area_conhecimento</text>
+    <text x="1068" y="963" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="982" r="2" fill="#64748b"/>
+    <text x="802" y="986" fill="#cbd5e1" font-size="11.5" font-weight="400">departamento</text>
+    <text x="1068" y="986" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="783" cy="1005" r="2" fill="#64748b"/>
+    <text x="802" y="1009" fill="#cbd5e1" font-size="11.5" font-weight="400">is_tronco_abi</text>
+    <text x="1068" y="1009" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BOOLEAN</text>
+<circle cx="783" cy="1028" r="2" fill="#64748b"/>
+    <text x="802" y="1032" fill="#cbd5e1" font-size="11.5" font-weight="400">ativo</text>
+    <text x="1068" y="1032" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BOOLEAN</text>
+  </g>
+  <!-- Tabela: silver.movimentacoes_vinculos -->
+  <g filter="url(#shadow)">
+    <rect x="1140" y="120" width="330" height="389" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="1.5"/>
+    <rect x="1140" y="120" width="330" height="36" rx="8" fill="#0284c7"/>
+    <rect x="1140" y="151" width="330" height="5" fill="#0284c7"/>
+    <text x="1154" y="143" fill="#ffffff" font-size="13" font-weight="700">silver.movimentacoes_vinculos</text>
+
+<rect x="1150" y="161" width="26" height="14" rx="3" fill="#f59e0b"/><text x="1156" y="172" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="1182" y="172" fill="#f8fafc" font-size="11.5" font-weight="600">id_vinculo</text>
+    <text x="1458" y="172" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<rect x="1150" y="184" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1156" y="195" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1182" y="195" fill="#f8fafc" font-size="11.5" font-weight="600">id_discente</text>
+    <text x="1458" y="195" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<rect x="1150" y="207" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1156" y="218" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1182" y="218" fill="#f8fafc" font-size="11.5" font-weight="600">id_curso</text>
+    <text x="1458" y="218" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<rect x="1150" y="230" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1156" y="241" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1182" y="241" fill="#f8fafc" font-size="11.5" font-weight="600">id_estrutura</text>
+    <text x="1458" y="241" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<rect x="1150" y="253" width="26" height="14" rx="3" fill="#f59e0b"/><text x="1156" y="264" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="1182" y="264" fill="#f8fafc" font-size="11.5" font-weight="600">ano_ingresso</text>
+    <text x="1458" y="264" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1163" cy="283" r="2" fill="#64748b"/>
+    <text x="1182" y="287" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_ingresso</text>
+    <text x="1458" y="287" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1163" cy="306" r="2" fill="#64748b"/>
+    <text x="1182" y="310" fill="#cbd5e1" font-size="11.5" font-weight="400">forma_saida</text>
+    <text x="1458" y="310" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="1163" cy="329" r="2" fill="#64748b"/>
+    <text x="1182" y="333" fill="#cbd5e1" font-size="11.5" font-weight="400">tipo_saida_grupo</text>
+    <text x="1458" y="333" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="1163" cy="352" r="2" fill="#64748b"/>
+    <text x="1182" y="356" fill="#cbd5e1" font-size="11.5" font-weight="400">ano_saida</text>
+    <text x="1458" y="356" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1163" cy="375" r="2" fill="#64748b"/>
+    <text x="1182" y="379" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_saida</text>
+    <text x="1458" y="379" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1163" cy="398" r="2" fill="#64748b"/>
+    <text x="1182" y="402" fill="#cbd5e1" font-size="11.5" font-weight="400">semestres_permanencia</text>
+    <text x="1458" y="402" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1163" cy="421" r="2" fill="#64748b"/>
+    <text x="1182" y="425" fill="#cbd5e1" font-size="11.5" font-weight="400">semestres_permanencia_valida</text>
+    <text x="1458" y="425" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1163" cy="444" r="2" fill="#64748b"/>
+    <text x="1182" y="448" fill="#cbd5e1" font-size="11.5" font-weight="400">periodo_saida_estimado</text>
+    <text x="1458" y="448" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BOOLEAN</text>
+<circle cx="1163" cy="467" r="2" fill="#64748b"/>
+    <text x="1182" y="471" fill="#cbd5e1" font-size="11.5" font-weight="400">status_aluno</text>
+    <text x="1458" y="471" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="1163" cy="490" r="2" fill="#64748b"/>
+    <text x="1182" y="494" fill="#cbd5e1" font-size="11.5" font-weight="400">fonte</text>
+    <text x="1458" y="494" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+  </g>
+  <!-- Tabela: silver.estruturas_curriculares -->
+  <g filter="url(#shadow)">
+    <rect x="1140" y="550" width="330" height="228" rx="8" fill="#1e293b" stroke="#0284c7" stroke-width="1.5"/>
+    <rect x="1140" y="550" width="330" height="36" rx="8" fill="#0369a1"/>
+    <rect x="1140" y="581" width="330" height="5" fill="#0369a1"/>
+    <text x="1154" y="573" fill="#e0f2fe" font-size="13" font-weight="700">silver.estruturas_curriculares</text>
+
+<rect x="1150" y="591" width="26" height="14" rx="3" fill="#f59e0b"/><text x="1156" y="602" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="1182" y="602" fill="#f8fafc" font-size="11.5" font-weight="600">id_estrutura</text>
+    <text x="1458" y="602" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<rect x="1150" y="614" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1156" y="625" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1182" y="625" fill="#f8fafc" font-size="11.5" font-weight="600">id_curso</text>
+    <text x="1458" y="625" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="1163" cy="644" r="2" fill="#64748b"/>
+    <text x="1182" y="648" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_minimo</text>
+    <text x="1458" y="648" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<rect x="1150" y="660" width="26" height="14" rx="3" fill="#10b981"/><text x="1156" y="671" fill="#0f172a" font-size="9" font-weight="bold">UK</text>
+    <text x="1182" y="671" fill="#f8fafc" font-size="11.5" font-weight="600">semestre_ideal</text>
+    <text x="1458" y="671" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="1163" cy="690" r="2" fill="#64748b"/>
+    <text x="1182" y="694" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_maximo</text>
+    <text x="1458" y="694" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="1163" cy="713" r="2" fill="#64748b"/>
+    <text x="1182" y="717" fill="#cbd5e1" font-size="11.5" font-weight="400">ch_total_minima</text>
+    <text x="1458" y="717" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="1163" cy="736" r="2" fill="#64748b"/>
+    <text x="1182" y="740" fill="#cbd5e1" font-size="11.5" font-weight="400">cr_total_minimo</text>
+    <text x="1458" y="740" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<rect x="1150" y="752" width="26" height="14" rx="3" fill="#10b981"/><text x="1156" y="763" fill="#0f172a" font-size="9" font-weight="bold">UK</text>
+    <text x="1182" y="763" fill="#f8fafc" font-size="11.5" font-weight="600">nome_curso_canonico</text>
+    <text x="1458" y="763" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+  </g>
+  <!-- Tabela: silver.movimentacoes_p2000_2015 -->
+  <g filter="url(#shadow)">
+    <rect x="1540" y="120" width="330" height="389" rx="8" fill="#1e293b" stroke="#64748b" stroke-width="1.5"/>
+    <rect x="1540" y="120" width="330" height="36" rx="8" fill="#475569"/>
+    <rect x="1540" y="151" width="330" height="5" fill="#475569"/>
+    <text x="1554" y="143" fill="#cbd5e1" font-size="13" font-weight="700">silver.movimentacoes_p2000_2015</text>
+
+<rect x="1550" y="161" width="26" height="14" rx="3" fill="#f59e0b"/><text x="1556" y="172" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="1582" y="172" fill="#f8fafc" font-size="11.5" font-weight="600">id_vinculo</text>
+    <text x="1858" y="172" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<rect x="1550" y="184" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1556" y="195" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1582" y="195" fill="#f8fafc" font-size="11.5" font-weight="600">id_discente</text>
+    <text x="1858" y="195" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<rect x="1550" y="207" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1556" y="218" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1582" y="218" fill="#f8fafc" font-size="11.5" font-weight="600">id_curso</text>
+    <text x="1858" y="218" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<rect x="1550" y="230" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1556" y="241" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1582" y="241" fill="#f8fafc" font-size="11.5" font-weight="600">id_estrutura</text>
+    <text x="1858" y="241" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<rect x="1550" y="253" width="26" height="14" rx="3" fill="#f59e0b"/><text x="1556" y="264" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="1582" y="264" fill="#f8fafc" font-size="11.5" font-weight="600">ano_ingresso</text>
+    <text x="1858" y="264" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="283" r="2" fill="#64748b"/>
+    <text x="1582" y="287" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_ingresso</text>
+    <text x="1858" y="287" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="306" r="2" fill="#64748b"/>
+    <text x="1582" y="310" fill="#cbd5e1" font-size="11.5" font-weight="400">forma_saida</text>
+    <text x="1858" y="310" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="1563" cy="329" r="2" fill="#64748b"/>
+    <text x="1582" y="333" fill="#cbd5e1" font-size="11.5" font-weight="400">tipo_saida_grupo</text>
+    <text x="1858" y="333" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="1563" cy="352" r="2" fill="#64748b"/>
+    <text x="1582" y="356" fill="#cbd5e1" font-size="11.5" font-weight="400">ano_saida</text>
+    <text x="1858" y="356" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="375" r="2" fill="#64748b"/>
+    <text x="1582" y="379" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_saida</text>
+    <text x="1858" y="379" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="398" r="2" fill="#64748b"/>
+    <text x="1582" y="402" fill="#cbd5e1" font-size="11.5" font-weight="400">semestres_permanencia</text>
+    <text x="1858" y="402" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="421" r="2" fill="#64748b"/>
+    <text x="1582" y="425" fill="#cbd5e1" font-size="11.5" font-weight="400">semestres_permanencia_valida</text>
+    <text x="1858" y="425" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="444" r="2" fill="#64748b"/>
+    <text x="1582" y="448" fill="#cbd5e1" font-size="11.5" font-weight="400">periodo_saida_estimado</text>
+    <text x="1858" y="448" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BOOLEAN</text>
+<circle cx="1563" cy="467" r="2" fill="#64748b"/>
+    <text x="1582" y="471" fill="#cbd5e1" font-size="11.5" font-weight="400">status_aluno</text>
+    <text x="1858" y="471" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="1563" cy="490" r="2" fill="#64748b"/>
+    <text x="1582" y="494" fill="#cbd5e1" font-size="11.5" font-weight="400">fonte</text>
+    <text x="1858" y="494" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+  </g>
+  <!-- Tabela: silver.movimentacoes_p2016_2020 -->
+  <g filter="url(#shadow)">
+    <rect x="1540" y="530" width="330" height="389" rx="8" fill="#1e293b" stroke="#64748b" stroke-width="1.5"/>
+    <rect x="1540" y="530" width="330" height="36" rx="8" fill="#475569"/>
+    <rect x="1540" y="561" width="330" height="5" fill="#475569"/>
+    <text x="1554" y="553" fill="#cbd5e1" font-size="13" font-weight="700">silver.movimentacoes_p2016_2020</text>
+
+<rect x="1550" y="571" width="26" height="14" rx="3" fill="#f59e0b"/><text x="1556" y="582" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="1582" y="582" fill="#f8fafc" font-size="11.5" font-weight="600">id_vinculo</text>
+    <text x="1858" y="582" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<rect x="1550" y="594" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1556" y="605" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1582" y="605" fill="#f8fafc" font-size="11.5" font-weight="600">id_discente</text>
+    <text x="1858" y="605" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<rect x="1550" y="617" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1556" y="628" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1582" y="628" fill="#f8fafc" font-size="11.5" font-weight="600">id_curso</text>
+    <text x="1858" y="628" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<rect x="1550" y="640" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1556" y="651" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1582" y="651" fill="#f8fafc" font-size="11.5" font-weight="600">id_estrutura</text>
+    <text x="1858" y="651" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<rect x="1550" y="663" width="26" height="14" rx="3" fill="#f59e0b"/><text x="1556" y="674" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="1582" y="674" fill="#f8fafc" font-size="11.5" font-weight="600">ano_ingresso</text>
+    <text x="1858" y="674" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="693" r="2" fill="#64748b"/>
+    <text x="1582" y="697" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_ingresso</text>
+    <text x="1858" y="697" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="716" r="2" fill="#64748b"/>
+    <text x="1582" y="720" fill="#cbd5e1" font-size="11.5" font-weight="400">forma_saida</text>
+    <text x="1858" y="720" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="1563" cy="739" r="2" fill="#64748b"/>
+    <text x="1582" y="743" fill="#cbd5e1" font-size="11.5" font-weight="400">tipo_saida_grupo</text>
+    <text x="1858" y="743" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="1563" cy="762" r="2" fill="#64748b"/>
+    <text x="1582" y="766" fill="#cbd5e1" font-size="11.5" font-weight="400">ano_saida</text>
+    <text x="1858" y="766" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="785" r="2" fill="#64748b"/>
+    <text x="1582" y="789" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_saida</text>
+    <text x="1858" y="789" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="808" r="2" fill="#64748b"/>
+    <text x="1582" y="812" fill="#cbd5e1" font-size="11.5" font-weight="400">semestres_permanencia</text>
+    <text x="1858" y="812" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="831" r="2" fill="#64748b"/>
+    <text x="1582" y="835" fill="#cbd5e1" font-size="11.5" font-weight="400">semestres_permanencia_valida</text>
+    <text x="1858" y="835" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="854" r="2" fill="#64748b"/>
+    <text x="1582" y="858" fill="#cbd5e1" font-size="11.5" font-weight="400">periodo_saida_estimado</text>
+    <text x="1858" y="858" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BOOLEAN</text>
+<circle cx="1563" cy="877" r="2" fill="#64748b"/>
+    <text x="1582" y="881" fill="#cbd5e1" font-size="11.5" font-weight="400">status_aluno</text>
+    <text x="1858" y="881" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="1563" cy="900" r="2" fill="#64748b"/>
+    <text x="1582" y="904" fill="#cbd5e1" font-size="11.5" font-weight="400">fonte</text>
+    <text x="1858" y="904" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+  </g>
+  <!-- Tabela: silver.movimentacoes_p2021_atual -->
+  <g filter="url(#shadow)">
+    <rect x="1540" y="940" width="330" height="389" rx="8" fill="#1e293b" stroke="#64748b" stroke-width="1.5"/>
+    <rect x="1540" y="940" width="330" height="36" rx="8" fill="#475569"/>
+    <rect x="1540" y="971" width="330" height="5" fill="#475569"/>
+    <text x="1554" y="963" fill="#cbd5e1" font-size="13" font-weight="700">silver.movimentacoes_p2021_atual</text>
+
+<rect x="1550" y="981" width="26" height="14" rx="3" fill="#f59e0b"/><text x="1556" y="992" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="1582" y="992" fill="#f8fafc" font-size="11.5" font-weight="600">id_vinculo</text>
+    <text x="1858" y="992" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<rect x="1550" y="1004" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1556" y="1015" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1582" y="1015" fill="#f8fafc" font-size="11.5" font-weight="600">id_discente</text>
+    <text x="1858" y="1015" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<rect x="1550" y="1027" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1556" y="1038" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1582" y="1038" fill="#f8fafc" font-size="11.5" font-weight="600">id_curso</text>
+    <text x="1858" y="1038" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<rect x="1550" y="1050" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1556" y="1061" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1582" y="1061" fill="#f8fafc" font-size="11.5" font-weight="600">id_estrutura</text>
+    <text x="1858" y="1061" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<rect x="1550" y="1073" width="26" height="14" rx="3" fill="#f59e0b"/><text x="1556" y="1084" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="1582" y="1084" fill="#f8fafc" font-size="11.5" font-weight="600">ano_ingresso</text>
+    <text x="1858" y="1084" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="1103" r="2" fill="#64748b"/>
+    <text x="1582" y="1107" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_ingresso</text>
+    <text x="1858" y="1107" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="1126" r="2" fill="#64748b"/>
+    <text x="1582" y="1130" fill="#cbd5e1" font-size="11.5" font-weight="400">forma_saida</text>
+    <text x="1858" y="1130" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="1563" cy="1149" r="2" fill="#64748b"/>
+    <text x="1582" y="1153" fill="#cbd5e1" font-size="11.5" font-weight="400">tipo_saida_grupo</text>
+    <text x="1858" y="1153" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="1563" cy="1172" r="2" fill="#64748b"/>
+    <text x="1582" y="1176" fill="#cbd5e1" font-size="11.5" font-weight="400">ano_saida</text>
+    <text x="1858" y="1176" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="1195" r="2" fill="#64748b"/>
+    <text x="1582" y="1199" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_saida</text>
+    <text x="1858" y="1199" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="1218" r="2" fill="#64748b"/>
+    <text x="1582" y="1222" fill="#cbd5e1" font-size="11.5" font-weight="400">semestres_permanencia</text>
+    <text x="1858" y="1222" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="1241" r="2" fill="#64748b"/>
+    <text x="1582" y="1245" fill="#cbd5e1" font-size="11.5" font-weight="400">semestres_permanencia_valida</text>
+    <text x="1858" y="1245" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="1264" r="2" fill="#64748b"/>
+    <text x="1582" y="1268" fill="#cbd5e1" font-size="11.5" font-weight="400">periodo_saida_estimado</text>
+    <text x="1858" y="1268" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BOOLEAN</text>
+<circle cx="1563" cy="1287" r="2" fill="#64748b"/>
+    <text x="1582" y="1291" fill="#cbd5e1" font-size="11.5" font-weight="400">status_aluno</text>
+    <text x="1858" y="1291" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="1563" cy="1310" r="2" fill="#64748b"/>
+    <text x="1582" y="1314" fill="#cbd5e1" font-size="11.5" font-weight="400">fonte</text>
+    <text x="1858" y="1314" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+  </g>
+  <!-- Tabela: silver.movimentacoes_p_default -->
+  <g filter="url(#shadow)">
+    <rect x="1540" y="1350" width="330" height="389" rx="8" fill="#1e293b" stroke="#64748b" stroke-width="1.5"/>
+    <rect x="1540" y="1350" width="330" height="36" rx="8" fill="#475569"/>
+    <rect x="1540" y="1381" width="330" height="5" fill="#475569"/>
+    <text x="1554" y="1373" fill="#cbd5e1" font-size="13" font-weight="700">silver.movimentacoes_p_default</text>
+
+<rect x="1550" y="1391" width="26" height="14" rx="3" fill="#f59e0b"/><text x="1556" y="1402" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="1582" y="1402" fill="#f8fafc" font-size="11.5" font-weight="600">id_vinculo</text>
+    <text x="1858" y="1402" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<rect x="1550" y="1414" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1556" y="1425" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1582" y="1425" fill="#f8fafc" font-size="11.5" font-weight="600">id_discente</text>
+    <text x="1858" y="1425" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BIGINT</text>
+<rect x="1550" y="1437" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1556" y="1448" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1582" y="1448" fill="#f8fafc" font-size="11.5" font-weight="600">id_curso</text>
+    <text x="1858" y="1448" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<rect x="1550" y="1460" width="26" height="14" rx="3" fill="#38bdf8"/><text x="1556" y="1471" fill="#0f172a" font-size="9" font-weight="bold">FK</text>
+    <text x="1582" y="1471" fill="#f8fafc" font-size="11.5" font-weight="600">id_estrutura</text>
+    <text x="1858" y="1471" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<rect x="1550" y="1483" width="26" height="14" rx="3" fill="#f59e0b"/><text x="1556" y="1494" fill="#0f172a" font-size="9" font-weight="bold">PK</text>
+    <text x="1582" y="1494" fill="#f8fafc" font-size="11.5" font-weight="600">ano_ingresso</text>
+    <text x="1858" y="1494" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="1513" r="2" fill="#64748b"/>
+    <text x="1582" y="1517" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_ingresso</text>
+    <text x="1858" y="1517" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="1536" r="2" fill="#64748b"/>
+    <text x="1582" y="1540" fill="#cbd5e1" font-size="11.5" font-weight="400">forma_saida</text>
+    <text x="1858" y="1540" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="1563" cy="1559" r="2" fill="#64748b"/>
+    <text x="1582" y="1563" fill="#cbd5e1" font-size="11.5" font-weight="400">tipo_saida_grupo</text>
+    <text x="1858" y="1563" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="1563" cy="1582" r="2" fill="#64748b"/>
+    <text x="1582" y="1586" fill="#cbd5e1" font-size="11.5" font-weight="400">ano_saida</text>
+    <text x="1858" y="1586" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="1605" r="2" fill="#64748b"/>
+    <text x="1582" y="1609" fill="#cbd5e1" font-size="11.5" font-weight="400">semestre_saida</text>
+    <text x="1858" y="1609" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="1628" r="2" fill="#64748b"/>
+    <text x="1582" y="1632" fill="#cbd5e1" font-size="11.5" font-weight="400">semestres_permanencia</text>
+    <text x="1858" y="1632" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="1651" r="2" fill="#64748b"/>
+    <text x="1582" y="1655" fill="#cbd5e1" font-size="11.5" font-weight="400">semestres_permanencia_valida</text>
+    <text x="1858" y="1655" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">SMALLINT</text>
+<circle cx="1563" cy="1674" r="2" fill="#64748b"/>
+    <text x="1582" y="1678" fill="#cbd5e1" font-size="11.5" font-weight="400">periodo_saida_estimado</text>
+    <text x="1858" y="1678" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BOOLEAN</text>
+<circle cx="1563" cy="1697" r="2" fill="#64748b"/>
+    <text x="1582" y="1701" fill="#cbd5e1" font-size="11.5" font-weight="400">status_aluno</text>
+    <text x="1858" y="1701" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="1563" cy="1720" r="2" fill="#64748b"/>
+    <text x="1582" y="1724" fill="#cbd5e1" font-size="11.5" font-weight="400">fonte</text>
+    <text x="1858" y="1724" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+  </g>
+
+  <!-- Conectores Relacionais Ortogonais em Calhas Livres de Colisão -->
+  <path d="M 760 411 L 735 411 L 735 168 L 760 168" fill="none" stroke="#38bdf8" stroke-width="1.8" marker-start="url(#dot)" marker-end="url(#arrow)"/>
+  <path d="M 760 434 L 720 434 L 720 798 L 760 798" fill="none" stroke="#38bdf8" stroke-width="1.8" marker-start="url(#dot)" marker-end="url(#arrow)"/>
+  <path d="M 1080 687 L 1110 687 L 1110 598 L 1140 598" fill="none" stroke="#38bdf8" stroke-width="1.8" marker-start="url(#dot)" marker-end="url(#arrow)"/>
+  <path d="M 1140 621 L 1110 621 L 1110 798 L 1080 798" fill="none" stroke="#38bdf8" stroke-width="1.8" marker-start="url(#dot)" marker-end="url(#arrow)"/>
+  <path d="M 1140 191 L 1110 191 L 1110 168 L 1080 168" fill="none" stroke="#38bdf8" stroke-width="1.8" marker-start="url(#dot)" marker-end="url(#arrow)"/>
+  <path d="M 1140 214 L 1095 214 L 1095 798 L 1080 798" fill="none" stroke="#38bdf8" stroke-width="1.8" marker-start="url(#dot)" marker-end="url(#arrow)"/>
+  <path d="M 1140 237 L 1125 237 L 1125 598 L 1470 598" fill="none" stroke="#38bdf8" stroke-width="1.8" marker-start="url(#dot)" marker-end="url(#arrow)"/>
+  <path d="M 1470 260 L 1510 260 L 1510 260 L 1540 260" fill="none" stroke="#64748b" stroke-width="1.8" stroke-dasharray="5,3" marker-start="url(#dot)" marker-end="url(#arrow)"/>
+  <path d="M 1470 260 L 1510 260 L 1510 670 L 1540 670" fill="none" stroke="#64748b" stroke-width="1.8" stroke-dasharray="5,3" marker-start="url(#dot)" marker-end="url(#arrow)"/>
+  <path d="M 1470 260 L 1510 260 L 1510 1080 L 1540 1080" fill="none" stroke="#64748b" stroke-width="1.8" stroke-dasharray="5,3" marker-start="url(#dot)" marker-end="url(#arrow)"/>
+  <path d="M 1470 260 L 1510 260 L 1510 1490 L 1540 1490" fill="none" stroke="#64748b" stroke-width="1.8" stroke-dasharray="5,3" marker-start="url(#dot)" marker-end="url(#arrow)"/>
+</svg>
