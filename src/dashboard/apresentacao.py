@@ -27,12 +27,17 @@ def render_html(html_str: str):
 
 def executar_query_supabase(sql: str, params=None):
     """Executa a consulta diretamente no PostgreSQL do Supabase e cronometra a latência."""
-    try:
-        from src.db.conexao import conectar
-    except ImportError:
-        from db.conexao import conectar
     inicio = time.perf_counter()
     try:
+        # Importa aqui dentro: no GitHub Pages (stlite) não há psycopg nem conexão com o banco, e o
+        # ImportError vira a mensagem de erro do slide em vez de derrubar a apresentação.
+        try:
+            try:
+                from src.db.conexao import conectar
+            except ImportError:
+                from db.conexao import conectar
+        except ImportError:
+            return False, None, 0.0, "A demonstração ao vivo precisa da conexão direta com o banco: rode o painel localmente (docker compose) com DATABASE_URL apontando para o Supabase."
         with conectar() as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, params)

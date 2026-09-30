@@ -81,7 +81,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/fastembed
-          key: fastembed-paraphrase-multilingual-MiniLM-L12-v2
+          key: fastembed-Supabase-gte-small
 
       - name: "Busca semântica — vetorização (pgvector)"
         env:
@@ -161,13 +161,21 @@ jobs:
           path: artifact
 
       - name: "Monta _site/"
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
         run: |
-          mkdir -p _site/app/src/dashboard/assets _site/app/export _site/app/docs
+          mkdir -p _site/app/src/dashboard/assets _site/app/src/dashboard/pages _site/app/src/db _site/app/export _site/app/docs
           cp site/index.html _site/index.html
-          cp src/dashboard/app.py _site/app/src/dashboard/app.py
-          cp -r src/dashboard/assets/* _site/app/src/dashboard/assets/ 2>/dev/null || true
+          cp src/dashboard/app.py src/dashboard/apresentacao.py _site/app/src/dashboard/
+          cp src/dashboard/pages/busca_semantica.py _site/app/src/dashboard/pages/
+          cp src/db/supabase_rest.py _site/app/src/db/
+          cp -r src/dashboard/assets/* _site/app/src/dashboard/assets/
           cp artifact/export/gold.json _site/app/export/gold.json
           cp artifact/docs/*.md _site/app/docs/
+          # Configuração pública do Supabase (URL e chave anon) embutida no site. Variáveis do
+          # repositório (Settings > Secrets and variables > Actions > Variables), não secrets.
+          sed -i "s|__SUPABASE_URL__|${SUPABASE_URL}|; s|__SUPABASE_ANON_KEY__|${SUPABASE_ANON_KEY}|" _site/index.html
 
       - uses: actions/configure-pages@v5
 

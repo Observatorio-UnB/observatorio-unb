@@ -121,8 +121,9 @@ st.markdown(
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DOCS_DIR = BASE_DIR / "docs"
-# Export estático da gold, gerado pelo CI a partir do banco (src/db/exportar_gold.py). É o
-# que a versão do GitHub Pages lê: o stlite roda no navegador, sem acesso ao PostgreSQL.
+# Export estático da gold, gerado pelo CI a partir do banco (src/db/exportar_gold.py). É a
+# reserva da versão do GitHub Pages, que lê do Supabase (src/db/supabase_rest.py) e só cai aqui
+# se ele não responder: o stlite roda no navegador, sem acesso ao PostgreSQL.
 EXPORT_PATH = BASE_DIR / "export" / "gold.json"
 
 
@@ -138,7 +139,7 @@ def _versao_dos_dados() -> str:
 
 
 def _ler_dados_da_gold():
-    """Gold do PostgreSQL quando o banco responde; senão, o export estático (GitHub Pages)."""
+    """Gold do PostgreSQL local quando responde; senão, a do Supabase (GitHub Pages); por último, o export estático."""
     try:
         from src.db.exportar_gold import montar_snapshot
 
@@ -147,7 +148,18 @@ def _ler_dados_da_gold():
             return dados
     except Exception:
         pass  # sem psycopg (stlite) ou banco fora do ar
+    from src.db import supabase_rest
+
+    try:
+        if supabase_rest.configurado():
+            dados = supabase_rest.rpc("observatorio_gold")
+            if dados["tabelas"].get("retencao_cursos_unb"):
+                return dados
+    except Exception:
+        pass  # Supabase fora do ar ou sem a migração 0018: cai no export estático
     if EXPORT_PATH.exists():
+        if supabase_rest.configurado():
+            st.warning("Supabase não respondeu: exibindo o último export estático, que pode estar desatualizado.")
         return json.loads(EXPORT_PATH.read_text(encoding="utf-8"))
     return None
 

@@ -31,7 +31,21 @@
         files: {
           "src/dashboard/app.py": { url: "./app/src/dashboard/app.py" },
           "src/dashboard/assets/unb_icon.png": { url: "./app/src/dashboard/assets/unb_icon.png" },
-          // Gold exportada do banco pelo CI (src/db/exportar_gold.py): o navegador não acessa o PostgreSQL.
+          // Modo apresentação (?apresentacao) e os DER que ele exibe.
+          "src/dashboard/apresentacao.py": { url: "./app/src/dashboard/apresentacao.py" },
+          "src/dashboard/assets/der_silver_3nf.svg": { url: "./app/src/dashboard/assets/der_silver_3nf.svg" },
+          "src/dashboard/assets/der_gold_star_schema.svg": { url: "./app/src/dashboard/assets/der_gold_star_schema.svg" },
+          // Busca semântica: página do Streamlit multipage, que chama a Edge Function do Supabase.
+          "src/dashboard/pages/busca_semantica.py": { url: "./app/src/dashboard/pages/busca_semantica.py" },
+          // O navegador não acessa o PostgreSQL: gold e busca vêm do Supabase pela API pública.
+          "src/db/supabase_rest.py": { url: "./app/src/db/supabase_rest.py" },
+          // Os marcadores são trocados pelo CI (medalhao.yml) com as variáveis SUPABASE_URL e
+          // SUPABASE_ANON_KEY do repositório. A chave anon é pública por desenho; o que ela alcança
+          // é decidido pelos grants da migração 0018.
+          "supabase_config.json": {
+            data: JSON.stringify({ url: "__SUPABASE_URL__", anon_key: "__SUPABASE_ANON_KEY__" }),
+          },
+          // Reserva se o Supabase não responder: gold exportada do banco pelo CI (src/db/exportar_gold.py).
           "export/gold.json": { url: "./app/export/gold.json" },
           "docs/relatorio_qualidade.md": { url: "./app/docs/relatorio_qualidade.md" },
           "docs/analise_social_pibic.md": { url: "./app/docs/analise_social_pibic.md" },

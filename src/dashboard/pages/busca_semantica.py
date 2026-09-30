@@ -1,8 +1,9 @@
 """
 Página de busca semântica do painel (Streamlit multipage).
 
-Consulta busca.documentos no PostgreSQL. Só funciona com o banco no ar: na
-versão estática do GitHub Pages (stlite) esta página não é publicada.
+Consulta busca.documentos por similaridade de cosseno. Com SUPABASE_URL configurada (é o caso
+do GitHub Pages, onde o stlite roda no navegador) a consulta vai para a Edge Function `buscar`
+do Supabase; sem ela, usa o PostgreSQL local (docker compose) e o modelo via fastembed.
 """
 
 import sys
@@ -34,6 +35,16 @@ st.caption(
     "use as outras telas do painel."
 )
 
+def pesquisar(consulta, k, tipo):
+    from src.db import supabase_rest
+
+    if supabase_rest.configurado():
+        return supabase_rest.funcao("buscar", {"consulta": consulta, "k": k, "tipo": tipo})
+    from src.busca.buscar import buscar
+
+    return buscar(consulta, k, tipo)
+
+
 col_consulta, col_tipo, col_k = st.columns([4, 2, 1])
 consulta = col_consulta.text_input(
     "O que você procura?", placeholder="ex.: inteligência artificial na saúde"
@@ -43,19 +54,17 @@ k = col_k.number_input("Resultados", min_value=1, max_value=30, value=8)
 
 if consulta.strip():
     try:
-        from src.busca.buscar import buscar
-
         with st.spinner("Buscando..."):
-            resultados = buscar(consulta, int(k), tipo)
-    except Exception as erro:  # banco fora do ar, tabela vazia, modelo não baixado
+            resultados = pesquisar(consulta, int(k), tipo)
+    except Exception as erro:  # Supabase ou banco fora do ar, tabela vazia, modelo não baixado
         st.error(
-            "Não foi possível consultar o banco. Suba com `docker compose up -d db` e rode "
-            f"`scripts/rodar_pipeline.sh`.\n\nDetalhe: `{erro}`"
+            "Não foi possível fazer a busca. Localmente, suba o banco com `docker compose up -d db` e "
+            f"rode `scripts/rodar_pipeline.sh`.\n\nDetalhe: `{erro}`"
         )
         st.stop()
 
     if not resultados:
-        st.info("Nenhum documento vetorizado. Rode `python3 src/busca/vetorizar.py`.")
+        st.info("Nenhum documento vetorizado com o modelo atual. Rode `python3 src/busca/vetorizar.py`.")
     for r in resultados:
         with st.container(border=True):
             st.markdown(

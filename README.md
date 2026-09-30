@@ -171,7 +171,7 @@ etapa usa o secret `SUPABASE_DATABASE_URL` e não roda em pull request.
 ### Busca semântica
 Cada curso da gold, cada plano de iniciação científica (título, ano, curso e linha,
 sem nome nem matrícula) e cada seção da documentação em `docs/` vira um documento
-vetorizado com o modelo multilíngue `paraphrase-multilingual-MiniLM-L12-v2`.
+vetorizado com o `gte-small` (o mesmo modelo da Edge Function de busca do Supabase; treinado sobretudo em inglês).
 A busca compara a consulta por distância de cosseno no pgvector:
 
 ```bash

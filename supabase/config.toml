@@ -1,0 +1,9 @@
+# Só o necessário para publicar a Edge Function (supabase functions deploy buscar).
+# O banco e as migrações não passam por aqui: vivem em db/migrations e são aplicados por
+# src/db/migrar.py e src/db/sincronizar_supabase.py.
+project_id = "observatorio-unb"
+
+# A chave pública do painel (publishable) não é um JWT, então o gateway não a valida.
+# A função é somente leitura e só chama observatorio_buscar, que devolve documentos públicos.
+[functions.buscar]
+verify_jwt = false

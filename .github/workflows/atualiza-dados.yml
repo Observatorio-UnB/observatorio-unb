@@ -56,7 +56,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/fastembed
-          key: fastembed-paraphrase-multilingual-MiniLM-L12-v2
+          key: fastembed-Supabase-gte-small
 
       # Mesmo roteiro do docker compose: INEP e CNPq que caírem só geram aviso, e o pipeline
       # segue com o que já está versionado.

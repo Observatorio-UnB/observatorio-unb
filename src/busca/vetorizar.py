@@ -45,9 +45,12 @@ logger = logging.getLogger("vetorizar")
 
 DOCS_DIR = BASE_DIR / "docs"
 
-# Multilíngue (entende português), 384 dimensões, ~220 MB, roda em CPU via ONNX.
-# A dimensão está fixada em busca.documentos.embedding (db/migrations/0005).
-MODELO_PADRAO = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+# gte-small (384 dimensões, ~130 MB, CPU via ONNX): é o modelo que a Edge Function
+# supabase/functions/buscar usa para vetorizar a consulta no painel publicado, então os
+# documentos precisam estar no mesmo espaço vetorial. O gte-small é treinado sobretudo em
+# inglês: a busca em português depende do vocabulário compartilhado (nomes de curso, siglas,
+# termos técnicos). A dimensão está fixada em busca.documentos.embedding (db/migrations/0005).
+MODELO_PADRAO = "Supabase/gte-small"
 DIMENSAO = 384
 
 # Seções longas da documentação são quebradas em pedaços deste tamanho (caracteres):
@@ -73,6 +76,15 @@ def carregar_modelo(nome: str):
     """Carrega o modelo de embedding (baixa na primeira vez para FASTEMBED_CACHE_PATH)."""
     from fastembed import TextEmbedding
 
+    if nome == MODELO_PADRAO and nome not in {m["model"] for m in TextEmbedding.list_supported_models()}:
+        # O fastembed não traz o gte-small no catálogo: registra o ONNX do repositório do
+        # Supabase, com o mesmo pooling (média) e normalização da Edge Function.
+        from fastembed.common.model_description import ModelSource, PoolingType
+
+        TextEmbedding.add_custom_model(
+            model=nome, pooling=PoolingType.MEAN, normalization=True,
+            sources=ModelSource(hf=nome), dim=DIMENSAO, model_file="onnx/model.onnx",
+        )
     cache = os.environ.get("FASTEMBED_CACHE_PATH", str(BASE_DIR / ".cache" / "fastembed"))
     return TextEmbedding(model_name=nome, cache_dir=cache)
 
