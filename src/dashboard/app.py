@@ -6,7 +6,13 @@ Challenge de Dados Abertos da UnB - Metodologia CBL
 
 import base64
 import json
+import sys
 from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -55,6 +61,20 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# Modo Apresentação Interativa Secreta (?ap1 ou ?apresentacao)
+if "ap1" in st.query_params or "apresentacao" in st.query_params:
+    import importlib
+    try:
+        import src.dashboard.apresentacao as _ap
+        importlib.reload(_ap)
+        render_apresentacao = _ap.render_apresentacao
+    except ImportError:
+        import apresentacao as _ap
+        importlib.reload(_ap)
+        render_apresentacao = _ap.render_apresentacao
+    render_apresentacao()
+    st.stop()
 
 # Estilização CSS customizada (cores institucionais UnB: verde #008940 / azul #133E79)
 st.markdown(
