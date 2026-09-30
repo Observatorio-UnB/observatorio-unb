@@ -342,7 +342,7 @@ def render_apresentacao():
                         • <strong>Finalidade:</strong> Servir dashboards executivos e consultas OLAP.<br>
                         • <strong>Modelagem:</strong> <strong>Star Schema de Ralph Kimball</strong>.<br>
                         • <strong>Performance:</strong> Views Materializadas indexadas com atualização concorrente.<br>
-                        • <strong>Governança:</strong> Garantia matemática de $k$-anonimato ($k \\ge 5$).
+                        • <strong>Governança:</strong> Garantia matemática de <em>k</em>-anonimato (<em>k</em> &ge; 5).
                     </div>
                 </div>
                 """,
@@ -374,7 +374,7 @@ def render_apresentacao():
                 <div class="beamer-block">
                     <div class="beamer-block-header">Derivação Matemática de Chave Candidata</div>
                     <div class="beamer-block-body">
-                        • <strong>Diagnóstico de Nulos:</strong> No histórico do SIGRA, <code>semestre_ingresso</code> ($W$) é uniformemente nulo. Pela teoria relacional, um atributo anulável <em>não pode</em> compor chave primária para registros históricos.<br>
+                        • <strong>Diagnóstico de Nulos:</strong> No histórico do SIGRA, <code>semestre_ingresso</code> (<em>W</em>) é uniformemente nulo. Pela teoria relacional, um atributo anulável <em>não pode</em> compor chave primária para registros históricos.<br>
                         • <strong>Chave Primária Comprovada:</strong>
                     </div>
                 </div>
@@ -387,7 +387,7 @@ def render_apresentacao():
                 <div class="beamer-block" style="margin-top:0.6rem;">
                     <div class="beamer-block-header-green">Garantia da 3ª Forma Normal</div>
                     <div class="beamer-block-body">
-                        Para toda dependência funcional não-trivial $X \\rightarrow Y$, ou $X$ é uma superchave, ou $Y$ é parte de uma chave candidata. O fecho derivado no dossiê elimina dependências transitivas e assegura ausência de anomalias operacionais.
+                        Para toda dependência funcional não-trivial <em>X</em> &rarr; <em>Y</em>, ou <em>X</em> é uma superchave, ou <em>Y</em> é parte de uma chave candidata. O fecho derivado no dossiê elimina dependências transitivas e assegura ausência de anomalias operacionais.
                     </div>
                 </div>
                 """,
@@ -517,7 +517,7 @@ def render_apresentacao():
                     • <strong>p2016_2020:</strong> Coortes intermediárias de transição para o SIGAA.<br>
                     • <strong>p2021_atual:</strong> Vínculos recentes e turmas em curso.<br>
                     • <strong>p_default:</strong> Partição padrão para segurança contra valores fora da faixa.<br>
-                    <strong>Benefício:</strong> O otimizador de consultas descarta tabelas que não satisfazem o predicado temporal (*Partition Pruning*).
+                    <strong>Benefício:</strong> O otimizador de consultas descarta tabelas que não satisfazem o predicado temporal (<em>Partition Pruning</em>).
                 </div>
             </div>
             """,
@@ -567,7 +567,7 @@ def render_apresentacao():
                     <div class="beamer-block-header">Taxonomia de Índices Especializados</div>
                     <div class="beamer-block-body">
                         • <strong>B-Tree Composta:</strong> <code>idx_mov_curso_ano</code> acelerando filtros frequentes de coorte.<br>
-                        • <strong>GIN Trigram (pg_trgm):</strong> <code>idx_cursos_nome_trgm</code> para busca aproximada (*fuzzy search*) em nomes de cursos sem scan sequencial.<br>
+                        • <strong>GIN Trigram (pg_trgm):</strong> <code>idx_cursos_nome_trgm</code> para busca aproximada (<em>fuzzy search</em>) em nomes de cursos sem scan sequencial.<br>
                         • <strong>HNSW Vetorial (pgvector):</strong> <code>documentos_embedding_hnsw</code> em 384 dimensões para busca semântica em linguagem natural.
                     </div>
                 </div>
@@ -650,7 +650,7 @@ def render_apresentacao():
                     <div class="beamer-block-body">
                         • <strong>Transição de ETL para ELT Nativo:</strong> Eliminar a lógica redundante de agregação em Pandas e migrar 100% dos cálculos para views analíticas no próprio SGBD.<br>
                         • <strong>Pool de Conexões Transacionais:</strong> Adoção de <code>psycopg_pool</code> para suportar alta concorrência de usuários simultâneos no painel.<br>
-                        • <strong>Processamento em Streaming:</strong> Ingestão em chunks para processar o Censo INEP nacional com consumo de memória $O(1)$.
+                        • <strong>Processamento em Streaming:</strong> Ingestão em chunks para processar o Censo INEP nacional com consumo de memória <em>O</em>(1).
                     </div>
                 </div>
                 """,
