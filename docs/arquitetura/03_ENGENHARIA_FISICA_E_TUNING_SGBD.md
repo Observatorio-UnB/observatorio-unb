@@ -88,6 +88,26 @@ O planejador de consultas (*Query Planner*) avalia os predicados da cláusula `W
 
 Essa eliminação em tempo de planejamento reduz drasticamente o número de páginas lidas (*buffers read*), eliminando I/O espúrio de anos anteriores.
 
+### 2.4 Provisionamento Automático de Partições Futuras
+A função `silver.provisionar_particoes_movimentacoes(ano_referencia, anos_a_frente)` (migração 0019) cria partições por quinquênio a partir do maior limite existente (`movimentacoes_p2035_2039`, `movimentacoes_p2040_2044`, ...) até `ano_referencia + anos_a_frente` (padrão: ano corrente + 5). Ela é chamada por `src/db/povoar_silver_3nf.py` antes de cada carga, de modo que um ano letivo novo já encontra sua partição dedicada.
+
+```sql
+SELECT silver.provisionar_particoes_movimentacoes();      -- ano corrente + 5
+SELECT silver.provisionar_particoes_movimentacoes(2040);  -- simula a chegada de 2040
+```
+
+* **Idempotência**: o ponto de partida é lido do catálogo (`pg_inherits`); uma segunda chamada não cria nada.
+* **Linhas já na default**: se ingressos de um quinquênio novo já tiverem caído na `movimentacoes_p_default`, elas são movidas para a partição criada na mesma transação.
+
+### 2.5 Política de Ciclo de Vida das Partições Legadas
+A Silver 3NF é recriada a cada execução do pipeline (`TRUNCATE` + carga a partir da bronze), e o `gold.fato_retencao_curso` usa **todas** as coortes maduras (ingresso até o último ano menos `ANOS_MATURACAO_COORTE` = 8). Por isso:
+
+1. **Nenhuma partição é removida ou desanexada enquanto suas coortes alimentam a gold.** Hoje isso vale para todas (2000 em diante).
+2. **Partições fechadas** (todas as coortes com saída registrada, sem vínculo `ATIVO`) são candidatas a `VACUUM (FREEZE, ANALYZE)` após a carga, evitando reescrita futura por *wraparound*.
+3. **Compressão**: o PostgreSQL não comprime o *heap*; as colunas textuais longas podem usar `ALTER TABLE ... ALTER COLUMN ... SET COMPRESSION lz4` (TOAST). O ganho é pequeno no volume atual (~150 mil vínculos) e não justifica a mudança agora.
+4. **Arquivamento**: se um período sair do escopo analítico da gold, a partição é desanexada sem bloquear leituras (`ALTER TABLE silver.movimentacoes_vinculos DETACH PARTITION ... CONCURRENTLY`), exportada com `pg_dump -Fc` (formato comprimido) e só então removida. Como a Silver contém dado pessoal pseudonimizado, o arquivo segue as mesmas regras de acesso do banco (LGPD) e nunca vai para o repositório.
+5. **Partição default**: deve ficar vazia para anos a partir de 2000. Linhas nela indicam ano de ingresso fora do intervalo mapeado (ex.: anterior a 2000) e devem ser investigadas.
+
 ---
 
 ## 3. Estratégias Avançadas de Indexação
