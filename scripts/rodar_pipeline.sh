@@ -46,6 +46,9 @@ etapa "Privacidade: k-anonimato"
 etapa "Banco: Silver 3NF e Star Schema"
 "$PYTHON" src/db/povoar_dimensional.py
 
+etapa "Gold: refresh da view do painel"
+"$PYTHON" src/db/atualizar_view_painel.py
+
 etapa "Busca semântica: vetorização"
 "$PYTHON" src/busca/vetorizar.py
 

@@ -77,6 +77,11 @@ jobs:
 
       - name: "Banco — Silver 3NF e Star Schema"
         run: python src/db/povoar_dimensional.py
+
+      # Só roda se as etapas anteriores passaram; o script ainda confere a Silver antes do refresh.
+      - name: "Gold — REFRESH CONCURRENTLY da view do painel"
+        run: python src/db/atualizar_view_painel.py
+
       - name: "Cache do modelo de embedding"
         uses: actions/cache@v4
         with:
