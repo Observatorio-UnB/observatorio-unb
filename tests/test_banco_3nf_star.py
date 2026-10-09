@@ -159,6 +159,33 @@ class TestRestricoes3NFStar(unittest.TestCase):
                 self.conn.execute("CALL gold.atualizar_mv_dashboard_executivo()")
             raise Rollback()
 
+    def particao_do_discente(self, id_discente: int) -> str:
+        return self.conn.execute(
+            "SELECT tableoid::regclass::text FROM silver.movimentacoes_vinculos WHERE id_discente = %s",
+            (id_discente,),
+        ).fetchone()[0]
+
+    def test_07_anos_novos_vao_para_particao_dedicada(self):
+        with self.conn.transaction():
+            criadas = [p for (p,) in self.conn.execute(
+                "SELECT silver.provisionar_particoes_movimentacoes(2040)").fetchall()]
+            self.assertEqual(criadas, ["silver.movimentacoes_p2035_2039", "silver.movimentacoes_p2040_2044",
+                                       "silver.movimentacoes_p2045_2049"])
+            id_discente = self.inserir_vinculo(2042, -1, self.criar_curso())
+            self.assertEqual(self.particao_do_discente(id_discente), "silver.movimentacoes_p2040_2044")
+            # Idempotente: a segunda chamada não cria nada.
+            self.assertEqual(self.conn.execute(
+                "SELECT silver.provisionar_particoes_movimentacoes(2040)").fetchall(), [])
+            raise Rollback()
+
+    def test_08_vinculo_que_caiu_na_default_e_movido_para_a_particao_nova(self):
+        with self.conn.transaction():
+            id_discente = self.inserir_vinculo(2036, -1, self.criar_curso())
+            self.assertEqual(self.particao_do_discente(id_discente), "silver.movimentacoes_p_default")
+            self.conn.execute("SELECT silver.provisionar_particoes_movimentacoes(2030)")
+            self.assertEqual(self.particao_do_discente(id_discente), "silver.movimentacoes_p2035_2039")
+            raise Rollback()
+
 
 class TestCarga3NFStar(unittest.TestCase):
 
