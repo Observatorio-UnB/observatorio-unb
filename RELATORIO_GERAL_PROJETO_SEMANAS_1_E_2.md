@@ -6,6 +6,12 @@
 > **Stakeholder Principal**: Decanato de Ensino de Graduação (DEG/DAA) e Coordenações de Cursos de Graduação.  
 > **Portal Auditado**: [dados.unb.br](https://dados.unb.br) (API aberta CKAN 2.11).
 
+> [!NOTE]
+> Este relatório registra a primeira versão do projeto (só SIGRA, camadas em CSV). Os números foram
+> revistos depois da união com o SIGAA e da carga no PostgreSQL: os valores atuais estão em
+> [`docs/caderno_analise.md`](docs/caderno_analise.md) (ex.: evasão média de 50,90% nos cursos noturnos
+> contra 40,85% nos diurnos, e 100% dos 152.680 vínculos casados com a estrutura curricular).
+
 ---
 
 ## 1. Conexão com o Plano de 2 Semanas (Metodologia CBL)
@@ -37,14 +43,14 @@ flowchart TD
 
 | Fase / Dia | Exigência do Plano | Entregável Concretizado no Repositório |
 | :--- | :--- | :--- |
-| **S1 · Dia 2** | Stakeholder, Essential Question, Challenge e 5 Guiding Questions. | [`docs/challenge_canvas.md`](file:///Users/quigonjinx/Documents/ultimoUnb/bd2/docs/challenge_canvas.md) |
-| **S1 · Dia 3** | Ingestão programática via API sem download manual. | [`src/ingestion/ckan_client.py`](file:///Users/quigonjinx/Documents/ultimoUnb/bd2/src/ingestion/ckan_client.py) $\rightarrow$ `data/bronze/` |
-| **S1 · Dia 4** | Relatório de qualidade (8 achados com evidência) + Issue para o portal. | [`docs/relatorio_qualidade.md`](file:///Users/quigonjinx/Documents/ultimoUnb/bd2/docs/relatorio_qualidade.md) |
-| **S1 · Dia 5** | Análise de quase-identificadores, $k$-anonimato e slide obrigatório. | [`docs/registro_privacidade_lgpd.md`](file:///Users/quigonjinx/Documents/ultimoUnb/bd2/docs/registro_privacidade_lgpd.md) |
-| **S2 · Dia 1** | Pipeline Bronze $\rightarrow$ Silver $\rightarrow$ Gold com join heterogêneo auditado. | [`src/pipeline/transform_silver.py`](file:///Users/quigonjinx/Documents/ultimoUnb/bd2/src/pipeline/transform_silver.py) e [`build_gold.py`](file:///Users/quigonjinx/Documents/ultimoUnb/bd2/src/pipeline/build_gold.py) |
-| **S2 · Dia 2** | Caderno de análise com respostas às 5 GQs e "A Correlação Suspeita". | [`docs/caderno_analise.md`](file:///Users/quigonjinx/Documents/ultimoUnb/bd2/docs/caderno_analise.md) |
-| **S2 · Dia 3** | Produto navegável autônomo para o stakeholder. | [`src/dashboard/app.py`](file:///Users/quigonjinx/Documents/ultimoUnb/bd2/src/dashboard/app.py) (Streamlit Interativo) |
-| **S2 · Dia 4** | Documentação formal (Datasheet for Datasets e Dicionário Gold) + Testes. | [`docs/datasheet_gold.md`](file:///Users/quigonjinx/Documents/ultimoUnb/bd2/docs/datasheet_gold.md), [`docs/dicionario_dados_gold.md`](file:///Users/quigonjinx/Documents/ultimoUnb/bd2/docs/dicionario_dados_gold.md), [`tests/test_pipeline.py`](file:///Users/quigonjinx/Documents/ultimoUnb/bd2/tests/test_pipeline.py) |
+| **S1 · Dia 2** | Stakeholder, Essential Question, Challenge e 5 Guiding Questions. | [`docs/challenge_canvas.md`](docs/challenge_canvas.md) |
+| **S1 · Dia 3** | Ingestão programática via API sem download manual. | [`src/ingestion/ckan_client.py`](src/ingestion/ckan_client.py) $\rightarrow$ `data/bronze/` |
+| **S1 · Dia 4** | Relatório de qualidade (8 achados com evidência) + Issue para o portal. | [`docs/relatorio_qualidade.md`](docs/relatorio_qualidade.md) |
+| **S1 · Dia 5** | Análise de quase-identificadores, $k$-anonimato e slide obrigatório. | [`docs/registro_privacidade_lgpd.md`](docs/registro_privacidade_lgpd.md) |
+| **S2 · Dia 1** | Pipeline Bronze $\rightarrow$ Silver $\rightarrow$ Gold com join heterogêneo auditado. | [`src/pipeline/transform_silver.py`](src/pipeline/transform_silver.py) e [`build_gold.py`](src/pipeline/build_gold.py) |
+| **S2 · Dia 2** | Caderno de análise com respostas às 5 GQs e "A Correlação Suspeita". | [`docs/caderno_analise.md`](docs/caderno_analise.md) |
+| **S2 · Dia 3** | Produto navegável autônomo para o stakeholder. | [`src/dashboard/app.py`](src/dashboard/app.py) (Streamlit Interativo) |
+| **S2 · Dia 4** | Documentação formal (Datasheet for Datasets e Dicionário Gold) + Testes. | [`docs/datasheet_gold.md`](docs/datasheet_gold.md), [`docs/dicionario_dados_gold.md`](docs/dicionario_dados_gold.md), [`tests/test_pipeline.py`](tests/test_pipeline.py) |
 | **S2 · Dia 5** | Devolutiva cívica à instituição e encerramento. | Rascunho da Issue para o CPD integrado na aba de Governança do Painel. |
 
 ---
