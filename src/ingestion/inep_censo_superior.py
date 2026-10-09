@@ -9,10 +9,14 @@ O arquivo bruto do INEP traz os ~253 mil cursos de graduação do Brasil (143 MB
 camada Bronze (tabela bronze.inep_censo_superior_federais) é gravado apenas o recorte
 comparável com a UnB - cursos presenciais de universidades públicas federais -, o que
 reduz o dado a poucos milhares de linhas.
+
+A leitura é em streaming, com memória constante: o zip é baixado em partes para um arquivo
+temporário, o CSV de cursos é lido em blocos de 50.000 linhas e cada bloco filtrado vai por
+COPY para uma tabela de staging. A bronze só é trocada no fim, numa transação única.
 """
 
 import fnmatch
-import io
+import hashlib
 import logging
 import ssl
 import sys
@@ -20,7 +24,7 @@ import tempfile
 import time
 import zipfile
 from pathlib import Path
-from typing import Optional
+from typing import Iterator, Optional, Tuple
 
 import certifi
 import pandas as pd
@@ -28,8 +32,9 @@ import requests
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
+from src.db.conexao import conectar  # noqa: E402
 from src.db.migrar import aplicar_migracoes  # noqa: E402
-from src.db.tabelas import gravar  # noqa: E402
+from src.db.tabelas import colunas_da_tabela, copiar, preparar  # noqa: E402
 from src.ingestion.procedencia import registrar_ingestao  # noqa: E402
 
 logging.basicConfig(
@@ -49,6 +54,8 @@ ZIP_URL = f"https://download.inep.gov.br/microdados/microdados_censo_da_educacao
 CA_INTERMEDIARIA_URL = "http://secure.globalsign.com/cacert/rnpicpedugr46ovtlsca2025.crt"
 
 TABELA_BRONZE = "bronze.inep_censo_superior_federais"
+TABELA_STAGING = "pg_temp.inep_censo_staging"
+LINHAS_POR_BLOCO = 50_000
 
 # Filtros do recorte comparável (códigos do dicionário de dados do INEP)
 CATEGORIA_PUBLICA_FEDERAL = 1
@@ -91,8 +98,8 @@ def _montar_ca_bundle() -> Optional[str]:
     return bundle.name
 
 
-def baixar_zip_censo(url: str = ZIP_URL, tentativas: int = 4) -> bytes:
-    """Baixa o pacote de microdados do INEP.
+def baixar_zip_censo(destino: Path, url: str = ZIP_URL, tentativas: int = 4) -> Tuple[int, str]:
+    """Baixa o pacote de microdados do INEP em partes para `destino`; devolve (tamanho, sha256).
 
     Trata dois problemas recorrentes do servidor: a cadeia TLS incompleta (resolvida anexando
     a CA intermediária) e quedas de conexão intermitentes durante o download (resolvidas com
@@ -103,9 +110,15 @@ def baixar_zip_censo(url: str = ZIP_URL, tentativas: int = 4) -> bytes:
 
     for tentativa in range(1, tentativas + 1):
         try:
-            resp = requests.get(url, timeout=600, verify=verify)
-            resp.raise_for_status()
-            return resp.content
+            with requests.get(url, timeout=600, verify=verify, stream=True) as resp:
+                resp.raise_for_status()
+                sha256, tamanho = hashlib.sha256(), 0
+                with open(destino, "wb") as fh:
+                    for parte in resp.iter_content(chunk_size=1 << 20):
+                        fh.write(parte)
+                        sha256.update(parte)
+                        tamanho += len(parte)
+            return tamanho, sha256.hexdigest()
         except requests.exceptions.SSLError as exc:
             ultimo_erro = exc
             if verify is True:
@@ -121,46 +134,85 @@ def baixar_zip_censo(url: str = ZIP_URL, tentativas: int = 4) -> bytes:
     raise RuntimeError(f"Não foi possível baixar os microdados do INEP após {tentativas} tentativas.") from ultimo_erro
 
 
-def _ler_csv_do_zip(zf: zipfile.ZipFile, padrao: str, colunas: list) -> pd.DataFrame:
-    """Lê o CSV cujo nome casa com o padrão (o INEP muda o nome dos arquivos entre anos)."""
+def _abrir_csv_do_zip(zf: zipfile.ZipFile, padrao: str):
+    """Abre o CSV cujo nome casa com o padrão (o INEP muda o nome dos arquivos entre anos)."""
     nomes = [n for n in zf.namelist() if fnmatch.fnmatch(n.upper(), padrao)]
     if not nomes:
         raise FileNotFoundError(f"Nenhum arquivo casando com '{padrao}' no pacote do INEP.")
-    with zf.open(nomes[0]) as fh:
-        return pd.read_csv(
-            io.BytesIO(fh.read()), sep=";", encoding="latin-1", usecols=colunas, low_memory=False
-        )
+    return zf.open(nomes[0])
+
+
+def _ler_ies_federais(zf: zipfile.ZipFile) -> pd.DataFrame:
+    """Universidades públicas federais. O arquivo de IES é pequeno (~2,6 mil linhas) e cabe inteiro."""
+    with _abrir_csv_do_zip(zf, "*IES*.CSV") as fh:
+        ies = pd.read_csv(fh, sep=";", encoding="latin-1", usecols=COLUNAS_IES)
+    return ies[
+        (ies["TP_CATEGORIA_ADMINISTRATIVA"] == CATEGORIA_PUBLICA_FEDERAL)
+        & (ies["TP_ORGANIZACAO_ACADEMICA"] == ORGANIZACAO_UNIVERSIDADE)
+    ]
+
+
+def ler_cursos_em_blocos(zf: zipfile.ZipFile, linhas_por_bloco: int = LINHAS_POR_BLOCO) -> Iterator[pd.DataFrame]:
+    """Lê o CSV de cursos direto do zip, um bloco por vez: só um bloco fica em memória."""
+    with _abrir_csv_do_zip(zf, "*CURSOS*.CSV") as fh:
+        yield from pd.read_csv(fh, sep=";", encoding="latin-1", usecols=COLUNAS_CURSO, chunksize=linhas_por_bloco)
+
+
+def recortar_federais(bloco: pd.DataFrame, ies_federais: pd.DataFrame) -> pd.DataFrame:
+    """Cursos presenciais de universidades públicas federais dentro de um bloco."""
+    presenciais = bloco[bloco["TP_MODALIDADE_ENSINO"] == MODALIDADE_PRESENCIAL]
+    return presenciais.merge(ies_federais, on="CO_IES", how="inner")
 
 
 def fetch_censo_superior() -> int:
     """Baixa o Censo da Educação Superior e grava o recorte de federais na camada Bronze."""
     aplicar_migracoes()
     logger.info(f"Baixando microdados do Censo da Educação Superior {ANO_CENSO} (INEP)...")
-    conteudo = baixar_zip_censo()
 
-    with zipfile.ZipFile(io.BytesIO(conteudo)) as zf:
-        df_cursos = _ler_csv_do_zip(zf, "*CURSOS*.CSV", COLUNAS_CURSO)
-        df_ies = _ler_csv_do_zip(zf, "*IES*.CSV", COLUNAS_IES)
+    with tempfile.TemporaryDirectory() as pasta:
+        arquivo_zip = Path(pasta) / "censo.zip"
+        tamanho, sha256 = baixar_zip_censo(arquivo_zip)
+        logger.info(f"Download concluído ({tamanho / 1e6:.1f} MB).")
 
-    logger.info(f"Cursos de graduação no Brasil: {len(df_cursos):,}")
-    df = df_cursos.merge(df_ies, on="CO_IES", how="inner")
-    df = df[
-        (df["TP_CATEGORIA_ADMINISTRATIVA"] == CATEGORIA_PUBLICA_FEDERAL)
-        & (df["TP_ORGANIZACAO_ACADEMICA"] == ORGANIZACAO_UNIVERSIDADE)
-        & (df["TP_MODALIDADE_ENSINO"] == MODALIDADE_PRESENCIAL)
-    ].copy()
+        with zipfile.ZipFile(arquivo_zip) as zf, conectar(autocommit=True) as conn:
+            ies_federais = _ler_ies_federais(zf)
+            colunas = colunas_da_tabela(conn, TABELA_BRONZE)
+            # Staging: os blocos entram aqui; a bronze só muda no fim, numa transação única.
+            conn.execute(f"CREATE TEMP TABLE {TABELA_STAGING.split('.')[1]} "
+                         f"(LIKE {TABELA_BRONZE} INCLUDING DEFAULTS)")
 
-    registros = gravar(df, TABELA_BRONZE)
-    # O CSV do INEP vem dentro de um zip: o encoding (latin-1) é o declarado pelo INEP, não verificado.
-    registrar_ingestao(
-        tabela=TABELA_BRONZE, fonte="INEP", recurso_url=ZIP_URL, conteudo=conteudo,
-        encoding="latin-1", separador=";", registros=registros, verificar_encoding=False,
-    )
+            inicio = time.monotonic()
+            lidas = gravadas = 0
+            universidades = set()
+            for numero, bloco in enumerate(ler_cursos_em_blocos(zf), start=1):
+                recorte = recortar_federais(bloco, ies_federais)
+                recorte = recorte.assign(_ordem=range(gravadas + 1, gravadas + len(recorte) + 1))
+                copiar(conn, TABELA_STAGING, preparar(recorte, colunas, TABELA_BRONZE))
+                lidas += len(bloco)
+                gravadas += len(recorte)
+                universidades.update(recorte["CO_IES"])
+                decorrido = time.monotonic() - inicio
+                logger.info(f"Bloco {numero}: {lidas:,} linhas lidas, {gravadas:,} no recorte "
+                            f"({lidas / decorrido:,.0f} linhas/s).")
+
+            with conn.transaction():
+                conn.execute(f"TRUNCATE {TABELA_BRONZE}")
+                conn.execute(f"INSERT INTO {TABELA_BRONZE} SELECT * FROM {TABELA_STAGING}")
+                # O CSV do INEP vem dentro de um zip: o encoding (latin-1) é o declarado pelo INEP, não verificado.
+                registrar_ingestao(
+                    tabela=TABELA_BRONZE, fonte="INEP", recurso_url=ZIP_URL, conteudo=None,
+                    tamanho_bytes=tamanho, sha256=sha256, encoding="latin-1", separador=";",
+                    registros=gravadas, verificar_encoding=False, conn=conn,
+                )
+            conn.execute(f"ANALYZE {TABELA_BRONZE}")
+
+    decorrido = time.monotonic() - inicio
+    logger.info(f"Cursos de graduação no Brasil: {lidas:,} em {decorrido:.1f} s ({lidas / decorrido:,.0f} linhas/s).")
     logger.info(
-        f"Gravados em {TABELA_BRONZE}: {len(df):,} cursos presenciais de {df['CO_IES'].nunique()} "
+        f"Gravados em {TABELA_BRONZE}: {gravadas:,} cursos presenciais de {len(universidades)} "
         f"universidades federais."
     )
-    return registros
+    return gravadas
 
 
 if __name__ == "__main__":
