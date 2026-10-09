@@ -123,6 +123,9 @@ def silver_carregada(conn: psycopg.Connection) -> bool:
 def povoar_silver_3nf(conn: psycopg.Connection) -> Dict[str, int]:
     """Recria as tabelas 3NF na transação de `conn` e devolve o número de linhas por tabela."""
     conn.execute(f"TRUNCATE {', '.join(TABELAS_3NF)} RESTART IDENTITY")
+    # Antes da carga: ingressos de anos novos vão para partição própria, e não para a default.
+    for (particao,) in conn.execute("SELECT silver.provisionar_particoes_movimentacoes()").fetchall():
+        logger.info(f"{particao}: partição criada.")
     for sql in (SQL_CURSOS, SQL_ESTRUTURAS, SQL_DISCENTES, SQL_MOVIMENTACOES, SQL_PIBIC):
         conn.execute(sql)
 
