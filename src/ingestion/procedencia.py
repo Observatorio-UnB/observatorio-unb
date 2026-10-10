@@ -35,7 +35,7 @@ def registrar_ingestao(
     tabela: str,
     fonte: str,
     recurso_url: str,
-    conteudo: bytes,
+    conteudo: Optional[bytes],
     encoding: str,
     separador: str,
     registros: int,
@@ -44,7 +44,10 @@ def registrar_ingestao(
     verificar_encoding: bool = True,
     conn: Optional[psycopg.Connection] = None,
     linhas_descartadas: int = 0,
+    tamanho_bytes: Optional[int] = None,
+    sha256: Optional[str] = None,
 ) -> None:
+    """Registra a procedência. Sem `conteudo` (arquivo lido em streaming), use tamanho_bytes e sha256."""
     utf8_valido, linha_invalida, evidencia = (
         verificar_utf8(conteudo) if verificar_encoding else (None, None, None)
     )
@@ -68,7 +71,9 @@ def registrar_ingestao(
           evidencia_encoding = EXCLUDED.evidencia_encoding, metadados = EXCLUDED.metadados
     """
     params = (
-        tabela, fonte, pacote, recurso_url, len(conteudo), hashlib.sha256(conteudo).hexdigest(),
+        tabela, fonte, pacote, recurso_url,
+        len(conteudo) if conteudo is not None else tamanho_bytes,
+        hashlib.sha256(conteudo).hexdigest() if conteudo is not None else sha256,
         encoding, separador, registros, linhas_descartadas, utf8_valido, linha_invalida, evidencia,
         json.dumps(metadados, ensure_ascii=False) if metadados is not None else None,
     )
