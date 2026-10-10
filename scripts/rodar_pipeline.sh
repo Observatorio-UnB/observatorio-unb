@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pipeline completo, do portal ao banco. Cada etapa lê a camada anterior do
 # PostgreSQL e grava a sua nele: migrações -> bronze (CKAN e INEP) -> silver -> gold
-# -> auditoria -> privacidade -> Silver 3NF e Star Schema -> vetorização -> dicionário do banco.
+# -> auditoria -> privacidade -> Silver 3NF e Star Schema -> lago Delta -> vetorização -> dicionário do banco.
 #
 # Requer o banco no ar (docker compose up -d db) ou DATABASE_URL apontando para ele.
 # Uso: bash scripts/rodar_pipeline.sh
@@ -48,6 +48,9 @@ etapa "Banco: Silver 3NF e Star Schema"
 
 etapa "Gold: refresh da view do painel"
 "$PYTHON" src/db/atualizar_view_painel.py
+
+etapa "Lago: Silver 3NF e Star Schema em Delta Lake"
+"$PYTHON" src/db/exportar_lago.py
 
 etapa "Busca semântica: vetorização"
 "$PYTHON" src/busca/vetorizar.py
