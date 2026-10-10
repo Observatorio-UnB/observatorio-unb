@@ -23,6 +23,7 @@ from psycopg import Rollback, errors
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
+from src.db.atualizar_view_painel import SilverNaoCarregada, atualizar_view_painel  # noqa: E402
 from src.db.conexao import conectar  # noqa: E402
 from src.db.migrar import aplicar_migracoes  # noqa: E402
 from src.db.povoar_dimensional import povoar_gold_dimensional  # noqa: E402
@@ -150,6 +151,14 @@ class TestRestricoes3NFStar(unittest.TestCase):
             self.assertEqual(sk_antes, sk_depois)
             raise Rollback()
 
+    def test_06_refresh_da_view_e_recusado_com_fato_vazio(self):
+        """Carga que deixou a gold vazia não pode esvaziar a view do painel."""
+        with self.conn.transaction():
+            self.conn.execute("DELETE FROM gold.fato_retencao_curso")
+            with self.assertRaises(errors.RaiseException), self.conn.transaction():
+                self.conn.execute("CALL gold.atualizar_mv_dashboard_executivo()")
+            raise Rollback()
+
 
 class TestCarga3NFStar(unittest.TestCase):
 
@@ -232,7 +241,7 @@ class TestCarga3NFStar(unittest.TestCase):
                              self.um("SELECT count(*) FROM silver.pibic_projetos"))
 
     def test_06_view_materializada_tem_um_curso_terminal_por_fato(self):
-        self.conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY gold.mv_dashboard_executivo")
+        self.conn.execute("CALL gold.atualizar_mv_dashboard_executivo()")
         self.assertEqual(
             self.um("SELECT count(*) FROM gold.mv_dashboard_executivo"),
             self.um("SELECT count(*) FROM gold.fato_retencao_curso JOIN gold.dim_curso USING (sk_curso) "
@@ -248,6 +257,18 @@ class TestCarga3NFStar(unittest.TestCase):
             self.assertEqual(antes, depois)
             self.assertEqual(sks, self.conn.execute(SQL_CHAVES).fetchall())
             raise Rollback()
+
+    def test_08_refresh_e_cancelado_se_a_carga_da_silver_falhou(self):
+        """Silver vazia (carga que falhou) impede o refresh, e a view segue com a versão anterior."""
+        gerada_antes = self.um("SELECT max(gerado_em) FROM gold.mv_dashboard_executivo")
+        for falha in ("DELETE FROM silver.discentes_graduacao",
+                      "TRUNCATE silver.movimentacoes_vinculos CASCADE"):
+            with self.subTest(falha=falha), self.conn.transaction():
+                self.conn.execute(falha)
+                with self.assertRaises(SilverNaoCarregada):
+                    atualizar_view_painel(self.conn)
+                raise Rollback()
+        self.assertEqual(self.um("SELECT max(gerado_em) FROM gold.mv_dashboard_executivo"), gerada_antes)
 
 
 if __name__ == "__main__":

@@ -202,7 +202,7 @@ def sincronizar(url_destino: str, somente_inserir: bool = False) -> Dict[str, Tu
         with destino.transaction():
             for s in SINCRONIAS:
                 resumo[s.tabela] = sincronizar_tabela(origem, destino, s, somente_inserir)
-        destino.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY gold.mv_dashboard_executivo")
+        destino.execute("CALL gold.atualizar_mv_dashboard_executivo()")
     for tabela, (inseridas, atualizadas) in resumo.items():
         logger.info(f"{tabela}: {inseridas:,} inseridas, {atualizadas:,} atualizadas.")
     return resumo

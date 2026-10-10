@@ -10,10 +10,11 @@ Povoamento do Star Schema da gold a partir da Silver 3NF, dentro do PostgreSQL.
                                  % no tempo ideal, atraso médio, IRC e classificação)
   7. gold.fato_alunos_ativos  <- gold.ativos_hoje_cursos_unb
   8. gold.fato_pibic_perfil   <- silver.pibic_projetos (por curso e perfil social)
-  9. REFRESH da gold.mv_dashboard_executivo
 
 As dimensões são atualizadas por chave natural (upsert): a chave substituta de um curso não muda
 quando outro curso entra. Os fatos são recriados por inteiro a cada execução.
+
+O refresh da gold.mv_dashboard_executivo fica em src/db/atualizar_view_painel.py, etapa seguinte.
 
 Uso:
     python3 src/db/povoar_dimensional.py
@@ -244,10 +245,6 @@ def executar_elt_dimensional() -> Dict[str, int]:
         with conn.transaction():
             contagens = povoar_silver_3nf(conn)
             contagens.update(povoar_gold_dimensional(conn))
-        # CONCURRENTLY não roda dentro de transação; mantém a view legível durante o refresh.
-        conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY gold.mv_dashboard_executivo")
-        contagens["gold.mv_dashboard_executivo"] = conn.execute(
-            "SELECT count(*) FROM gold.mv_dashboard_executivo").fetchone()[0]
     for tabela, n in contagens.items():
         logger.info(f"{tabela}: {n:,} linhas.")
     return contagens
