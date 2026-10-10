@@ -192,6 +192,44 @@ FROM delta_scan('data/lake/lote/silver/movimentacoes_vinculos')
 GROUP BY ALL ORDER BY ALL;
 ```
 
+### Captura de mudanças (CDC com Debezium)
+O segundo caminho até o lago: as mudanças da Silver 3NF (`silver.cursos`,
+`silver.estruturas_curriculares` e `silver.movimentacoes_vinculos`) saem do WAL do PostgreSQL
+por decodificação lógica (`pgoutput`, publicação `observatorio_cdc` da migração 0020), passam
+pelo Debezium e pelo Kafka e chegam a tabelas Delta em `data/lake/cdc/`.
+
+```bash
+docker compose --profile cdc up -d db kafka connect   # banco com wal_level=logical, Kafka e Debezium
+python3 src/db/migrar.py                               # cria a publicação
+bash scripts/cdc.sh registrar                          # conector + slot de replicação (faz o snapshot inicial)
+python3 src/cdc/consumidor.py                          # aplica as mudanças no lago (Ctrl+C para parar)
+python3 src/cdc/demonstrar.py                          # INSERT, UPDATE e DELETE atravessando o fluxo
+```
+
+A demonstração insere, altera e exclui um curso sentinela no banco e mede quanto cada mudança
+leva até aparecer no lago. No fim, o banco volta ao estado de antes:
+
+```
+passo     latência   estado no lago
+INSERT       0.87s   turno=DIURNO ativo=True _deletado=False _commit_lsn=2447817312
+UPDATE       0.44s   turno=NOTURNO ativo=False _deletado=False _commit_lsn=2448437072
+DELETE       0.64s   turno=NOTURNO ativo=False _deletado=True _commit_lsn=2448437288
+```
+
+- **Idempotente:** o consumidor aplica cada lote por `MERGE` na chave primária, e um evento
+  só altera a linha se vier depois, no WAL, da última mudança aplicada nela. O offset só é
+  confirmado no Kafka depois da gravação. Se o lote vier de novo, nada muda no lago, e
+  reprocessar os tópicos inteiros (`--do-inicio`) também não.
+- **Exclusão:** um DELETE vira marca (`_deletado = true`), para que um INSERT antigo
+  reprocessado não ressuscite a linha. Quem lê filtra por `NOT _deletado`.
+- **TRUNCATE:** a recarga da Silver 3NF começa com `TRUNCATE`, que marca as linhas anteriores
+  a ele. Depois de rodar `src/db/povoar_silver_3nf.py` com o CDC no ar, o lago ficou idêntico
+  ao banco, tupla a tupla (152.680 vínculos).
+- **Arquivos pequenos:** cada `MERGE` grava arquivos novos. O consumidor os junta
+  (`optimize.compact`) a cada 50 lotes e ao esvaziar os tópicos.
+- **Slot de replicação:** o slot segura WAL enquanto o conector está parado. `bash scripts/cdc.sh remover`
+  apaga o conector e o slot. `max_slot_wal_keep_size=2GB` limita o estrago se ninguém remover.
+
 ### Busca semântica
 Cada curso da gold, cada plano de iniciação científica (título, ano, curso e linha,
 sem nome nem matrícula) e cada seção da documentação em `docs/` vira um documento
