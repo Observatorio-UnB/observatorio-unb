@@ -34,6 +34,9 @@ class ConexaoFalsa:
     def fetchone(self):
         return (0,)
 
+    def fetchall(self):
+        return []
+
     def sqls(self):
         return [sql for sql, _ in self.executados]
 
@@ -45,6 +48,7 @@ class TestPovoamento(unittest.TestCase):
         silver.povoar_silver_3nf(conn)
         sqls = conn.sqls()
         self.assertEqual(sqls[0], f"TRUNCATE {', '.join(silver.TABELAS_3NF)} RESTART IDENTITY")
+        self.assertEqual(sqls[1], "SELECT silver.provisionar_particoes_movimentacoes()")
         inserts = [s for s in sqls if s.startswith("INSERT INTO")]
         self.assertEqual([s.split()[2] for s in inserts], list(silver.TABELAS_3NF))
 
