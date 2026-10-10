@@ -220,6 +220,23 @@ DELETE       0.64s   turno=NOTURNO ativo=False _deletado=True _commit_lsn=244843
   só altera a linha se vier depois, no WAL, da última mudança aplicada nela. O offset só é
   confirmado no Kafka depois da gravação. Se o lote vier de novo, nada muda no lago, e
   reprocessar os tópicos inteiros (`--do-inicio`) também não.
+- **Semântica de entrega:** o transporte é *no mínimo uma vez* e o efeito no lago é de
+  *exatamente uma vez*. `python3 src/cdc/demonstrar_reprocessamento.py` força os dois
+  reprocessamentos possíveis. Primeiro, o consumidor grava um lote de 100 mudanças e cai
+  antes de confirmar o offset, e o Kafka entrega o lote de novo. Depois, o grupo relê os
+  tópicos do primeiro offset. A impressão digital do lago (sha256 de todas as linhas) não muda:
+
+  ```
+  cenário                                    mensagens lidas  linhas no lago  sentinelas   impressão digital
+  estado inicial (tópicos esvaziados)                      0         152,951           0   030071c4dbe5
+  lote gravado, queda antes de confirmar                 100         153,001          50   8b379584a8f5
+  retomada: o lote é entregue de novo                    100         153,001          50   8b379584a8f5
+  reprocessamento do primeiro offset                 306,009         153,001          50   8b379584a8f5
+  ```
+
+  Confirmar o offset antes de gravar daria *no máximo uma vez*: uma queda entre as duas
+  operações perderia o lote, sem como recuperar. Não há transação entre o Kafka e o Delta, e
+  o exatamente-uma-vez de ponta a ponta sai da idempotência do MERGE.
 - **Exclusão:** um DELETE vira marca (`_deletado = true`), para que um INSERT antigo
   reprocessado não ressuscite a linha. Quem lê filtra por `NOT _deletado`.
 - **TRUNCATE:** a recarga da Silver 3NF começa com `TRUNCATE`, que marca as linhas anteriores
