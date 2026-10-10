@@ -193,8 +193,11 @@ GROUP BY ALL ORDER BY ALL;
 ```
 
 ### Captura de mudanças (CDC com Debezium)
-O segundo caminho até o lago: as mudanças da Silver 3NF (`silver.cursos`,
-`silver.estruturas_curriculares` e `silver.movimentacoes_vinculos`) saem do WAL do PostgreSQL
+O segundo caminho até o lago, opcional (fora do pipeline e do CI). Por que a recarga
+periódica é o mecanismo principal e o CDC é opcional, com latência e custo medidos:
+[ADR 0025](docs/adr/0025-mecanismo-de-ingestao-recarga-e-cdc.md).
+O OLTP aqui é a Silver 3NF, o modelo transacional da E1: as mudanças de `silver.cursos`,
+`silver.estruturas_curriculares` e `silver.movimentacoes_vinculos` saem do WAL do PostgreSQL
 por decodificação lógica (`pgoutput`, publicação `observatorio_cdc` da migração 0020), passam
 pelo Debezium e pelo Kafka e chegam a tabelas Delta em `data/lake/cdc/`.
 
