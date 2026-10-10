@@ -9,3 +9,4 @@ psycopg[binary]>=3.1
 fastembed>=0.4
 pyarrow>=15.0
 deltalake>=1.0
+confluent-kafka>=2.3
