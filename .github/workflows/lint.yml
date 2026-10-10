@@ -1,0 +1,29 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tamanho-arquivos:
+    runs-on: ubuntu-latest
+    env:
+      LIMITE_KB: 1024
+    steps:
+      - uses: actions/checkout@v4
+
+      # Barra arquivos versionados acima do limite (imagens, esquemas, dumps), que deixam o
+      # clone lento. Dado grande vai para o banco ou para artefato do workflow, não para o git.
+      - name: "Tamanho máximo de arquivos versionados"
+        run: |
+          grandes=$(git ls-files -z | xargs -0 du -k | awk -v lim="$LIMITE_KB" '$1 > lim')
+          if [ -n "$grandes" ]; then
+            echo "::error::Arquivos acima de ${LIMITE_KB} KB:"
+            echo "$grandes"
+            exit 1
+          fi
+          echo "Nenhum arquivo acima de ${LIMITE_KB} KB."
