@@ -12,6 +12,9 @@ O curso de cada vínculo e de cada plano de IC passa pela mesma harmonização d
 (gold.regras_harmonizacao_canonicas) e aponta para a matriz do curso canônico. As tabelas
 são esvaziadas antes da carga: rodar duas vezes dá o mesmo resultado.
 
+No fim, a carga registra a marca d'água e o retrato dos vínculos por janela, que a próxima
+carga usa para separar o que chegou no prazo do que chegou atrasado (src/db/dado_atrasado.py).
+
 Uso:
     python3 src/db/povoar_silver_3nf.py
 """
@@ -26,6 +29,7 @@ import psycopg
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conectar  # noqa: E402
+from src.db.dado_atrasado import registrar_carga  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -134,6 +138,7 @@ def povoar_silver_3nf(conn: psycopg.Connection) -> Dict[str, int]:
         - contagens["silver.movimentacoes_vinculos"]
     if sem_matriz:
         logger.warning(f"{sem_matriz:,} vínculos sem matriz curricular ficaram fora de silver.movimentacoes_vinculos.")
+    registrar_carga(conn)
     return contagens
 
 
