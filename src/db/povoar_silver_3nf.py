@@ -91,6 +91,9 @@ FROM silver.discentes_graduacao
 ORDER BY aluno, id DESC
 """
 
+# O ORDER BY fixa a ordem em que o id_vinculo é atribuído. Sem ele, a ordem segue o plano da
+# junção, que muda entre execuções, e a mesma silver ganharia ids diferentes a cada recarga: o
+# lago acharia todas as janelas alteradas (exportar_lago.py --janelas-alteradas).
 SQL_MOVIMENTACOES = """
 INSERT INTO silver.movimentacoes_vinculos (
     id_discente, id_curso, id_estrutura, ano_ingresso, forma_saida, tipo_saida_grupo, ano_saida,
@@ -103,6 +106,7 @@ FROM silver.discentes_graduacao dg
 JOIN silver.discentes d ON d.pseudonimo = dg.aluno
 LEFT JOIN gold.regras_harmonizacao_canonicas r ON r.origem_sigra = dg.curso_norm
 JOIN silver.estruturas_curriculares e ON e.nome_curso_canonico = coalesce(r.destino_estrutura, dg.curso_norm)
+ORDER BY dg.id
 """
 
 # A matrícula do bolsista não é gravada (0010_pibic.sql): o plano não se liga ao discente.
