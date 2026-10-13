@@ -32,3 +32,6 @@ export/
 # Documentação interna de arquitetura e planejamento
 .blueprint/
 
+# Agentes de IA e skills locais
+.agents/
+
