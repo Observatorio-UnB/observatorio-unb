@@ -103,8 +103,9 @@ python3 src/pipeline/build_gold.py
 python3 src/audit/quality_auditor.py
 python3 src/privacy/lgpd_check.py
 
-# 5. Povoamento dimensional (Silver 3NF e Star Schema da gold)
+# 5. Povoamento dimensional (Silver 3NF e Star Schema da gold) e export para o lago Delta
 python3 src/db/povoar_dimensional.py
+python3 src/db/exportar_lago.py
 
 # 6. Busca semântica e dicionário de dados do banco
 python3 src/busca/vetorizar.py
@@ -167,6 +168,29 @@ Star Schema e `busca.documentos` do banco local para `SUPABASE_DATABASE_URL`. A 
 pela chave natural: insere o que é novo, atualiza o que mudou (`--somente-inserir` desliga a
 atualização) e não apaga nada; rodar de novo sem mudança não escreve nenhuma linha. No CI a
 etapa usa o secret `SUPABASE_DATABASE_URL` e não roda em pull request.
+
+### Lago em formato aberto (Delta Lake)
+`src/db/exportar_lago.py` exporta a Silver 3NF (sem `silver.discentes`) e o Star Schema da
+gold para tabelas Delta Lake em `data/lake/lote/` (não versionado). São arquivos Parquet com
+ZSTD e o log de transações do Delta, que DuckDB, Spark, Polars ou pandas leem sem o banco.
+Escolha do formato, da compressão e do particionamento: [ADR 0024](docs/adr/0024-lago-delta-parquet-zstd.md).
+
+```bash
+python3 src/db/exportar_lago.py                      # regrava todas as tabelas (idempotente)
+python3 src/db/exportar_lago.py --quinquenio 2020    # reprocessa só essa janela dos vínculos
+```
+
+Cada execução é uma versão nova da tabela com o mesmo conteúdo, e não linhas a mais.
+`silver.movimentacoes_vinculos` é particionada por quinquênio de ingresso, como no
+PostgreSQL. `--quinquenio` regrava só as partições pedidas e deixa as outras intactas.
+Leitura com DuckDB:
+
+```sql
+INSTALL delta; LOAD delta;
+SELECT quinquenio_ingresso, tipo_saida_grupo, count(*)
+FROM delta_scan('data/lake/lote/silver/movimentacoes_vinculos')
+GROUP BY ALL ORDER BY ALL;
+```
 
 ### Busca semântica
 Cada curso da gold, cada plano de iniciação científica (título, ano, curso e linha,

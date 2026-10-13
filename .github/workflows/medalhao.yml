@@ -82,6 +82,10 @@ jobs:
       - name: "Gold — REFRESH CONCURRENTLY da view do painel"
         run: python src/db/atualizar_view_painel.py
 
+      # O lago fica no runner, como bronze e silver: prova o export, não publica dado.
+      - name: "Lago — Silver 3NF e Star Schema em Delta Lake"
+        run: python src/db/exportar_lago.py
+
       - name: "Cache do modelo de embedding"
         uses: actions/cache@v4
         with:
