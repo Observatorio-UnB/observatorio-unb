@@ -5,7 +5,7 @@
 # Uso:
 #   bash scripts/cdc.sh registrar   # cria ou atualiza o conector (o slot nasce no primeiro registro)
 #   bash scripts/cdc.sh status      # estado do conector e do slot de replicação
-#   bash scripts/cdc.sh remover     # apaga o conector E o slot, para o banco não reter WAL
+#   bash scripts/cdc.sh remover     # apaga o conector, os offsets dele E o slot, para o banco não reter WAL
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -68,14 +68,35 @@ JSON
              FROM pg_replication_slots WHERE slot_name = '$SLOT'"
     ;;
   remover)
-    curl -sf -X DELETE "$CONNECT_URL/connectors/$CONECTOR" && echo "Conector $CONECTOR removido." || true
+    # Parar, apagar os offsets e só então o conector: sem os offsets, o próximo registrar refaz o
+    # snapshot inicial em vez de retomar de uma posição que o slot novo já não tem.
+    if curl -sf -X PUT "$CONNECT_URL/connectors/$CONECTOR/stop" > /dev/null; then
+      for _ in $(seq 15); do
+        curl -sf "$CONNECT_URL/connectors/$CONECTOR/status" | grep -q '"STOPPED"' && break
+        sleep 1
+      done
+      curl -sf -X DELETE "$CONNECT_URL/connectors/$CONECTOR/offsets" > /dev/null \
+        || echo "Aviso: os offsets do conector não foram apagados; o próximo registrar não refaz o snapshot." >&2
+      curl -sf -X DELETE "$CONNECT_URL/connectors/$CONECTOR" > /dev/null
+      echo "Conector $CONECTOR removido."
+    else
+      echo "Conector $CONECTOR não registrado (ou Kafka Connect fora do ar)."
+    fi
     # O slot sobrevive ao conector e segura WAL até ser apagado. Depois de desativado o conector,
     # o walsender leva alguns segundos para soltá-lo.
+    if [ "$(psql_db "SELECT count(*) FROM pg_replication_slots WHERE slot_name = '$SLOT'")" = 0 ]; then
+      echo "Slot $SLOT não existe."
+      exit 0
+    fi
     for _ in $(seq 15); do
       [ "$(psql_db "SELECT count(*) FROM pg_replication_slots WHERE slot_name = '$SLOT' AND active")" = 0 ] && break
       sleep 1
     done
-    psql_db "SELECT pg_drop_replication_slot('$SLOT') FROM pg_replication_slots WHERE slot_name = '$SLOT'" > /dev/null
+    if [ "$(psql_db "SELECT count(*) FROM pg_replication_slots WHERE slot_name = '$SLOT' AND active")" != 0 ]; then
+      echo "Slot $SLOT ainda em uso depois de 15 s (o conector parou?). Tente de novo ou veja: bash scripts/cdc.sh status" >&2
+      exit 1
+    fi
+    psql_db "SELECT pg_drop_replication_slot('$SLOT')" > /dev/null
     echo "Slot $SLOT removido."
     ;;
   *)
