@@ -9,6 +9,15 @@ Se o consumidor cair entre a gravação e a confirmação, o lote volta: entrega
 Como o MERGE do lago é idempotente pela posição no WAL, o lote repetido não muda nada, e o
 efeito no lago é o de uma entrega só.
 
+Guarda contra o WAL que volta para trás: um banco recriado ou restaurado recomeça o WAL numa
+posição menor que a do lago, e os eventos novos perderiam o MERGE para as linhas antigas sem
+aviso. Quando um lote chega com posição abaixo da maior já gravada (o que também acontece num
+reprocessamento legítimo), o consumidor compara o lago com a posição atual do WAL no banco e
+aborta se o lago estiver à frente. Aí o lago CDC tem de ser recriado (apagar data/lake/cdc/).
+
+Mudança de esquema não é tratada: colunas e chave são lidas só na subida. Alterou as colunas de
+uma tabela da Silver publicada? Apague data/lake/cdc/ e reprocesse (--do-inicio).
+
 Colunas e chave primária de cada tabela vêm do catálogo do PostgreSQL, como no lago em lote.
 
 Uso:
@@ -41,6 +50,10 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger("consumidor_cdc")
+
+
+class WalRegrediu(RuntimeError):
+    """O lago está à frente do WAL do banco: o banco foi recriado ou restaurado."""
 
 PREFIXO_TOPICOS = "observatorio"
 GRUPO = "observatorio-lago"
@@ -86,6 +99,7 @@ class Consumidor:
     def __init__(self, lake_dir: Path = lago.LAKE_DIR, grupo: str = GRUPO, do_inicio: bool = False):
         self.lake_dir = lake_dir
         self.tabelas = carregar_tabelas()
+        self.maior_lsn = max((lago.maior_lsn(t, lake_dir) for t in self.tabelas.values()), default=0)
         self.lotes = 0
         self.consumer = Consumer({
             "bootstrap.servers": bootstrap_servers(),
@@ -93,11 +107,16 @@ class Consumidor:
             "enable.auto.commit": False,
             "auto.offset.reset": "earliest",
         })
+        # --do-inicio volta ao primeiro offset só na primeira vez que cada partição é atribuída,
+        # e não a cada rebalance.
+        rebobinadas = set()
 
         def ao_receber_particoes(consumer, particoes):
             if do_inicio:
                 for p in particoes:
-                    p.offset = OFFSET_BEGINNING
+                    if (p.topic, p.partition) not in rebobinadas:
+                        p.offset = OFFSET_BEGINNING
+                        rebobinadas.add((p.topic, p.partition))
             consumer.assign(particoes)
 
         self.consumer.subscribe(list(self.tabelas), on_assign=ao_receber_particoes)
@@ -117,6 +136,9 @@ class Consumidor:
             eventos[m.topic()].append(lago.decodificar(json.loads(m.value())))
         if not eventos:
             return 0
+        maior_do_lote = max(e.lsn for lista in eventos.values() for e in lista)
+        if maior_do_lote < self.maior_lsn:
+            self.conferir_wal()
 
         agora = datetime.now(timezone.utc)
         for topico, lista in eventos.items():
@@ -132,10 +154,24 @@ class Consumidor:
             )
         # Depois de gravar: se cair antes daqui, o lote volta e o MERGE o absorve.
         self.consumer.commit(asynchronous=False)
+        self.maior_lsn = max(self.maior_lsn, maior_do_lote)
         self.lotes += 1
         if self.lotes % MANTER_A_CADA_LOTES == 0:
             self.manter()
         return len(mensagens)
+
+    def conferir_wal(self) -> None:
+        """Aborta se o lago tem posição mais nova que o WAL atual do banco."""
+        with conectar() as conn:
+            atual = int(conn.execute("SELECT pg_current_wal_lsn() - '0/0'::pg_lsn").fetchone()[0])
+        if atual < self.maior_lsn:
+            mensagem = (
+                f"O lago CDC está à frente do WAL do banco (lago {self.maior_lsn}, banco {atual}): "
+                f"o banco foi recriado ou restaurado, e os eventos novos perderiam para as linhas "
+                f"antigas. Apague {self.lake_dir} e reprocesse os tópicos."
+            )
+            logger.error(mensagem)
+            raise WalRegrediu(mensagem)
 
     def manter(self) -> None:
         for tabela in self.tabelas.values():
