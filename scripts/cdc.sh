@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Conector Debezium da captura de mudanças (Silver 3NF -> Kafka). Requer o profile cdc no ar:
 #   docker compose --profile cdc up -d db kafka connect
+# e curl e jq no host.
 #
 # Uso:
 #   bash scripts/cdc.sh registrar   # cria ou atualiza o conector (o slot nasce no primeiro registro)
@@ -32,32 +33,47 @@ case "${1:-}" in
     # JsonConverter sem schema: o consumidor recebe só before/after/op/source.
     # decimal.handling.mode=double: NUMERIC chega como número, e não como bytes em base64.
     # skipped.operations=none: o Debezium ignora TRUNCATE por padrão, e a recarga da Silver faz um.
-    # A resposta repete a configuração, senha inclusive: não vai para a saída.
-    curl -sf -o /dev/null -X PUT -H "Content-Type: application/json" "$CONNECT_URL/connectors/$CONECTOR/config" -d @- <<JSON
-{
-  "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
-  "plugin.name": "pgoutput",
-  "database.hostname": "db",
-  "database.port": "5432",
-  "database.user": "$PG_USER",
-  "database.password": "${POSTGRES_PASSWORD:-observatorio}",
-  "database.dbname": "$PG_DB",
-  "topic.prefix": "observatorio",
-  "table.include.list": "silver.cursos,silver.estruturas_curriculares,silver.movimentacoes_vinculos",
-  "publication.name": "observatorio_cdc",
-  "publication.autocreate.mode": "disabled",
-  "slot.name": "$SLOT",
-  "snapshot.mode": "initial",
-  "decimal.handling.mode": "double",
-  "skipped.operations": "none",
-  "tombstones.on.delete": "false",
-  "heartbeat.interval.ms": "10000",
-  "key.converter": "org.apache.kafka.connect.json.JsonConverter",
-  "key.converter.schemas.enable": "false",
-  "value.converter": "org.apache.kafka.connect.json.JsonConverter",
-  "value.converter.schemas.enable": "false"
-}
-JSON
+    # topic.creation.default.*: tópicos sem retenção por tempo. Com a retenção padrão do Kafka
+    # (7 dias), um consumidor parado por mais tempo perderia eventos, e um DELETE perdido deixa a
+    # linha viva no lago. Vale para os tópicos que o conector cria: os que já existem ficam como estão.
+    # jq monta o JSON: uma senha com aspas ou barra invertida não quebra o documento.
+    config=$(jq -n --arg user "$PG_USER" --arg senha "${POSTGRES_PASSWORD:-observatorio}" \
+      --arg db "$PG_DB" --arg slot "$SLOT" '{
+        "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+        "plugin.name": "pgoutput",
+        "database.hostname": "db",
+        "database.port": "5432",
+        "database.user": $user,
+        "database.password": $senha,
+        "database.dbname": $db,
+        "topic.prefix": "observatorio",
+        "table.include.list": "silver.cursos,silver.estruturas_curriculares,silver.movimentacoes_vinculos",
+        "publication.name": "observatorio_cdc",
+        "publication.autocreate.mode": "disabled",
+        "slot.name": $slot,
+        "snapshot.mode": "initial",
+        "decimal.handling.mode": "double",
+        "skipped.operations": "none",
+        "tombstones.on.delete": "false",
+        "heartbeat.interval.ms": "10000",
+        "topic.creation.default.replication.factor": "1",
+        "topic.creation.default.partitions": "1",
+        "topic.creation.default.retention.ms": "-1",
+        "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "key.converter.schemas.enable": "false",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false"
+      }')
+    # A resposta de sucesso repete a configuração, senha inclusive: só o erro vai para a saída.
+    resposta=$(mktemp)
+    trap 'rm -f "$resposta"' EXIT
+    codigo=$(curl -s -o "$resposta" -w '%{http_code}' -X PUT -H "Content-Type: application/json" \
+      "$CONNECT_URL/connectors/$CONECTOR/config" -d "$config")
+    if [ "${codigo:0:1}" != 2 ]; then
+      echo "Falha ao registrar o conector $CONECTOR (HTTP $codigo):" >&2
+      jq -r '.message // .' "$resposta" >&2 2>/dev/null || cat "$resposta" >&2
+      exit 1
+    fi
     echo "Conector $CONECTOR registrado. Consumir: python3 src/cdc/consumidor.py"
     ;;
   status)
