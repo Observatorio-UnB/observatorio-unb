@@ -198,6 +198,12 @@ class Consumidor:
     def fechar(self) -> None:
         self.consumer.close()
 
+    def __enter__(self) -> "Consumidor":
+        return self
+
+    def __exit__(self, *_) -> None:
+        self.fechar()
+
 
 def consumir(ate_esvaziar: bool = False, do_inicio: bool = False, grupo: Optional[str] = None) -> None:
     consumidor = Consumidor(grupo=grupo or GRUPO, do_inicio=do_inicio)
