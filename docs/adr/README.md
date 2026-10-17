@@ -29,3 +29,4 @@ Cada arquivo registra uma decisão: o contexto que a motivou, o que foi decidido
 | 0023 | [Valor da bolsa IC por uma tabela de vigências lida do CNPq](0023-valor-bolsa-ic-pela-tabela-do-cnpq.md) | 2026-09-26 |
 | 0024 | [Camada analítica em Delta Lake, Parquet com ZSTD e partição por quinquênio](0024-lago-delta-parquet-zstd.md) | 2026-10-10 |
 | 0025 | [Recarga periódica como mecanismo principal de ingestão, CDC como caminho opcional](0025-mecanismo-de-ingestao-recarga-e-cdc.md) | 2026-10-10 |
+| 0026 | [Dado atrasado aceito e registrado pela marca d'água, com reprocessamento só da janela alterada](0026-dado-atrasado-marca-dagua.md) | 2026-10-13 |

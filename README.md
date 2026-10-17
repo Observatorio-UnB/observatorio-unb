@@ -105,7 +105,7 @@ python3 src/privacy/lgpd_check.py
 
 # 5. Povoamento dimensional (Silver 3NF e Star Schema da gold) e export para o lago Delta
 python3 src/db/povoar_dimensional.py
-python3 src/db/exportar_lago.py
+python3 src/db/exportar_lago.py --janelas-alteradas
 
 # 6. Busca semântica e dicionário de dados do banco
 python3 src/busca/vetorizar.py
@@ -201,8 +201,12 @@ O OLTP aqui é a Silver 3NF, o modelo transacional da E1: as mudanças de `silve
 por decodificação lógica (`pgoutput`, publicação `observatorio_cdc` da migração 0020), passam
 pelo Debezium e pelo Kafka e chegam a tabelas Delta em `data/lake/cdc/`.
 
+O serviço `db` sobe sempre com `wal_level=logical`, com ou sem o profile `cdc`. Kafka (porta
+9092) e Kafka Connect (8093) só escutam em `127.0.0.1`: nenhum dos dois tem autenticação.
+`scripts/cdc.sh` usa `curl` e `jq`.
+
 ```bash
-docker compose --profile cdc up -d db kafka connect   # banco com wal_level=logical, Kafka e Debezium
+docker compose --profile cdc up -d db kafka connect   # banco, Kafka e Debezium
 python3 src/db/migrar.py                               # cria a publicação
 bash scripts/cdc.sh registrar                          # conector + slot de replicação (faz o snapshot inicial)
 python3 src/cdc/consumidor.py                          # aplica as mudanças no lago (Ctrl+C para parar)
@@ -210,7 +214,9 @@ python3 src/cdc/demonstrar.py                          # INSERT, UPDATE e DELETE
 ```
 
 A demonstração insere, altera e exclui um curso sentinela no banco e mede quanto cada mudança
-leva até aparecer no lago. No fim, o banco volta ao estado de antes:
+leva até aparecer no lago. No fim, o banco volta ao estado de antes. No lago, o sentinela
+(`id_curso = 990001`) fica como linha marcada (`_deletado = true`). A demonstração usa um grupo
+de consumidores próprio e pode rodar junto com o consumidor:
 
 ```
 passo     latência   estado no lago
@@ -224,22 +230,39 @@ DELETE       0.64s   turno=NOTURNO ativo=False _deletado=True _commit_lsn=244843
   confirmado no Kafka depois da gravação. Se o lote vier de novo, nada muda no lago, e
   reprocessar os tópicos inteiros (`--do-inicio`) também não.
 - **Semântica de entrega:** o transporte é *no mínimo uma vez* e o efeito no lago é de
-  *exatamente uma vez*. `python3 src/cdc/demonstrar_reprocessamento.py` força os dois
-  reprocessamentos possíveis. Primeiro, o consumidor grava um lote de 100 mudanças e cai
-  antes de confirmar o offset, e o Kafka entrega o lote de novo. Depois, o grupo relê os
-  tópicos do primeiro offset. A impressão digital do lago (sha256 de todas as linhas) não muda:
+  *exatamente uma vez*. `python3 src/cdc/demonstrar_reprocessamento.py` força os
+  reprocessamentos possíveis. Primeiro, o consumidor grava um lote de 100 mudanças e cai antes
+  de confirmar o offset, e o Kafka entrega o lote de novo. Os 50 INSERTs são gravados antes de
+  o UPDATE acontecer, e o UPDATE, numa transação própria, entra por outro `MERGE`: ele só vence
+  a linha do lago pelo commit da transação (`_commit_lsn`). Depois, o grupo relê os tópicos
+  do primeiro offset. Por fim, os sentinelas são excluídos, e o grupo relê tudo outra vez, com
+  os INSERTs antigos, sem ressuscitar nenhum.
+  A impressão digital do lago (sha256 de todas as linhas, inclusive `_gravado_em`) não muda
+  com o reprocessamento: nenhuma linha é sequer regravada. A demonstração também confere que
+  o lote mudou o lago e chegou com o valor do UPDATE (turno `NOTURNO`), com commit posterior
+  ao do INSERT:
 
   ```
-  cenário                                    mensagens lidas  linhas no lago  sentinelas   impressão digital
-  estado inicial (tópicos esvaziados)                      0         152,951           0   030071c4dbe5
-  lote gravado, queda antes de confirmar                 100         153,001          50   8b379584a8f5
-  retomada: o lote é entregue de novo                    100         153,001          50   8b379584a8f5
-  reprocessamento do primeiro offset                 306,009         153,001          50   8b379584a8f5
+  cenário                                    mensagens lidas  linhas no lago  sentinelas vivos   impressão digital
+  estado inicial (tópicos esvaziados)                      0         153,001                 0   c44e70a2ae08
+  lote gravado, queda antes de confirmar                 100         153,001                50   8ced07c73c2c
+  retomada: o lote é entregue de novo                    100         153,001                50   8ced07c73c2c
+  reprocessamento do primeiro offset                 766,353         153,001                50   8ced07c73c2c
+  sentinelas excluídos do banco                           50         153,001                 0   0954a3c5f0fb
+  reprocessamento depois da exclusão                 766,403         153,001                 0   0954a3c5f0fb
   ```
+
+  Os números variam de uma execução para outra: a impressão digital inclui a hora da gravação,
+  e as mensagens lidas crescem com o histórico dos tópicos. O que vale é a igualdade dentro de
+  cada execução. Depois da primeira, os 50 sentinelas ficam no lago marcados com
+  `_deletado = true`, e por isso a linha "estado inicial" já tem 153.001 linhas. Numa primeira
+  execução, ela teria 50 a menos.
 
   Confirmar o offset antes de gravar daria *no máximo uma vez*: uma queda entre as duas
-  operações perderia o lote, sem como recuperar. Não há transação entre o Kafka e o Delta, e
-  o exatamente-uma-vez de ponta a ponta sai da idempotência do MERGE.
+  operações perderia o lote em silêncio. Só um reprocessamento manual do tópico (`--do-inicio`)
+  o recuperaria, e só enquanto o tópico ainda tiver o histórico: os tópicos não têm volume, e
+  recriar o container do Kafka apaga tudo. Não há transação entre o Kafka e o Delta, e o
+  exatamente-uma-vez de ponta a ponta sai da idempotência do MERGE.
 - **Exclusão:** um DELETE vira marca (`_deletado = true`), para que um INSERT antigo
   reprocessado não ressuscite a linha. Quem lê filtra por `NOT _deletado`.
 - **TRUNCATE:** a recarga da Silver 3NF começa com `TRUNCATE`, que marca as linhas anteriores
@@ -248,7 +271,47 @@ DELETE       0.64s   turno=NOTURNO ativo=False _deletado=True _commit_lsn=244843
 - **Arquivos pequenos:** cada `MERGE` grava arquivos novos. O consumidor os junta
   (`optimize.compact`) a cada 50 lotes e ao esvaziar os tópicos.
 - **Slot de replicação:** o slot segura WAL enquanto o conector está parado. `bash scripts/cdc.sh remover`
-  apaga o conector e o slot. `max_slot_wal_keep_size=2GB` limita o estrago se ninguém remover.
+  apaga o conector, os offsets dele e o slot. `max_slot_wal_keep_size=2GB` limita o estrago se
+  ninguém remover.
+- **Fluxo interrompido:** há três jeitos de o fluxo perder eventos: o slot é invalidado
+  pelo `max_slot_wal_keep_size`, o container do Kafka é recriado (os tópicos não têm volume) ou
+  os tópicos foram criados antes da retenção sem limite de tempo. Em qualquer um deles,
+  `remover` e `registrar` refazem o snapshot. O snapshot só traz as linhas que ainda existem.
+  Por isso, ao fim do snapshot de cada tabela, o consumidor marca como excluídas as linhas do
+  lago anteriores a ele: assim, um DELETE perdido não deixa a linha viva. O conector cria os
+  tópicos com `retention.ms=-1`: um consumidor parado não perde eventos por tempo.
+- **Banco recriado ou restaurado:** o WAL recomeça numa posição menor que a do lago, e os
+  eventos novos perderiam o `MERGE` para as linhas antigas. O consumidor compara o lago com
+  `pg_current_wal_lsn()` quando chega um lote mais antigo que o lago. Se o lago estiver à
+  frente, ele aborta e pede para apagar `data/lake/cdc/`.
+- **Mudança de esquema:** as colunas e a chave são lidas do catálogo só quando o consumidor sobe.
+  Uma coluna nova na Silver é ignorada sem aviso. Alterou a Silver? Apague `data/lake/cdc/` e
+  reprocesse com `python3 src/cdc/consumidor.py --do-inicio --ate-esvaziar`.
+
+### Dado atrasado e reprocessamento de janela
+Uma saída só entra no arquivo do portal quando é registrada (a formatura, com o registro do
+diploma), então um semestre continua recebendo vínculos depois de terminar. No SIGAA publicado
+em 15/07/2024, o 2023/1 tem 4.176 formaturas, e o 2024/1, só 651. Cada carga da Silver 3NF
+grava a marca d'água (o último período dado como fechado: fim do semestre mais 4 meses de
+tolerância, antes da publicação) e um retrato dos vínculos por ano de ingresso, desfecho e
+período de saída. A view `silver.chegadas_por_carga` compara cada carga com a anterior:
+
+| Chegada | Período de saída | Tratamento |
+|---|---|---|
+| `NO_PRAZO` | depois da marca d'água da carga anterior, ainda aberto | aceita |
+| `ATRASADA` | até a marca d'água da carga anterior, já dado como fechado | aceita e registrada; aviso no log quando revisa coorte já publicada na gold |
+| `SEM_PERIODO` | sem período (ativo, cancelado no SIGAA, formado sem diploma) | aceita |
+
+Nada é descartado: a fonte é a referência, e a gold é recalculada a cada carga. No lago,
+`--janelas-alteradas` regrava só os quinquênios que diferem do banco, e as outras partições
+ficam com os mesmos arquivos. Decisão e medições: [ADR 0026](docs/adr/0026-dado-atrasado-marca-dagua.md).
+
+```bash
+python3 src/db/dado_atrasado.py                       # o que chegou na última carga, por quinquênio
+python3 src/db/dado_atrasado.py --medir               # atraso do registro do diploma no SIGRA
+python3 src/db/exportar_lago.py --janelas-alteradas   # regrava só as janelas que mudaram
+python3 src/db/demonstrar_dado_atrasado.py            # uma publicação no prazo e uma atrasada, desfeitas no fim
+```
 
 ### Busca semântica
 Cada curso da gold, cada plano de iniciação científica (título, ano, curso e linha,
