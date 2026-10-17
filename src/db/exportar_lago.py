@@ -10,6 +10,9 @@ PostgreSQL (DuckDB, Spark, Polars, pandas). A escolha do Delta e da compressão 
 - Reprocessamento de janela: com --quinquenio, só as partições pedidas de
   silver.movimentacoes_vinculos são regravadas (overwrite com predicado); as demais ficam
   intactas. Um quinquênio que ficou sem linhas no banco fica sem linhas no lago.
+- Só o que mudou: com --janelas-alteradas, cada tabela é comparada com o que já está no lago.
+  Dos vínculos, só os quinquênios que diferem do banco são regravados, como os que receberam
+  dado atrasado (src/db/dado_atrasado.py); tabela sem mudança não ganha versão nova.
 - Particionamento: só a tabela de vínculos, por quinquênio de ingresso, como as partições do
   PostgreSQL (migração 0019). As demais têm poucas centenas de linhas e ficam num arquivo só.
 - Arquivos antigos (versões substituídas) saem pelo VACUUM depois de RETENCAO_HORAS, o que
@@ -21,6 +24,7 @@ levam só o id sintético do discente. data/ não é versionado.
 Uso:
     python3 src/db/exportar_lago.py                                  # todas as tabelas
     python3 src/db/exportar_lago.py --quinquenio 2020 --quinquenio 2025   # só essas janelas
+    python3 src/db/exportar_lago.py --janelas-alteradas              # só o que difere do lago
 """
 
 import argparse
@@ -31,6 +35,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
 import pyarrow as pa
+import pyarrow.compute as pc
 from deltalake import DeltaTable, WriterProperties, write_deltalake
 from psycopg import sql
 
@@ -162,26 +167,80 @@ def gravar_no_lago(
     return delta
 
 
+def _ordenada(tabela: pa.Table) -> pa.Table:
+    return tabela.sort_by([(nome, "ascending") for nome in tabela.column_names])
+
+
+def _ler_do_lago(destino: Path, esquema: pa.Schema) -> pa.Table:
+    """A versão atual da tabela no lago, com as colunas e os tipos de `esquema`."""
+    return DeltaTable(str(destino)).to_pyarrow_table().select(esquema.names).cast(esquema)
+
+
+def _janela(tabela: pa.Table, quinquenio: int) -> pa.Table:
+    return _ordenada(tabela.filter(pc.equal(tabela[COLUNA_QUINQUENIO], quinquenio)))
+
+
+def janelas_alteradas(tabela: pa.Table, destino: Path) -> List[int]:
+    """Quinquênios em que `tabela` (o banco) difere do lago: as janelas a reprocessar.
+
+    A comparação é linha a linha, em todas as colunas: entra a janela que ganhou, perdeu ou
+    mudou vínculos (o dado atrasado) e a que teve os ids renumerados pela recarga. Quinquênio
+    que só existe no lago também entra, para ser esvaziado. Sem tabela no lago, todos entram.
+    """
+    novos = set(pc.unique(tabela[COLUNA_QUINQUENIO]).to_pylist())
+    if not DeltaTable.is_deltatable(str(destino)):
+        return sorted(novos)
+    atual = _ler_do_lago(destino, tabela.schema)
+    todos = novos | set(pc.unique(atual[COLUNA_QUINQUENIO]).to_pylist())
+    return sorted(q for q in todos if not _janela(tabela, q).equals(_janela(atual, q)))
+
+
+def tabela_alterada(tabela: pa.Table, destino: Path) -> bool:
+    """A tabela difere da versão no lago (ou ainda não está nele)."""
+    if not DeltaTable.is_deltatable(str(destino)):
+        return True
+    return not _ordenada(tabela).equals(_ordenada(_ler_do_lago(destino, tabela.schema)))
+
+
 def exportar(
     lago_dir: Path = LAGO_DIR,
     tabelas: Iterable[TabelaLago] = TABELAS,
     quinquenios: Optional[List[int]] = None,
+    so_alteradas: bool = False,
 ) -> Dict[str, int]:
-    """Exporta as tabelas do banco para o lago e devolve as linhas gravadas por tabela."""
+    """Exporta as tabelas do banco para o lago e devolve as linhas gravadas por tabela.
+
+    Com `so_alteradas`, tabela igual à do lago não é gravada (0 linhas), e da tabela particionada
+    só as janelas alteradas são regravadas.
+    """
+    if quinquenios is not None and so_alteradas:
+        # Lida só uma parte dos vínculos, as outras janelas pareceriam ter sumido do banco e seriam esvaziadas.
+        raise ValueError("Use quinquenios ou so_alteradas, não os dois.")
     if quinquenios is not None:
         tabelas = [t for t in tabelas if t.particionada]
     contagens = {}
     for t in tabelas:
         colunas, linhas = ler_do_banco(t.origem, quinquenios)
-        delta = gravar_no_lago(
-            montar_tabela_arrow(colunas, linhas, t.particionada),
-            lago_dir / t.caminho,
-            particionada=t.particionada,
-            quinquenios=quinquenios,
-        )
-        contagens[t.origem] = len(linhas)
+        tabela = montar_tabela_arrow(colunas, linhas, t.particionada)
+        destino = lago_dir / t.caminho
+        janelas = quinquenios
+        # Tabela que ainda não está no lago é gravada inteira.
+        if so_alteradas and DeltaTable.is_deltatable(str(destino)):
+            if t.particionada:
+                janelas = janelas_alteradas(tabela, destino)
+                tabela = tabela.filter(pc.is_in(tabela[COLUNA_QUINQUENIO], pa.array(janelas, pa.int16())))
+                mudou = bool(janelas)
+            else:
+                mudou = tabela_alterada(tabela, destino)
+            if not mudou:
+                contagens[t.origem] = 0
+                logger.info(f"{t.origem}: igual ao lago, nada gravado.")
+                continue
+        delta = gravar_no_lago(tabela, destino, particionada=t.particionada, quinquenios=janelas)
+        contagens[t.origem] = tabela.num_rows
         logger.info(
-            f"{t.origem}: {len(linhas):,} linhas -> {t.caminho} "
+            f"{t.origem}: {tabela.num_rows:,} linhas -> {t.caminho}"
+            f"{f' (quinquênios {janelas})' if janelas else ''} "
             f"(versão {delta.version()}, {len(delta.file_uris())} arquivo(s) ativos)"
         )
     return contagens
@@ -189,9 +248,17 @@ def exportar(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument(
+    janela = parser.add_mutually_exclusive_group()
+    janela.add_argument(
         "--quinquenio", type=int, action="append",
         help="Regrava só esse quinquênio de ingresso dos vínculos (ex.: 2020). Pode repetir.",
     )
+    janela.add_argument(
+        "--janelas-alteradas", action="store_true",
+        help="Regrava só as tabelas e os quinquênios que diferem do que está no lago.",
+    )
     args = parser.parse_args()
-    exportar(quinquenios=[quinquenio(q) for q in args.quinquenio] if args.quinquenio else None)
+    exportar(
+        quinquenios=[quinquenio(q) for q in args.quinquenio] if args.quinquenio else None,
+        so_alteradas=args.janelas_alteradas,
+    )

@@ -105,7 +105,7 @@ python3 src/privacy/lgpd_check.py
 
 # 5. Povoamento dimensional (Silver 3NF e Star Schema da gold) e export para o lago Delta
 python3 src/db/povoar_dimensional.py
-python3 src/db/exportar_lago.py
+python3 src/db/exportar_lago.py --janelas-alteradas
 
 # 6. Busca semântica e dicionário de dados do banco
 python3 src/busca/vetorizar.py
@@ -250,6 +250,31 @@ DELETE       0.64s   turno=NOTURNO ativo=False _deletado=True _commit_lsn=244843
 - **Mudança de esquema:** as colunas e a chave são lidas do catálogo só quando o consumidor sobe.
   Uma coluna nova na Silver é ignorada sem aviso. Alterou a Silver? Apague `data/lake/cdc/` e
   reprocesse com `python3 src/cdc/consumidor.py --do-inicio --ate-esvaziar`.
+
+### Dado atrasado e reprocessamento de janela
+Uma saída só entra no arquivo do portal quando é registrada (a formatura, com o registro do
+diploma), então um semestre continua recebendo vínculos depois de terminar. No SIGAA publicado
+em 15/07/2024, o 2023/1 tem 4.176 formaturas, e o 2024/1, só 651. Cada carga da Silver 3NF
+grava a marca d'água (o último período dado como fechado: fim do semestre mais 4 meses de
+tolerância, antes da publicação) e um retrato dos vínculos por ano de ingresso, desfecho e
+período de saída. A view `silver.chegadas_por_carga` compara cada carga com a anterior:
+
+| Chegada | Período de saída | Tratamento |
+|---|---|---|
+| `NO_PRAZO` | depois da marca d'água da carga anterior, ainda aberto | aceita |
+| `ATRASADA` | até a marca d'água da carga anterior, já dado como fechado | aceita e registrada; aviso no log quando revisa coorte já publicada na gold |
+| `SEM_PERIODO` | sem período (ativo, cancelado no SIGAA, formado sem diploma) | aceita |
+
+Nada é descartado: a fonte é a referência, e a gold é recalculada a cada carga. No lago,
+`--janelas-alteradas` regrava só os quinquênios que diferem do banco, e as outras partições
+ficam com os mesmos arquivos. Decisão e medições: [ADR 0026](docs/adr/0026-dado-atrasado-marca-dagua.md).
+
+```bash
+python3 src/db/dado_atrasado.py                       # o que chegou na última carga, por quinquênio
+python3 src/db/dado_atrasado.py --medir               # atraso do registro do diploma no SIGRA
+python3 src/db/exportar_lago.py --janelas-alteradas   # regrava só as janelas que mudaram
+python3 src/db/demonstrar_dado_atrasado.py            # uma publicação no prazo e uma atrasada, desfeitas no fim
+```
 
 ### Busca semântica
 Cada curso da gold, cada plano de iniciação científica (título, ano, curso e linha,

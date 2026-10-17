@@ -50,7 +50,15 @@ class TestPovoamento(unittest.TestCase):
         self.assertEqual(sqls[0], f"TRUNCATE {', '.join(silver.TABELAS_3NF)} RESTART IDENTITY")
         self.assertEqual(sqls[1], "SELECT silver.provisionar_particoes_movimentacoes()")
         inserts = [s for s in sqls if s.startswith("INSERT INTO")]
-        self.assertEqual([s.split()[2] for s in inserts], list(silver.TABELAS_3NF))
+        self.assertEqual([s.split()[2] for s in inserts][:len(silver.TABELAS_3NF)], list(silver.TABELAS_3NF))
+
+    def test_carga_registra_o_retrato_sem_esvaziar_o_historico(self):
+        conn = ConexaoFalsa()
+        silver.povoar_silver_3nf(conn)
+        sqls = conn.sqls()
+        alvos = [s.split()[2] for s in sqls if s.startswith("INSERT INTO")]
+        self.assertEqual(alvos[len(silver.TABELAS_3NF):], ["silver.cargas_vinculos", "silver.cargas_vinculos_retrato"])
+        self.assertNotIn("silver.cargas_vinculos", sqls[0])
 
     def test_gold_preserva_dimensoes_e_recria_fatos(self):
         conn = ConexaoFalsa()

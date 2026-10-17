@@ -12,6 +12,9 @@ O curso de cada vínculo e de cada plano de IC passa pela mesma harmonização d
 (gold.regras_harmonizacao_canonicas) e aponta para a matriz do curso canônico. As tabelas
 são esvaziadas antes da carga: rodar duas vezes dá o mesmo resultado.
 
+No fim, a carga registra a marca d'água e o retrato dos vínculos por janela, que a próxima
+carga usa para separar o que chegou no prazo do que chegou atrasado (src/db/dado_atrasado.py).
+
 Uso:
     python3 src/db/povoar_silver_3nf.py
 """
@@ -26,6 +29,7 @@ import psycopg
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conectar  # noqa: E402
+from src.db.dado_atrasado import registrar_carga  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -87,6 +91,9 @@ FROM silver.discentes_graduacao
 ORDER BY aluno, id DESC
 """
 
+# O ORDER BY fixa a ordem em que o id_vinculo é atribuído. Sem ele, a ordem segue o plano da
+# junção, que muda entre execuções, e a mesma silver ganharia ids diferentes a cada recarga: o
+# lago acharia todas as janelas alteradas (exportar_lago.py --janelas-alteradas).
 SQL_MOVIMENTACOES = """
 INSERT INTO silver.movimentacoes_vinculos (
     id_discente, id_curso, id_estrutura, ano_ingresso, forma_saida, tipo_saida_grupo, ano_saida,
@@ -99,6 +106,7 @@ FROM silver.discentes_graduacao dg
 JOIN silver.discentes d ON d.pseudonimo = dg.aluno
 LEFT JOIN gold.regras_harmonizacao_canonicas r ON r.origem_sigra = dg.curso_norm
 JOIN silver.estruturas_curriculares e ON e.nome_curso_canonico = coalesce(r.destino_estrutura, dg.curso_norm)
+ORDER BY dg.id
 """
 
 # A matrícula do bolsista não é gravada (0010_pibic.sql): o plano não se liga ao discente.
@@ -134,6 +142,7 @@ def povoar_silver_3nf(conn: psycopg.Connection) -> Dict[str, int]:
         - contagens["silver.movimentacoes_vinculos"]
     if sem_matriz:
         logger.warning(f"{sem_matriz:,} vínculos sem matriz curricular ficaram fora de silver.movimentacoes_vinculos.")
+    registrar_carga(conn)
     return contagens
 
 
