@@ -78,8 +78,9 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    # Só no loopback: o Kafka não tem autenticação.
     ports:
-      - "${KAFKA_PORT:-9092}:9092"
+      - "127.0.0.1:${KAFKA_PORT:-9092}:9092"
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
       interval: 5s
@@ -95,9 +96,10 @@ services:
       CONFIG_STORAGE_TOPIC: connect_configs
       OFFSET_STORAGE_TOPIC: connect_offsets
       STATUS_STORAGE_TOPIC: connect_status
-    # A porta padrão do Connect (8083) costuma estar ocupada no host.
+    # A porta padrão do Connect (8083) costuma estar ocupada no host. Só no loopback: a API REST
+    # não tem autenticação, e a configuração do conector devolve a senha do banco.
     ports:
-      - "${CONNECT_PORT:-8093}:8083"
+      - "127.0.0.1:${CONNECT_PORT:-8093}:8083"
     depends_on:
       kafka:
         condition: service_healthy

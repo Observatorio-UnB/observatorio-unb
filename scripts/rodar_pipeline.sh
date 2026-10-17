@@ -49,8 +49,10 @@ etapa "Banco: Silver 3NF e Star Schema"
 etapa "Gold: refresh da view do painel"
 "$PYTHON" src/db/atualizar_view_painel.py
 
+# Só as tabelas e as janelas (quinquênios de ingresso) que mudaram desde a última exportação, como
+# as que receberam dado atrasado. A carga anterior já registrou o que chegou (src/db/dado_atrasado.py).
 etapa "Lago: Silver 3NF e Star Schema em Delta Lake"
-"$PYTHON" src/db/exportar_lago.py
+"$PYTHON" src/db/exportar_lago.py --janelas-alteradas
 
 etapa "Busca semântica: vetorização"
 "$PYTHON" src/busca/vetorizar.py

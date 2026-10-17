@@ -1,0 +1,17 @@
+name: Supabase keep-alive
+
+# O plano gratuito do Supabase pausa o projeto após 7 dias sem atividade.
+# Uma consulta trivial por dia evita a pausa.
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consulta trivial no Supabase
+        env:
+          SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+        run: psql "$SUPABASE_DATABASE_URL" -c "select 1"
