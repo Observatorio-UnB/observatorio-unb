@@ -11,6 +11,10 @@ Exclusões viram marca (_deletado = true), e não DELETE: sem a marca, um INSERT
 reprocessado depois do DELETE ressuscitaria a linha. TRUNCATE (a recarga da Silver 3NF faz
 um) marca todas as linhas anteriores a ele.
 
+O fim do snapshot de uma tabela também marca as linhas anteriores a ele. Um snapshot refeito
+(slot recriado, tópicos perdidos) só traz as linhas que ainda existem: sem essa reconciliação,
+uma linha excluída enquanto o fluxo estava interrompido ficaria viva no lago.
+
 Sem Kafka nem PostgreSQL aqui: o consumidor (src/cdc/consumidor.py) entrega os eventos já
 decodificados, e os testes (tests/test_unit_cdc.py) usam eventos sintéticos.
 """
@@ -76,6 +80,7 @@ class Evento:
     commit_lsn: int
     lsn: int
     origem_em: datetime
+    fim_snapshot: bool = False  # última linha do snapshot da tabela
 
     @property
     def posicao(self) -> Tuple[int, int]:
@@ -104,6 +109,7 @@ def decodificar(valor: Dict) -> Evento:
         commit_lsn=int(ultimo_commit) if ultimo_commit else lsn,
         lsn=lsn,
         origem_em=datetime.fromtimestamp(source["ts_ms"] / 1000, tz=timezone.utc),
+        fim_snapshot=source.get("snapshot") in ("last", "last_in_data_collection"),
     )
 
 
@@ -160,9 +166,13 @@ def _merge(delta: DeltaTable, tabela: Tabela, eventos: List[Evento]) -> int:
     return len(origem)
 
 
-def _truncar(delta: DeltaTable, evento: Evento) -> None:
-    """Marca como excluída toda linha cuja última mudança veio antes do TRUNCATE."""
+def _truncar(delta: DeltaTable, evento: Evento) -> int:
+    """Marca como excluída toda linha cuja última mudança veio antes do evento (TRUNCATE ou fim
+    do snapshot) e devolve quantas delas estavam vivas. As já excluídas também passam à posição
+    do evento: assim, um INSERT reprocessado de antes dele não as ressuscita."""
     c, l = evento.posicao
+    anteriores = (pc.field("_commit_lsn") < c) | ((pc.field("_commit_lsn") == c) & (pc.field("_lsn") < l))
+    vivas = delta.to_pyarrow_dataset().count_rows(filter=anteriores & ~pc.field("_deletado"))
     delta.update(
         predicate=f"_commit_lsn < {c} OR (_commit_lsn = {c} AND _lsn < {l})",
         updates={
@@ -174,12 +184,13 @@ def _truncar(delta: DeltaTable, evento: Evento) -> None:
         },
         writer_properties=PROPRIEDADES,
     )
+    return vivas
 
 
 def aplicar(tabela: Tabela, eventos: Iterable[Evento], lake_dir: Path = LAKE_DIR) -> Dict[str, int]:
     """Aplica os eventos de uma tabela, na ordem do tópico, e devolve o que foi feito."""
     delta = _criar_se_nao_existe(tabela, lake_dir)
-    resumo = {"linhas": 0, "truncates": 0}
+    resumo = {"linhas": 0, "truncates": 0, "reconciliadas": 0}
     pendentes: List[Evento] = []
     for e in eventos:
         if e.op == "t":
@@ -191,6 +202,12 @@ def aplicar(tabela: Tabela, eventos: Iterable[Evento], lake_dir: Path = LAKE_DIR
             resumo["truncates"] += 1
         else:
             pendentes.append(e)
+            if e.fim_snapshot:
+                # Toda linha que existia no ponto do snapshot já está nele: as que sobram de
+                # antes dele foram excluídas sem que o DELETE chegasse ao lago.
+                resumo["linhas"] += _merge(delta, tabela, pendentes)
+                pendentes = []
+                resumo["reconciliadas"] += _truncar(delta, e)
     if pendentes:
         resumo["linhas"] += _merge(delta, tabela, pendentes)
     return resumo
@@ -202,6 +219,14 @@ def manter(tabela: Tabela, lake_dir: Path = LAKE_DIR) -> Dict:
     metricas = delta.optimize.compact(writer_properties=PROPRIEDADES)
     delta.vacuum(retention_hours=RETENCAO_HORAS, dry_run=False)
     return metricas
+
+
+def maior_lsn(tabela: Tabela, lake_dir: Path = LAKE_DIR) -> int:
+    """Maior posição no WAL já gravada na tabela do lago (0 se a tabela ainda não existe)."""
+    destino = str(tabela.caminho(lake_dir))
+    if not DeltaTable.is_deltatable(destino):
+        return 0
+    return pc.max(DeltaTable(destino).to_pyarrow_table(columns=["_lsn"]).column("_lsn")).as_py() or 0
 
 
 def ler(tabela: Tabela, lake_dir: Path = LAKE_DIR, com_excluidas: bool = False) -> pa.Table:

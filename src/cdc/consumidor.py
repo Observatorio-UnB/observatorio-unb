@@ -124,6 +124,8 @@ class Consumidor:
             resumo = lago.aplicar(tabela, lista, self.lake_dir)
             atraso = max((agora - e.origem_em).total_seconds() for e in lista)
             truncates = f", {resumo['truncates']} truncate(s)" if resumo["truncates"] else ""
+            if resumo["reconciliadas"]:
+                truncates += f", {resumo['reconciliadas']:,} ausente(s) do snapshot marcada(s) como excluída(s)"
             logger.info(
                 f"{tabela.nome}: {len(lista):,} eventos -> {resumo['linhas']:,} linhas{truncates}"
                 f" (maior atraso desde o commit na origem: {atraso:.1f} s)"
