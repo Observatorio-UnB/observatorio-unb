@@ -198,8 +198,12 @@ O segundo caminho até o lago: as mudanças da Silver 3NF (`silver.cursos`,
 por decodificação lógica (`pgoutput`, publicação `observatorio_cdc` da migração 0020), passam
 pelo Debezium e pelo Kafka e chegam a tabelas Delta em `data/lake/cdc/`.
 
+O serviço `db` sobe sempre com `wal_level=logical`, com ou sem o profile `cdc`. Kafka (porta
+9092) e Kafka Connect (8093) só escutam em `127.0.0.1`: nenhum dos dois tem autenticação.
+`scripts/cdc.sh` usa `curl` e `jq`.
+
 ```bash
-docker compose --profile cdc up -d db kafka connect   # banco com wal_level=logical, Kafka e Debezium
+docker compose --profile cdc up -d db kafka connect   # banco, Kafka e Debezium
 python3 src/db/migrar.py                               # cria a publicação
 bash scripts/cdc.sh registrar                          # conector + slot de replicação (faz o snapshot inicial)
 python3 src/cdc/consumidor.py                          # aplica as mudanças no lago (Ctrl+C para parar)
@@ -207,7 +211,9 @@ python3 src/cdc/demonstrar.py                          # INSERT, UPDATE e DELETE
 ```
 
 A demonstração insere, altera e exclui um curso sentinela no banco e mede quanto cada mudança
-leva até aparecer no lago. No fim, o banco volta ao estado de antes:
+leva até aparecer no lago. No fim, o banco volta ao estado de antes. No lago, o sentinela
+(`id_curso = 990001`) fica como linha marcada (`_deletado = true`). A demonstração usa um grupo
+de consumidores próprio e pode rodar junto com o consumidor:
 
 ```
 passo     latência   estado no lago
@@ -228,7 +234,22 @@ DELETE       0.64s   turno=NOTURNO ativo=False _deletado=True _commit_lsn=244843
 - **Arquivos pequenos:** cada `MERGE` grava arquivos novos. O consumidor os junta
   (`optimize.compact`) a cada 50 lotes e ao esvaziar os tópicos.
 - **Slot de replicação:** o slot segura WAL enquanto o conector está parado. `bash scripts/cdc.sh remover`
-  apaga o conector e o slot. `max_slot_wal_keep_size=2GB` limita o estrago se ninguém remover.
+  apaga o conector, os offsets dele e o slot. `max_slot_wal_keep_size=2GB` limita o estrago se
+  ninguém remover.
+- **Fluxo interrompido:** há três jeitos de o fluxo perder eventos: o slot é invalidado
+  pelo `max_slot_wal_keep_size`, o container do Kafka é recriado (os tópicos não têm volume) ou
+  os tópicos foram criados antes da retenção sem limite de tempo. Em qualquer um deles,
+  `remover` e `registrar` refazem o snapshot. O snapshot só traz as linhas que ainda existem.
+  Por isso, ao fim do snapshot de cada tabela, o consumidor marca como excluídas as linhas do
+  lago anteriores a ele: assim, um DELETE perdido não deixa a linha viva. O conector cria os
+  tópicos com `retention.ms=-1`: um consumidor parado não perde eventos por tempo.
+- **Banco recriado ou restaurado:** o WAL recomeça numa posição menor que a do lago, e os
+  eventos novos perderiam o `MERGE` para as linhas antigas. O consumidor compara o lago com
+  `pg_current_wal_lsn()` quando chega um lote mais antigo que o lago. Se o lago estiver à
+  frente, ele aborta e pede para apagar `data/lake/cdc/`.
+- **Mudança de esquema:** as colunas e a chave são lidas do catálogo só quando o consumidor sobe.
+  Uma coluna nova na Silver é ignorada sem aviso. Alterou a Silver? Apague `data/lake/cdc/` e
+  reprocesse com `python3 src/cdc/consumidor.py --do-inicio --ate-esvaziar`.
 
 ### Busca semântica
 Cada curso da gold, cada plano de iniciação científica (título, ano, curso e linha,
