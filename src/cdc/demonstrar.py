@@ -4,7 +4,11 @@ Demonstra uma mudança atravessando o fluxo: OLTP -> WAL -> Debezium -> Kafka ->
 Insere em silver.cursos um curso sentinela (id 990001, que não existe no catálogo), altera e
 exclui. A cada passo, consome os tópicos até a mudança aparecer em data/lake/cdc/ e mede quanto
 levou desde o commit no PostgreSQL. No fim, o banco volta ao estado de antes: o sentinela é
-excluído mesmo se a demonstração falhar no meio.
+excluído mesmo se a demonstração falhar no meio. No lago, ele fica como linha marcada
+(_deletado = true), invisível para quem filtra por NOT _deletado.
+
+Usa um grupo de consumidores próprio, que começa do fim dos tópicos: rodando junto com o
+consumidor de sempre (grupo observatorio-lago), os dois não dividem as partições.
 
 Requer o profile cdc no ar e o conector registrado (scripts/cdc.sh registrar).
 
@@ -28,6 +32,7 @@ logger = logging.getLogger("demonstrar_cdc")
 
 ID_SENTINELA = 990001
 PRAZO_S = 60
+GRUPO_DEMONSTRACAO = "observatorio-demonstracao"
 
 PASSOS = (
     (
@@ -69,7 +74,7 @@ def esperar(consumidor: Consumidor, tabela: lago.Tabela, chegou: Callable[[Optio
 
 
 def demonstrar() -> None:
-    consumidor = Consumidor()
+    consumidor = Consumidor(grupo=GRUPO_DEMONSTRACAO, sem_offset="latest")
     tabela = consumidor.tabelas["observatorio.silver.cursos"]
     try:
         pendentes = consumidor.esvaziar(ociosidade_s=3)

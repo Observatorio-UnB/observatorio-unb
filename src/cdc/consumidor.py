@@ -96,7 +96,9 @@ def carregar_tabelas() -> Dict[str, lago.Tabela]:
 class Consumidor:
     """Lê lotes dos tópicos, aplica no lago e só então confirma os offsets."""
 
-    def __init__(self, lake_dir: Path = lago.LAKE_DIR, grupo: str = GRUPO, do_inicio: bool = False):
+    def __init__(self, lake_dir: Path = lago.LAKE_DIR, grupo: str = GRUPO, do_inicio: bool = False,
+                 sem_offset: str = "earliest"):
+        """sem_offset: onde começa uma partição sem offset confirmado no grupo (earliest ou latest)."""
         self.lake_dir = lake_dir
         self.tabelas = carregar_tabelas()
         self.maior_lsn = max((lago.maior_lsn(t, lake_dir) for t in self.tabelas.values()), default=0)
@@ -105,7 +107,7 @@ class Consumidor:
             "bootstrap.servers": bootstrap_servers(),
             "group.id": grupo,
             "enable.auto.commit": False,
-            "auto.offset.reset": "earliest",
+            "auto.offset.reset": sem_offset,
         })
         # --do-inicio volta ao primeiro offset só na primeira vez que cada partição é atribuída,
         # e não a cada rebalance.
