@@ -221,17 +221,27 @@ def manter(tabela: Tabela, lake_dir: Path = LAKE_DIR) -> Dict:
     return metricas
 
 
+def _ler_delta(destino: str, colunas: Optional[List[str]] = None) -> pa.Table:
+    """Lê a tabela Delta inteira sem as threads do pyarrow.
+
+    O deltalake lê os arquivos por um sistema de arquivos em Python. Com threads, o pyarrow
+    termina de desmontar a leitura numa thread própria depois de devolver a tabela, e um
+    processo que sai logo em seguida aborta (terminate called without an active exception).
+    """
+    return DeltaTable(destino).to_pyarrow_dataset().to_table(columns=colunas, use_threads=False)
+
+
 def maior_lsn(tabela: Tabela, lake_dir: Path = LAKE_DIR) -> int:
     """Maior posição no WAL já gravada na tabela do lago (0 se a tabela ainda não existe)."""
     destino = str(tabela.caminho(lake_dir))
     if not DeltaTable.is_deltatable(destino):
         return 0
-    return pc.max(DeltaTable(destino).to_pyarrow_table(columns=["_lsn"]).column("_lsn")).as_py() or 0
+    return pc.max(_ler_delta(destino, ["_lsn"]).column("_lsn")).as_py() or 0
 
 
 def ler(tabela: Tabela, lake_dir: Path = LAKE_DIR, com_excluidas: bool = False) -> pa.Table:
     """Estado atual da tabela no lago, por padrão sem as linhas marcadas como excluídas."""
-    dados = DeltaTable(str(tabela.caminho(lake_dir))).to_pyarrow_table()
+    dados = _ler_delta(str(tabela.caminho(lake_dir)))
     if com_excluidas:
         return dados
     return dados.filter(pc.invert(dados.column("_deletado")))
