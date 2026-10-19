@@ -122,6 +122,47 @@ def historico_lote() -> pd.DataFrame:
     return pd.DataFrame(linhas)
 
 
+def _retrato_vinculos(rotulo: str) -> dict:
+    """Versão, linhas, arquivos ativos e sha256 do conteúdo da tabela de vínculos do lago em lote."""
+    import hashlib
+
+    from deltalake import DeltaTable
+
+    tabela = DeltaTable(str(VINCULOS_LOTE))
+    dados = tabela.to_pyarrow_dataset().to_table(use_threads=False).sort_by("id_vinculo")
+    return {
+        "momento": rotulo,
+        "versão Delta": tabela.version(),
+        "linhas": dados.num_rows,
+        "arquivos ativos": len(tabela.file_uris()),
+        "sha256 do conteúdo": hashlib.sha256(dados.to_pandas().to_csv(index=False).encode()).hexdigest()[:12],
+    }
+
+
+def reexecutar_lote() -> tuple:
+    """Roda o export dos vínculos duas vezes seguidas no lago real e, para contraste, grava a mesma
+    tabela duas vezes em modo append numa pasta temporária. Devolve (retratos, linhas do append)."""
+    import tempfile
+
+    from deltalake import DeltaTable, write_deltalake
+
+    from src.db import exportar_lago
+
+    vinculos = next(t for t in exportar_lago.TABELAS if t.origem == "silver.movimentacoes_vinculos")
+    retratos = [_retrato_vinculos("antes")]
+    for n in (1, 2):
+        exportar_lago.exportar(tabelas=[vinculos])
+        retratos.append(_retrato_vinculos(f"depois da execução {n}"))
+
+    colunas, linhas = exportar_lago.ler_do_banco(vinculos.origem)
+    tabela = exportar_lago.montar_tabela_arrow(colunas, linhas, particionada=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        for _ in range(2):
+            write_deltalake(tmp, tabela, mode="append", partition_by=[exportar_lago.COLUNA_QUINQUENIO])
+        linhas_append = DeltaTable(tmp).to_pyarrow_dataset().count_rows()
+    return pd.DataFrame(retratos), linhas_append
+
+
 def arquivos_lote() -> pd.DataFrame:
     """Arquivos da versão atual, lidos com o pyarrow.parquet (sem o Delta): codec e linhas pelo rodapé."""
     import pyarrow.parquet as pq
@@ -418,6 +459,28 @@ def render_apresentacao():
             except Exception as exc:
                 st.error(f"Lago em lote indisponível ({exc}). Gere com: python3 src/db/exportar_lago.py")
 
+        st.markdown("#### Demonstração ao vivo: reexecutar o export agora, duas vezes")
+        st.markdown("Roda `exportar_lago.py` para `silver.movimentacoes_vinculos` duas vezes seguidas no lago real. "
+                    "A versão do Delta sobe, e as linhas, os arquivos ativos e o conteúdo ficam iguais. "
+                    "Para contraste, a mesma tabela é gravada duas vezes em modo *append* numa pasta temporária.")
+        if st.button("Reexecutar o export dos vínculos duas vezes", key="reexecutar_lote"):
+            try:
+                with st.spinner("Lendo o banco e regravando o lago duas vezes..."):
+                    retratos, linhas_append = reexecutar_lote()
+                st.dataframe(retratos, width="stretch", hide_index=True)
+                depois = retratos.iloc[1:]
+                iguais = depois[["linhas", "arquivos ativos", "sha256 do conteúdo"]].nunique().eq(1).all()
+                linhas = f"{retratos['linhas'].iloc[-1]:,}".replace(",", ".")
+                if iguais:
+                    st.success(f"Duas execuções, duas versões novas, e o mesmo resultado: **{linhas}** linhas, "
+                               "mesmos arquivos ativos e mesmo conteúdo. Idempotente.")
+                else:
+                    st.warning("As duas execuções deram resultados diferentes: confira a tabela acima.")
+                dobro = f"{linhas_append:,}".replace(",", ".")
+                st.error(f"Contraste: em modo append, a mesma tabela gravada duas vezes dá **{dobro}** linhas, o dobro.")
+            except Exception as exc:
+                st.error(f"Não foi possível reexecutar ({exc}). É preciso o banco no ar com a Silver 3NF carregada.")
+
     # =========================================================================
     # SLIDE 4: FORMATO ABERTO
     # =========================================================================
@@ -631,7 +694,7 @@ GROUP BY ALL ORDER BY ALL;""", language="sql")
         bloco("Medições",
               """
               <table>
-                <tr><th></th><th>Recarga periódica (opção nula)</th><th>CDC</th></tr>
+                <tr><th></th><th>Recarga agendada: <code>INSERT ... SELECT</code> e export (opção nula)</th><th>CDC</th></tr>
                 <tr><td>Latência de uma mudança até o lago</td><td>até 1 mês (agendamento) + 0,9 s de export</td><td>0,25 a 0,87 s</td></tr>
                 <tr><td>Recarga inteira da Silver 3NF</td><td>export completo em 0,9 s</td><td>152.953 eventos; lago em dia 6,6 s depois</td></tr>
                 <tr><td>Serviços a mais</td><td>nenhum</td><td>Kafka e Connect: 1,9 GB de RAM</td></tr>
@@ -643,6 +706,8 @@ GROUP BY ALL ORDER BY ALL;""", language="sql")
         c1, c2 = st.columns(2)
         with c1:
             bloco("Decisão",
+                  "• A opção nula é não ter CDC: a carga mensal já recarrega a Silver 3NF por "
+                  "<code>TRUNCATE</code> + <code>INSERT ... SELECT</code>, e o export leva o resultado ao lago.<br>"
                   "• A fonte muda <strong>uma vez por mês</strong>: chegar ao lago em 0,5 s não adianta.<br>"
                   "• O mês vem do agendamento, não do mecanismo: um cron de hora em hora custaria praticamente o mesmo, "
                   "ainda sem Kafka nem slot.<br>"
