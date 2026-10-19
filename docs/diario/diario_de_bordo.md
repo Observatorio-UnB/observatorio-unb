@@ -175,18 +175,21 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 - Volume do modelo relacional Silver em 3NF: 152.680 registros em `silver.movimentacoes_vinculos`, 158 cursos em `silver.cursos` e 112 matrizes curriculares ativas em `silver.estruturas_curriculares`.
 - Tempo de execução da carga com SQL puro (`povoar_silver_3nf.py` + `povoar_dimensional.py`): 46 segundos para o pipeline completo, sem gravação de arquivos intermediários em disco.
 - Eliminação de CSVs: remoção de 4 arquivos CSV intermediários que antes transitavam entre scripts.
-- Cobertura de casamento de vínculos com matrizes curriculares: 100% dos 152.680 vínculos associados a uma estrutura canônica após harmonização.
+- Cobertura de casamento de vínculos com matrizes curriculares: 100% dos 152.680 vínculos associados a uma estrutura canônica, com a harmonização do [ADR 0003](../adr/0003-harmonizacao-canonica-cursos.md). Sem ela, o join direto perderia cerca de 15% dos discentes (ACHADO-07 do [relatório de qualidade](../relatorio_qualidade.md)).
 
 **O que surpreendeu**
 
-- 109 vínculos da base bruta não casavam com nenhuma estrutura curricular porque os códigos de habilitação do SIGRA divergiam da nomenclatura canônica das matrizes. A junção interna descartava esses alunos silenciosamente.
-- O pipeline baseado em DataFrames do Pandas alocava picos de memória desnecessários e gerava dessincronização de estado entre os arquivos locais e as tabelas do PostgreSQL.
+- As restrições `CHECK` da Silver 3NF recusaram dado real da fonte na primeira carga:
+  - semestre de ingresso 0 (verão), quando o `CHECK` só aceitava 1 e 2;
+  - estruturas curriculares com carga horária e créditos mínimos iguais a zero, quando o `CHECK` exigia valor positivo;
+  - turnos fora do domínio canônico (`MATUTINO E VESPERTINO`, por exemplo).
+- O leitor de CSV pulava linhas malformadas (`on_bad_lines`) sem deixar registro de quantas foram puladas.
 
 **O que foi decidido**
 
-- Eliminar os CSVs intermediários e transformar o PostgreSQL no repositório transacional de todas as camadas (Bronze, Silver e Gold). Registrado no [ADR 0009](../adr/0009-postgres-migracoes-contrato.md).
-- Implementar tabela de harmonização de nomes (`gold.regras_harmonizacao_canonicas`) para recuperar os 109 vínculos órfãos. Registrado no [ADR 0003](../adr/0003-harmonizacao-canonica-cursos.md).
-- Segregar o acesso a dados de discentes (`silver.discentes` fora do papel `observatorio_leitura`) para conformidade estrita com LGPD. Registrado no [ADR 0010](../adr/0010-controle-de-acesso-leitura.md).
+- Gravar todas as camadas direto no PostgreSQL, sem os CSVs intermediários (migração `0016_pipeline_grava_no_banco.sql`), seguindo o contrato de carga do [ADR 0009](../adr/0009-postgres-migracoes-contrato.md).
+- Ajustar os `CHECK` da migração 0011 ao domínio real da fonte: semestre de verão aceito, mínimos maiores ou iguais a zero e turno normalizado na carga de `silver.cursos` para `DIURNO`, `NOTURNO`, `INTEGRAL` ou `DIURNO E NOTURNO`.
+- Registrar em `bronze.ingestoes.linhas_descartadas` (migração `0017_ingestoes_linhas_descartadas.sql`) quantas linhas malformadas cada leitura descartou.
 
 **Pendências para a Semana seguinte**
 
@@ -206,7 +209,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
   - GZIP: 1.462 KB | Escrita: 3.527 ms | Leitura: 19 ms
   - ZSTD nível 3: 1.434 KB | Escrita: 173 ms | Leitura: 25 ms
 - Particionamento por quinquênio de ingresso (`quinquenio_ingresso`): arquivos de 370 KB a 560 KB por partição (2010, 2015, 2020), contra fragmentação de arquivos de ~100 KB se particionado por ano individual.
-- Ingestão do Censo INEP: leitura em blocos de 50.000 linhas com tabela de staging, reduzindo o pico de memória de 1,2 GB para 85 MB.
+- Ingestão do Censo INEP: o arquivo bruto tem 143 MB e cerca de 253 mil cursos, e o recorte comparável com a UnB (4.826 cursos de 63 instituições) tem menos de 1 MB. A leitura passou a ser em blocos de 50.000 linhas, com tabela de staging e a bronze trocada numa transação única. Só um bloco fica em memória por vez. O pico de memória não foi medido.
 
 **O que surpreendeu**
 
@@ -234,7 +237,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 - Latência ponta a ponta do CDC (da transação no PostgreSQL até a visibilidade no Delta Lake): 0,25 s a 0,87 s (medido na branch de desenvolvimento do CDC `feat/cdc-debezium`, PR #24, via `src/cdc/demonstrar.py` para INSERT, UPDATE e DELETE de sentinela).
 - Custo de infraestrutura da rota CDC: 1,9 GB de memória RAM alocada (Kafka KRaft 0,9 GB + Debezium Connect 1,0 GB), 378 MB em disco nos tópicos e slot de replicação retendo até 239 MB de WAL pós-recarga.
 - Custo da rota em lote (opção nula): 0,9 s de exportação completa no final do pipeline, sem serviços adicionais no Compose.
-- Teste de semântica de reprocessamento: releitura de 306.009 eventos dos tópicos desde o offset inicial; digest SHA-256 de todas as linhas do Delta Lake permaneceu inalterado (`8b379584a8f5`).
+- Teste de semântica de reprocessamento, na primeira versão da demonstração (10/10): releitura de 306.009 eventos dos tópicos desde o offset inicial; digest SHA-256 de todas as linhas do Delta Lake permaneceu inalterado (`8b379584a8f5`). A versão final da demonstração, que também exclui os sentinelas e relê tudo outra vez, está no README, com os números da última execução (766.403 eventos relidos). Os números mudam entre execuções porque o histórico dos tópicos cresce.
 
 **O que surpreendeu**
 
