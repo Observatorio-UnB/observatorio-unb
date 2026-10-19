@@ -205,6 +205,40 @@ def impressao_digital_cdc():
     return impressao_digital(carregar_tabelas())
 
 
+def kafka_no_ar() -> tuple:
+    """(no ar?, endereço) do Kafka do CDC, por uma conexão TCP rápida."""
+    import socket
+
+    from src.db.conexao import ler_variavel
+
+    endereco = (ler_variavel("KAFKA_BOOTSTRAP_SERVERS") or "localhost:9092").split(",")[0]
+    host, _, porta = endereco.rpartition(":")
+    try:
+        with socket.create_connection((host or "localhost", int(porta)), timeout=2):
+            return True, endereco
+    except OSError:
+        return False, endereco
+
+
+def rodar_demonstracao_reprocessamento(saida) -> int:
+    """Roda src/cdc/demonstrar_reprocessamento.py num processo à parte, mostrando a saída em `saida`
+    (um st.empty) enquanto ela chega. Devolve o código de saída do script.
+
+    Processo à parte porque o script encerra com sys.exit e cria consumidores do Kafka próprios.
+    """
+    import subprocess
+
+    linhas = []
+    processo = subprocess.Popen(
+        [sys.executable, "-u", str(BASE_DIR / "src" / "cdc" / "demonstrar_reprocessamento.py")],
+        cwd=BASE_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+    )
+    for linha in processo.stdout:
+        linhas.append(linha.rstrip("\n"))
+        saida.code("\n".join(linhas[-40:]), language="text")
+    return processo.wait()
+
+
 def voltar_ao_painel():
     for p in PARAMETROS:
         if p in st.query_params:
@@ -633,6 +667,26 @@ GROUP BY ALL ORDER BY ALL;""", language="sql")
                 st.success(f"Impressão digital **{digest}** sobre **{linhas:,}** linhas.".replace(",", "."))
             except Exception as exc:
                 st.error(f"Não foi possível calcular ({exc}). É preciso o banco no ar e o lago CDC gerado.")
+
+        st.markdown("#### Demonstração ao vivo: forçar os três reprocessamentos agora")
+        st.markdown("Roda `src/cdc/demonstrar_reprocessamento.py`: insere e altera 50 cursos sentinela no OLTP, "
+                    "derruba o consumidor antes de confirmar o offset, relê os tópicos do primeiro offset, exclui os "
+                    "sentinelas e relê tudo de novo. No fim, os sentinelas saem do banco. Precisa do profile `cdc` "
+                    "no ar e do conector registrado. Leva de um a alguns minutos, porque relê os tópicos inteiros.")
+        if st.button("Forçar os reprocessamentos do CDC agora", key="reprocessar_cdc"):
+            no_ar, endereco = kafka_no_ar()
+            if not no_ar:
+                st.error(f"Kafka fora do ar em {endereco}. Suba com `docker compose --profile cdc up -d db kafka connect` "
+                         "e `bash scripts/cdc.sh registrar`.")
+            else:
+                saida = st.empty()
+                with st.spinner("Reprocessando os tópicos do CDC..."):
+                    codigo = rodar_demonstracao_reprocessamento(saida)
+                if codigo == 0:
+                    st.success("O lago ficou idêntico depois da queda, da retomada e dos dois reprocessamentos: "
+                               "no mínimo uma vez no transporte, exatamente uma vez no efeito.")
+                else:
+                    st.error(f"A demonstração falhou (código {codigo}). A saída acima diz em que passo.")
 
     # =========================================================================
     # SLIDE 8: DADO ATRASADO
