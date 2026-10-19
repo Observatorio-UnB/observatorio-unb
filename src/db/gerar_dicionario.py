@@ -116,8 +116,28 @@ def gerar_markdown(conn: psycopg.Connection) -> str:
     return "\n".join(linhas) + "\n"
 
 
+def tabelas_sem_comentario(conn: psycopg.Connection) -> list:
+    """Tabelas dos esquemas do dicionário sem COMMENT ON TABLE. Partições herdam a descrição da mãe."""
+    linhas = conn.execute(
+        """
+        SELECT n.nspname || '.' || c.relname
+        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = ANY(%s) AND c.relkind IN ('r', 'p') AND NOT c.relispartition
+          AND obj_description(c.oid, 'pg_class') IS NULL
+        ORDER BY 1
+        """,
+        (list(ESQUEMAS),),
+    ).fetchall()
+    return [nome for (nome,) in linhas]
+
+
 def gerar_dicionario() -> Path:
     with conectar() as conn:
+        # Falha antes de escrever: o CI não versiona um dicionário com tabela sem descrição.
+        faltando = tabelas_sem_comentario(conn)
+        if faltando:
+            logger.error("Tabelas sem COMMENT ON TABLE: %s", ", ".join(faltando))
+            sys.exit(1)
         SAIDA.write_text(gerar_markdown(conn), encoding="utf-8")
     logger.info(f"Dicionário do banco salvo em {SAIDA.relative_to(BASE_DIR)}")
     return SAIDA
