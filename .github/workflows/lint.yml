@@ -27,3 +27,20 @@ jobs:
             exit 1
           fi
           echo "Nenhum arquivo acima de ${LIMITE_KB} KB."
+
+  testes-unitarios:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # Só os testes que não precisam de banco nem de Kafka: CDC (MERGE idempotente no Delta),
+      # lago, dado atrasado e 3NF/Star. Os de banco rodam no medalhao.yml.
+      - name: "Testes unitários"
+        run: python -m unittest discover -s tests -p "test_unit_*.py"
