@@ -45,12 +45,13 @@ A apresentação interativa fica no próprio painel: `streamlit run src/dashboar
 ### Bloco 2: Lote Idempotente e Formato Aberto (Slides 3 a 5, aprox. 90 segundos)
 
 **O que mostrar na tela**:
-- Slide 3: clicar em **Ler o histórico do Delta de movimentacoes_vinculos**.
+- Slide 3: clicar em **Ler o histórico do Delta de movimentacoes_vinculos** e depois em **Reexecutar o export dos vínculos duas vezes** (precisa do banco no ar com a Silver 3NF carregada; leva poucos segundos).
 - Slide 4: clicar em **Abrir os arquivos Parquet do lago em lote**.
 - Slide 5: tabela de compressão.
 
 **O que falar**:
-> "O lote é idempotente por substituição: no banco, `TRUNCATE` e `COPY` numa transação; no lago, um `overwrite` numa versão nova do Delta. O histórico mostra várias execuções, e o número de linhas é o mesmo em todas: rodar de novo não duplica.
+> "O lote é idempotente por substituição: no banco, `TRUNCATE` e `COPY` numa transação; no lago, um `overwrite` numa versão nova do Delta. O histórico mostra várias execuções, e o número de linhas é o mesmo em todas.
+> E não precisa acreditar no histórico: vou reexecutar o export agora, duas vezes. A versão do Delta sobe, mas as linhas, os arquivos ativos e o sha256 do conteúdo ficam iguais. Para contraste, a mesma tabela gravada duas vezes em modo append dá o dobro de linhas: é o erro do reprocessamento que duplica.
 > Escolhemos Delta, e não Iceberg, porque o delta-rs grava de Python sem JVM nem catálogo, e porque o overwrite com predicado troca só uma janela numa transação. Perdemos a evolução de esquema mais rica do Iceberg, mas aqui o esquema vem das migrações do PostgreSQL.
 > O dado não fica refém do motor: aqui eu abro os arquivos com o `pyarrow.parquet`, que não sabe nada de Delta, e leio as linhas e o codec direto do rodapé.
 > Particionamos por quinquênio de ingresso, o filtro mais comum. São três arquivos de 370 a 560 KB. Por ano, seriam arquivos de uns 100 KB: o problema dos arquivos pequenos.
@@ -91,7 +92,7 @@ A apresentação interativa fica no próprio painel: `streamlit run src/dashboar
 - Slide 9 (tabela do ADR 0025) e Slide 10 (como cada caminho falhou).
 
 **O que falar**:
-> "O ADR da E2 compara o CDC com a opção nula, a recarga agendada. O CDC leva a mudança ao lago em menos de um segundo, mas custa 1,9 GB de RAM em Kafka e Connect, 378 MB de tópicos e um slot de replicação que segura WAL no banco.
+> "O ADR da E2 compara o CDC com a opção nula: não ter CDC, e seguir com a recarga agendada, que já recarrega a Silver 3NF por `TRUNCATE` e `INSERT ... SELECT` e exporta o resultado para o lago. O CDC leva a mudança ao lago em menos de um segundo, mas custa 1,9 GB de RAM em Kafka e Connect, 378 MB de tópicos e um slot de replicação que segura WAL no banco.
 > A fonte muda uma vez por mês. Por isso, a recarga periódica é o mecanismo principal, e o CDC é opcional, para escrita fora do pipeline.
 > E o mês vem do agendamento, não do mecanismo: um cron de hora em hora custaria praticamente o mesmo.
 > Os dois caminhos falharam de jeitos diferentes. O lote falha alto: a carga cai e a transação volta. O CDC falha em silêncio: o Debezium ignora `TRUNCATE` por padrão, e as linhas apagadas ficariam vivas no lago. Um DELETE seguido de um INSERT antigo reprocessado ressuscitaria a linha. Cada uma dessas falhas tem tratamento e teste."
@@ -136,7 +137,7 @@ A apresentação interativa fica no próprio painel: `streamlit run src/dashboar
 
 ### Pergunta 5: *"Rodar o lote duas vezes não duplica?"*
 - **Resposta**:
-  > "Não. No banco, a carga é `TRUNCATE` e `COPY` numa transação. No lago, cada execução é um `overwrite` numa versão nova. O histórico do Delta no slide 3 mostra as versões com o mesmo número de linhas, e há teste para isso em `tests/test_unit_lago.py`."
+  > "Não. No banco, a carga é `TRUNCATE` e `COPY` numa transação. No lago, cada execução é um `overwrite` numa versão nova. No slide 3 eu reexecuto o export ao vivo, duas vezes, e o sha256 do conteúdo não muda. Há teste para isso em `tests/test_unit_lago.py`."
 
 ---
 
