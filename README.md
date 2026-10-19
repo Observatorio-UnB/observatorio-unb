@@ -236,7 +236,8 @@ DELETE       0.64s   turno=NOTURNO ativo=False _deletado=True _commit_lsn=244843
   o UPDATE acontecer, e o UPDATE, numa transação própria, entra por outro `MERGE`: ele só vence
   a linha do lago pelo commit da transação (`_commit_lsn`). Depois, o grupo relê os tópicos
   do primeiro offset. Por fim, os sentinelas são excluídos, e o grupo relê tudo outra vez, com
-  os INSERTs antigos, sem ressuscitar nenhum.
+  os INSERTs antigos, sem ressuscitar nenhum. A demonstração usa um grupo de consumidores
+  próprio (`observatorio-reprocessamento`) e pode rodar junto com o consumidor.
   A impressão digital do lago (sha256 de todas as linhas, inclusive `_gravado_em`) não muda
   com o reprocessamento: nenhuma linha é sequer regravada. A demonstração também confere que
   o lote mudou o lago e chegou com o valor do UPDATE (turno `NOTURNO`), com commit posterior

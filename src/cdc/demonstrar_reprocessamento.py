@@ -24,7 +24,8 @@ sentinelas chegaram com o valor do UPDATE (turno NOTURNO) e commit posterior ao 
 a retomada e o reprocessamento não mudaram nada, nem a hora de gravação de linha nenhuma, e que
 o reprocessamento depois da exclusão também não. Se falhar no meio, os sentinelas são excluídos do banco do mesmo jeito.
 
-Requer o profile cdc no ar e o conector registrado (scripts/cdc.sh registrar).
+Requer o profile cdc no ar e o conector registrado (scripts/cdc.sh registrar). Usa um grupo de
+consumidores próprio e pode rodar junto com o consumidor.
 
 Uso:
     python3 src/cdc/demonstrar_reprocessamento.py
@@ -49,6 +50,9 @@ SENTINELAS = range(990100, 990150)
 EVENTOS_DO_LOTE = 2 * len(SENTINELAS)
 PRAZO_S = 60
 TOPICO_CURSOS = "observatorio.silver.cursos"
+# Grupo próprio: no grupo do consumidor (observatorio-lago), rodando junto, o lote reentregue
+# poderia ir para o outro membro, e o reprocessamento do início moveria os offsets dele.
+GRUPO_REPROCESSAMENTO = "observatorio-reprocessamento"
 
 Tabelas = Dict[str, lago.Tabela]
 
@@ -104,7 +108,7 @@ def gravar_e_cair(tabelas: Tabelas) -> Tuple[int, int]:
     """Grava os INSERTs no lago, faz o UPDATE, grava-o por outro MERGE e fecha sem confirmar o
     offset. Devolve as mensagens lidas e o maior _commit_lsn dos sentinelas depois dos INSERTs."""
     n = len(SENTINELAS)
-    with Consumidor() as consumidor:
+    with Consumidor(grupo=GRUPO_REPROCESSAMENTO) as consumidor:
         inserir_sentinelas()
         lidas = esperar(consumidor, lambda: len(com_turno(tabelas, "DIURNO")) == n, "O INSERT dos sentinelas",
                         confirmar=False)
@@ -134,12 +138,12 @@ def excluir_sentinelas(tabelas: Tabelas) -> int:
     with conectar() as conn:
         conn.execute("DELETE FROM silver.cursos WHERE id_curso BETWEEN %s AND %s",
                      (SENTINELAS[0], SENTINELAS[-1]))
-    with Consumidor() as consumidor:
+    with Consumidor(grupo=GRUPO_REPROCESSAMENTO) as consumidor:
         return esperar(consumidor, lambda: not sentinelas_vivos(tabelas), "A exclusão dos sentinelas")
 
 
 def reprocessar_do_inicio() -> int:
-    with Consumidor(do_inicio=True) as consumidor:
+    with Consumidor(grupo=GRUPO_REPROCESSAMENTO, do_inicio=True) as consumidor:
         return consumidor.esvaziar(ociosidade_s=3)
 
 
@@ -158,12 +162,12 @@ def demonstrar() -> None:
         return linha
 
     try:
-        with Consumidor() as consumidor:
+        with Consumidor(grupo=GRUPO_REPROCESSAMENTO) as consumidor:
             inicial = registrar("estado inicial (tópicos esvaziados)", consumidor.esvaziar(ociosidade_s=3))
         lidas, commit_do_insert = gravar_e_cair(tabelas)
         commit_do_update = min(r["_commit_lsn"] for r in sentinelas_vivos(tabelas))
         apos_lote = registrar("lote gravado, queda antes de confirmar", lidas)
-        with Consumidor() as consumidor:
+        with Consumidor(grupo=GRUPO_REPROCESSAMENTO) as consumidor:
             retomada = registrar("retomada: o lote é entregue de novo", consumidor.esvaziar(ociosidade_s=3))
         completo = registrar("reprocessamento do primeiro offset", reprocessar_do_inicio())
     except BaseException:
