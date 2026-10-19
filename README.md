@@ -193,8 +193,11 @@ GROUP BY ALL ORDER BY ALL;
 ```
 
 ### Captura de mudanças (CDC com Debezium)
-O segundo caminho até o lago: as mudanças da Silver 3NF (`silver.cursos`,
-`silver.estruturas_curriculares` e `silver.movimentacoes_vinculos`) saem do WAL do PostgreSQL
+O segundo caminho até o lago, opcional (fora do pipeline e do CI). Por que a recarga
+periódica é o mecanismo principal e o CDC é opcional, com latência e custo medidos:
+[ADR 0025](docs/adr/0025-mecanismo-de-ingestao-recarga-e-cdc.md).
+O OLTP aqui é a Silver 3NF, o modelo transacional da E1: as mudanças de `silver.cursos`,
+`silver.estruturas_curriculares` e `silver.movimentacoes_vinculos` saem do WAL do PostgreSQL
 por decodificação lógica (`pgoutput`, publicação `observatorio_cdc` da migração 0020), passam
 pelo Debezium e pelo Kafka e chegam a tabelas Delta em `data/lake/cdc/`.
 
@@ -226,6 +229,41 @@ DELETE       0.64s   turno=NOTURNO ativo=False _deletado=True _commit_lsn=244843
   só altera a linha se vier depois, no WAL, da última mudança aplicada nela. O offset só é
   confirmado no Kafka depois da gravação. Se o lote vier de novo, nada muda no lago, e
   reprocessar os tópicos inteiros (`--do-inicio`) também não.
+- **Semântica de entrega:** o transporte é *no mínimo uma vez* e o efeito no lago é de
+  *exatamente uma vez*. `python3 src/cdc/demonstrar_reprocessamento.py` força os
+  reprocessamentos possíveis. Primeiro, o consumidor grava um lote de 100 mudanças e cai antes
+  de confirmar o offset, e o Kafka entrega o lote de novo. Os 50 INSERTs são gravados antes de
+  o UPDATE acontecer, e o UPDATE, numa transação própria, entra por outro `MERGE`: ele só vence
+  a linha do lago pelo commit da transação (`_commit_lsn`). Depois, o grupo relê os tópicos
+  do primeiro offset. Por fim, os sentinelas são excluídos, e o grupo relê tudo outra vez, com
+  os INSERTs antigos, sem ressuscitar nenhum. A demonstração usa um grupo de consumidores
+  próprio (`observatorio-reprocessamento`) e pode rodar junto com o consumidor.
+  A impressão digital do lago (sha256 de todas as linhas, inclusive `_gravado_em`) não muda
+  com o reprocessamento: nenhuma linha é sequer regravada. A demonstração também confere que
+  o lote mudou o lago e chegou com o valor do UPDATE (turno `NOTURNO`), com commit posterior
+  ao do INSERT:
+
+  ```
+  cenário                                    mensagens lidas  linhas no lago  sentinelas vivos   impressão digital
+  estado inicial (tópicos esvaziados)                      0         153,001                 0   c44e70a2ae08
+  lote gravado, queda antes de confirmar                 100         153,001                50   8ced07c73c2c
+  retomada: o lote é entregue de novo                    100         153,001                50   8ced07c73c2c
+  reprocessamento do primeiro offset                 766,353         153,001                50   8ced07c73c2c
+  sentinelas excluídos do banco                           50         153,001                 0   0954a3c5f0fb
+  reprocessamento depois da exclusão                 766,403         153,001                 0   0954a3c5f0fb
+  ```
+
+  Os números variam de uma execução para outra: a impressão digital inclui a hora da gravação,
+  e as mensagens lidas crescem com o histórico dos tópicos. O que vale é a igualdade dentro de
+  cada execução. Depois da primeira, os 50 sentinelas ficam no lago marcados com
+  `_deletado = true`, e por isso a linha "estado inicial" já tem 153.001 linhas. Numa primeira
+  execução, ela teria 50 a menos.
+
+  Confirmar o offset antes de gravar daria *no máximo uma vez*: uma queda entre as duas
+  operações perderia o lote em silêncio. Só um reprocessamento manual do tópico (`--do-inicio`)
+  o recuperaria, e só enquanto o tópico ainda tiver o histórico: os tópicos não têm volume, e
+  recriar o container do Kafka apaga tudo. Não há transação entre o Kafka e o Delta, e o
+  exatamente-uma-vez de ponta a ponta sai da idempotência do MERGE.
 - **Exclusão:** um DELETE vira marca (`_deletado = true`), para que um INSERT antigo
   reprocessado não ressuscite a linha. Quem lê filtra por `NOT _deletado`.
 - **TRUNCATE:** a recarga da Silver 3NF começa com `TRUNCATE`, que marca as linhas anteriores

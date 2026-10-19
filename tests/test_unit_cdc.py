@@ -265,6 +265,19 @@ class TestConsumidor(unittest.TestCase):
                 c.rodada()
         self.kafka.commit.assert_not_called()
 
+    def test_sem_confirmar_grava_e_nao_confirma_o_offset(self):
+        # Queda simulada entre a gravação e a confirmação (demonstrar_reprocessamento.py).
+        c = self._consumidor()
+        self._lote(_Mensagem(self.TOPICO, _mensagem("c", _curso(1, "A"), 100, 101)))
+        self.assertEqual(c.rodada(confirmar=False), 1)
+        self.kafka.commit.assert_not_called()
+        self.assertEqual(lago.ler(CURSOS, self.lake).column("nome_curso_norm").to_pylist(), ["A"])
+
+    def test_gerenciador_de_contexto_fecha_o_consumer(self):
+        with self._consumidor():
+            self.kafka.close.assert_not_called()
+        self.kafka.close.assert_called_once()
+
     def test_topico_inexistente_e_ignorado(self):
         c = self._consumidor()
         self._lote(_Mensagem(self.TOPICO, erro=KafkaError(KafkaError.UNKNOWN_TOPIC_OR_PART)))

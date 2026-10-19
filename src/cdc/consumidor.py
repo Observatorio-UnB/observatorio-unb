@@ -123,8 +123,12 @@ class Consumidor:
 
         self.consumer.subscribe(list(self.tabelas), on_assign=ao_receber_particoes)
 
-    def rodada(self, timeout: float = 1.0) -> int:
-        """Processa um lote e devolve o número de mensagens lidas (0 se nada chegou)."""
+    def rodada(self, timeout: float = 1.0, confirmar: bool = True) -> int:
+        """Processa um lote e devolve o número de mensagens lidas (0 se nada chegou).
+
+        confirmar=False grava no lago e não confirma o offset: simula o consumidor caindo entre
+        a gravação e a confirmação (src/cdc/demonstrar_reprocessamento.py).
+        """
         mensagens = self.consumer.consume(MENSAGENS_POR_LOTE, timeout=timeout)
         eventos = defaultdict(list)
         for m in mensagens:
@@ -155,7 +159,8 @@ class Consumidor:
                 f" (maior atraso desde o commit na origem: {atraso:.1f} s)"
             )
         # Depois de gravar: se cair antes daqui, o lote volta e o MERGE o absorve.
-        self.consumer.commit(asynchronous=False)
+        if confirmar:
+            self.consumer.commit(asynchronous=False)
         self.maior_lsn = max(self.maior_lsn, maior_do_lote)
         self.lotes += 1
         if self.lotes % MANTER_A_CADA_LOTES == 0:
@@ -192,6 +197,12 @@ class Consumidor:
 
     def fechar(self) -> None:
         self.consumer.close()
+
+    def __enter__(self) -> "Consumidor":
+        return self
+
+    def __exit__(self, *_) -> None:
+        self.fechar()
 
 
 def consumir(ate_esvaziar: bool = False, do_inicio: bool = False, grupo: Optional[str] = None) -> None:
