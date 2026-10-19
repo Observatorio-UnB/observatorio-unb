@@ -6,6 +6,7 @@ versão estática do GitHub Pages (stlite) esta página não é publicada.
 """
 
 import sys
+import time
 from pathlib import Path
 
 import streamlit as st
@@ -46,7 +47,9 @@ if consulta.strip():
         from src.busca.buscar import buscar
 
         with st.spinner("Buscando..."):
+            inicio = time.perf_counter()
             resultados = buscar(consulta, int(k), tipo)
+            latencia_ms = (time.perf_counter() - inicio) * 1000
     except Exception as erro:  # banco fora do ar, tabela vazia, modelo não baixado
         st.error(
             "Não foi possível consultar o banco. Suba com `docker compose up -d db` e rode "
@@ -56,6 +59,8 @@ if consulta.strip():
 
     if not resultados:
         st.info("Nenhum documento vetorizado. Rode `python3 src/busca/vetorizar.py`.")
+    else:
+        st.caption(f"{len(resultados)} resultado(s) em {latencia_ms:.0f} ms (vetorização da consulta + busca HNSW).")
     for r in resultados:
         with st.container(border=True):
             st.markdown(
@@ -64,6 +69,13 @@ if consulta.strip():
                 unsafe_allow_html=True,
             )
             st.caption(r["conteudo"])
+            meta = r["metadados"] or {}
+            if r["tipo"] == "curso":
+                evasao, formatura, irc = (meta.get(c) for c in ("taxa_evasao_pct", "taxa_formatura_pct", "indice_retencao_critica"))
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Evasão", "—" if evasao is None else f"{evasao:.1f}%")
+                m2.metric("Formatura", "—" if formatura is None else f"{formatura:.1f}%")
+                m3.metric("Índice de retenção crítica", "—" if irc is None else f"{irc:.1f}")
             if r["metadados"]:
                 with st.expander("Metadados"):
                     st.json(r["metadados"])
