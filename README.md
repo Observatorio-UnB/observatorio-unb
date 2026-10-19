@@ -39,7 +39,7 @@ bd2/
 │   │   └── lgpd_check.py
 │   ├── pipeline/                    # Pipeline em camadas (Bronze -> Silver -> Gold)
 │   │   ├── transform_silver.py
-│   │   └── build_gold.py
+│   │   └── build_gold.py            # Carrega as regras de harmonização e chama gold.materializar_gold (SQL)
 │   ├── db/                          # Banco: migrações, leitura/gravação das camadas, export e dicionário
 │   │   ├── migrar.py
 │   │   ├── tabelas.py               # gravar(df, tabela) / ler(tabela): o contrato com o esquema
@@ -53,6 +53,7 @@ bd2/
 │       └── pages/busca_semantica.py # Página de busca semântica (requer o banco)
 ├── tests/
 │   ├── test_pipeline.py             # Testes automatizados de esquema e integridade
+│   ├── test_gold_sql.py             # Funções e views em SQL que calculam a gold (arredondamento, área, oferta)
 │   └── test_banco.py                # Contrato do banco, reconciliação entre camadas, acesso e busca
 ├── docker-compose.yml               # Banco + pipeline + painel
 ├── Dockerfile
@@ -112,7 +113,7 @@ python3 src/ingestion/inep_censo_superior.py
 # 2. Transformação Silver: bronze.* -> silver.* (Semana 2 - Dia 1)
 python3 src/pipeline/transform_silver.py
 
-# 3. Camada Gold com join heterogêneo: silver.* -> gold.* (Semana 2 - Dia 1)
+# 3. Camada Gold com join heterogêneo: silver.* -> gold.*, agregada em SQL no PostgreSQL (Semana 2 - Dia 1)
 python3 src/pipeline/build_gold.py
 
 # 4. Auditoria de qualidade (12 achados) e análise de k-anonimato, lidas da bronze (Semana 1 - Dias 4 e 5)

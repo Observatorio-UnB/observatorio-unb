@@ -58,7 +58,7 @@ FROM (SELECT DISTINCT campus FROM silver.cursos UNION SELECT 'MULTICAMPUS') c
 ON CONFLICT (campus) DO UPDATE SET regiao_admin = EXCLUDED.regiao_admin
 """
 
-# Mesmas regras de build_gold.py: os atributos vêm da oferta principal do nome (catálogo vigente,
+# Mesmas regras de gold.vw_catalogo_por_nome e gold.vw_oferta_por_curso: os atributos vêm da oferta principal do nome (catálogo vigente,
 # menor id_curso), e bacharelado + licenciatura com o mesmo nome vira MISTO. Sem oferta com o nome
 # (ex.: COMUNICACAO SOCIAL), valem os do curso dono da matriz.
 SQL_DIM_CURSO = """
@@ -109,7 +109,7 @@ FROM silver.pibic_projetos
 ON CONFLICT ON CONSTRAINT uk_dim_perfil_social DO NOTHING
 """
 
-# Port de build_gold.py (seções 6 a 8) para SQL, com as mesmas regras:
+# Mesmas regras de gold.calcular_retencao (db/migrations/0022_gold_sql_nativo.sql), aplicadas à Silver 3NF:
 #  - coortes com ingresso até (último ano de ingresso - ANOS_MATURACAO_COORTE), k >= 5;
 #  - % no tempo ideal e atraso médio só sobre formados com permanência calculável;
 #  - IRC = (0,3 x atraso + 0,7 x evasão) x 100, cada um saturado nos percentis 5 e 95 e
