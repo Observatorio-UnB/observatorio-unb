@@ -5,7 +5,7 @@
 > **Stakeholder**: Decanato de Ensino de Graduação (DEG/DAA) e Coordenações de Curso da UnB.  
 > **Portal de Origem**: [dados.unb.br](https://dados.unb.br) (API CKAN 2.11).  
 > 
-> 📄 **Documento de Síntese Completo**: Veja [RELATORIO_GERAL_PROJETO_SEMANAS_1_E_2.md](RELATORIO_GERAL_PROJETO_SEMANAS_1_E_2.md) para a explicação detalhada de como o projeto atende a 100% das duas primeiras semanas, a lógica das bases e o valor para o DEG.
+> 📄 **Síntese das Semanas 1 e 2** (histórico, anterior à E2): [RELATORIO_GERAL_PROJETO_SEMANAS_1_E_2.md](RELATORIO_GERAL_PROJETO_SEMANAS_1_E_2.md) para a explicação detalhada de como o projeto atende a 100% das duas primeiras semanas, a lógica das bases e o valor para o DEG.
 
 ---
 
@@ -25,7 +25,7 @@ bd2/
 │   ├── caderno_analise.md           # Caderno de análise com respostas às 5 GQs e dinâmicas
 │   └── adr/                         # Decisões de arquitetura (ADRs), uma por arquivo
 ├── db/
-│   └── migrations/                  # Esquema versionado do PostgreSQL (0001 ... 0016)
+│   └── migrations/                  # Esquema versionado do PostgreSQL (0001 ... 0021)
 ├── scripts/
 │   └── rodar_pipeline.sh            # Pipeline completo: portal -> medalhão -> banco -> vetores
 ├── src/
@@ -59,6 +59,22 @@ bd2/
 ├── requirements.txt
 └── README.md
 ```
+
+---
+
+## 🧾 Entrega E2 — Ingestão em lote e captura de mudanças
+
+| Item do checklist | Evidência |
+|---|---|
+| Ingestão em lote idempotente | `bash scripts/rodar_pipeline.sh`; `src/db/exportar_lago.py` regrava sem duplicar |
+| Fluxo de mudanças a partir do OLTP | [Captura de mudanças](#captura-de-mudanças-cdc-com-debezium): `src/cdc/demonstrar.py` |
+| Camada analítica em formato aberto | [Lago Delta/Parquet](#lago-em-formato-aberto-delta-lake), [ADR 0024](docs/adr/0024-lago-delta-parquet-zstd.md) |
+| Semântica de entrega declarada e demonstrada | `src/cdc/demonstrar_reprocessamento.py`, [ADR 0025](docs/adr/0025-mecanismo-de-ingestao-recarga-e-cdc.md) |
+| Dado atrasado e reprocessamento de janela | [ADR 0026](docs/adr/0026-dado-atrasado-marca-dagua.md), `exportar_lago.py --janelas-alteradas` |
+| Serialização e compressão justificadas | ADR 0024 (ZSTD 3 medido contra Snappy e GZIP; partição por quinquênio) |
+| ADR com a opção nula | ADR 0025 (recarga agendada contra CDC) |
+| Diário das semanas 7 a 10 | [docs/diario/diario_de_bordo.md](docs/diario/diario_de_bordo.md) |
+| Testes sem banco nem Kafka no CI | `python -m unittest discover -s tests -p "test_unit_*.py"` (job `testes-unitarios`) |
 
 ---
 
@@ -201,8 +217,8 @@ O OLTP aqui é a Silver 3NF, o modelo transacional da E1: as mudanças de `silve
 por decodificação lógica (`pgoutput`, publicação `observatorio_cdc` da migração 0020), passam
 pelo Debezium e pelo Kafka e chegam a tabelas Delta em `data/lake/cdc/`.
 
-O serviço `db` sobe sempre com `wal_level=logical`, com ou sem o profile `cdc`. Kafka (porta
-9092) e Kafka Connect (8093) só escutam em `127.0.0.1`: nenhum dos dois tem autenticação.
+O serviço `db` sobe sempre com `wal_level=logical`, com ou sem o profile `cdc`. Todas as portas publicadas (PostgreSQL 5435, painel 8501, Kafka 9092 e Kafka Connect 8093) só
+escutam em `127.0.0.1`: Kafka e Connect não têm autenticação.
 `scripts/cdc.sh` usa `curl` e `jq`.
 
 ```bash

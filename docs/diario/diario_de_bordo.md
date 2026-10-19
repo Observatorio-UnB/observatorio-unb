@@ -282,5 +282,6 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 
 **Pendências para a Semana seguinte**
 
-- [ ] Ajustar apontamentos de code review na esteira de CDC (PRs #24 e #25: restringir portas no Compose para `127.0.0.1` e validações de timeout no DELETE).
-- [ ] Consolidar a documentação final e ensaiar a demonstração prática da E2.
+- [x] Ajustar apontamentos de code review na esteira de CDC (PRs #24 e #25): portas do Compose restritas a `127.0.0.1` (db e painel, além de Kafka e Connect); o DELETE já espera com prazo (`TimeoutError` em `demonstrar.py`).
+- [x] Consolidar a documentação final: tabela de aceite da E2 no README e testes unitários no CI (job `testes-unitarios`).
+- [ ] Ensaiar a demonstração prática da E2 (`demonstrar.py` e `demonstrar_reprocessamento.py`) com Docker no ar, e criar a tag `e2` depois do merge.

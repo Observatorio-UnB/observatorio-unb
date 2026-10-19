@@ -20,7 +20,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-observatorio}
       POSTGRES_DB: ${POSTGRES_DB:-observatorio}
     ports:
-      - "${POSTGRES_PORT:-5435}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5435}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -52,7 +52,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-observatorio}:${POSTGRES_PASSWORD:-observatorio}@db:5432/${POSTGRES_DB:-observatorio}
       FASTEMBED_CACHE_PATH: /cache/fastembed
     ports:
-      - "${PAINEL_PORT:-8501}:8501"
+      - "127.0.0.1:${PAINEL_PORT:-8501}:8501"
     volumes:
       - modelos:/cache
     depends_on:
