@@ -75,7 +75,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 **O que foi decidido**
 
 - Integrar a tabela de vigências históricas do CNPq para estimar o valor monetário das bolsas de IC por ano. Registrado no [ADR 0023](../adr/0023-valor-bolsa-ic-pela-tabela-do-cnpq.md).
-- Automatizar o build e publicação dos artefatos do painel via `.github/workflows/deploy-pages.yml`.
+- Automatizar o build e publicação dos artefatos do painel no GitHub Pages via job `deploy-pages` no workflow `.github/workflows/medalhao.yml`, conforme definido no [ADR 0007](../adr/0007-painel-streamlit-stlite-pages.md).
 
 **Pendências para a Semana seguinte**
 
@@ -100,8 +100,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 **O que foi decidido**
 
 - Adicionar fallback com cache local do arquivo do INEP e tratar exceções de rede no CI para não interromper a esteira. Registrado no [ADR 0008](../adr/0008-benchmark-inep-censo-2019.md).
-- Formalizar o versionamento do banco via migrações SQL com checksum SHA-256 e advisory lock `70402026`. Registrado no [ADR 0009](../adr/0009-postgres-migracoes-contrato.md).
-- Orquestrar a infraestrutura do banco relacional com `docker-compose up -d db`.
+- Formalizar o versionamento do banco via migrações SQL com checksum SHA-256 e advisory lock `70402026`, orquestrando a infraestrutura local com `docker-compose up -d db`. Registrado no [ADR 0009](../adr/0009-postgres-migracoes-contrato.md).
 
 **Pendências para a Semana seguinte**
 
@@ -158,7 +157,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 **O que foi decidido**
 
 - Criar tabela de alunos ativos com contagem conservadora de atraso. Registrado no [ADR 0019](../adr/0019-ativos-hoje.md) e [ADR 0020](../adr/0020-lista-de-ativos-com-minimizacao.md).
-- Manter catálogo de cursos com todas as versões publicadas, valendo a mais recente. Registrado no [ADR 0021](../adr/0021-catalogo-todas-as-versoes.md).
+- Inicialmente decidiu-se fixar o catálogo de cursos na versão de 2022 ([ADR 0016](../adr/0016-catalogo-cursos-fixo-2022.md)), mas a decisão foi revista para manter todas as versões publicadas, valendo a mais recente ([ADR 0021](../adr/0021-catalogo-todas-as-versoes.md)).
 - Excluir cursos-tronco (ABI) das visões individuais por curso. Registrado no [ADR 0022](../adr/0022-cursos-tronco.md).
 - Configurar pipeline mensal automatizado no GitHub Actions commitando diretamente na `main`. Registrado no [ADR 0018](../adr/0018-atualizacao-mensal-commit-na-main.md).
 
@@ -186,7 +185,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 **O que foi decidido**
 
 - Eliminar os CSVs intermediários e transformar o PostgreSQL no repositório transacional de todas as camadas (Bronze, Silver e Gold). Registrado no [ADR 0009](../adr/0009-postgres-migracoes-contrato.md).
-- Implementar tabela de harmonização de nomes (`gold.regras_harmonizacao_canonicas`) para recuperar os 109 vínculos órfãos.
+- Implementar tabela de harmonização de nomes (`gold.regras_harmonizacao_canonicas`) para recuperar os 109 vínculos órfãos. Registrado no [ADR 0003](../adr/0003-harmonizacao-canonica-cursos.md).
 - Segregar o acesso a dados de discentes (`silver.discentes` fora do papel `observatorio_leitura`) para conformidade estrita com LGPD. Registrado no [ADR 0010](../adr/0010-controle-de-acesso-leitura.md).
 
 **Pendências para a Semana seguinte**
@@ -217,8 +216,8 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 **O que foi decidido**
 
 - Adotar **Delta Lake sobre Parquet com compressão ZSTD nível 3**, particionado exclusivamente por quinquênio de ingresso nos vínculos. Registrado no [ADR 0024](../adr/0024-lago-delta-parquet-zstd.md).
-- Implementar procedure para provisionamento dinâmico de partições futuras no PostgreSQL (`silver.provisionar_particoes_movimentacoes`).
-- Configurar retenção de 7 dias para o `VACUUM` do Delta Lake para viabilizar auditoria temporal (*time travel*).
+- Implementar procedure para provisionamento dinâmico de partições futuras no PostgreSQL (`silver.provisionar_particoes_movimentacoes`), automatizando a partição de vínculos da [ADR 0024](../adr/0024-lago-delta-parquet-zstd.md).
+- Configurar retenção de 7 dias para o `VACUUM` do Delta Lake para viabilizar auditoria temporal (*time travel*), conforme definido no [ADR 0024](../adr/0024-lago-delta-parquet-zstd.md).
 
 **Pendências para a Semana seguinte**
 
@@ -232,7 +231,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 
 **O que foi medido**
 
-- Latência ponta a ponta do CDC (da transação no PostgreSQL até a visibilidade no Delta Lake): 0,25 s a 0,87 s (medido via `src/cdc/demonstrar.py` para INSERT, UPDATE e DELETE de sentinela).
+- Latência ponta a ponta do CDC (da transação no PostgreSQL até a visibilidade no Delta Lake): 0,25 s a 0,87 s (medido na branch de desenvolvimento do CDC `feat/cdc-debezium`, PR #24, via `src/cdc/demonstrar.py` para INSERT, UPDATE e DELETE de sentinela).
 - Custo de infraestrutura da rota CDC: 1,9 GB de memória RAM alocada (Kafka KRaft 0,9 GB + Debezium Connect 1,0 GB), 378 MB em disco nos tópicos e slot de replicação retendo até 239 MB de WAL pós-recarga.
 - Custo da rota em lote (opção nula): 0,9 s de exportação completa no final do pipeline, sem serviços adicionais no Compose.
 - Teste de semântica de reprocessamento: releitura de 306.009 eventos dos tópicos desde o offset inicial; digest SHA-256 de todas as linhas do Delta Lake permaneceu inalterado (`8b379584a8f5`).
@@ -244,7 +243,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 
 **O que foi decidido**
 
-- Declarar a recarga periódica em lote como mecanismo principal de ingestão e o CDC como mecanismo opcional/sob demanda para atualizações transacionais fora do ciclo mensal. Registrado no [ADR 0025](../adr/0025-mecanismo-de-ingestao-recarga-e-cdc.md).
+- Declarar a recarga periódica em lote como mecanismo principal de ingestão e o CDC como mecanismo opcional/sob demanda para atualizações transacionais fora do ciclo mensal. Registrado no [ADR 0025 (PR #26: docs/adr-mecanismo-ingestao)](https://github.com/Observatorio-UnB/observatorio-unb/pull/26).
 - Semântica de entrega fixada como *at-least-once* no transporte (offset confirmado apenas após a gravação no Delta) e *exactly-once* no efeito via `MERGE` idempotente filtrado por LSN (`_commit_lsn`).
 - Operações de exclusão convertidas em deleção lógica (`_deletado = true`) com carimbo de LSN para evitar que o reprocessamento de mensagens antigas ressuscite registros apagados.
 
@@ -283,5 +282,5 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 
 **Pendências para a Semana seguinte**
 
-- [ ] Ajustar apontamentos de code review na esteira de CDC (restringir portas no Compose para `127.0.0.1` e validações de timeout no DELETE).
+- [ ] Ajustar apontamentos de code review na esteira de CDC (PRs #24 e #25: restringir portas no Compose para `127.0.0.1` e validações de timeout no DELETE).
 - [ ] Consolidar a documentação final e ensaiar a demonstração prática da E2.
