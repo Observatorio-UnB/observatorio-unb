@@ -56,6 +56,18 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Apresentação da Entrega E2 (?ap2 ou ?apresentacao_e2). Roda local ou no Docker: as demonstrações
+# leem o lago e o banco, que não existem no painel publicado via stlite.
+if "ap2" in st.query_params or "apresentacao_e2" in st.query_params:
+    try:
+        from apresentacao_e2 import render_apresentacao
+    except ImportError as exc:
+        st.error(f"Apresentação da E2 indisponível neste ambiente ({exc}). Rode o painel local: "
+                 "streamlit run src/dashboard/app.py")
+        st.stop()
+    render_apresentacao()
+    st.stop()
+
 # Estilização CSS customizada (cores institucionais UnB: verde #008940 / azul #133E79)
 st.markdown(
     """
