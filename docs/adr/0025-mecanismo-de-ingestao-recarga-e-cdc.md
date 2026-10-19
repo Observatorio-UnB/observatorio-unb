@@ -32,7 +32,7 @@ O dado de origem muda uma vez por mês. O único processo que escreve no OLTP é
 
 ## Decisão
 
-- **A recarga periódica é o mecanismo principal.** O lago em lote é regravado depois de cada carga (`rodar_pipeline.sh` e `medalhao.yml`). A latência de até um mês é a da própria fonte: chegar ao lago em 0,5 s não adianta quando a UnB publica uma vez por mês.
+- **A recarga periódica é o mecanismo principal.** O lago em lote é regravado depois de cada carga (`rodar_pipeline.sh` e `medalhao.yml`). A latência de até um mês é a da própria fonte: chegar ao lago em 0,5 s não adianta quando a UnB publica uma vez por mês. Esse mês vem do agendamento, e não do mecanismo: o export leva 0,9 s, e com `--janelas-alteradas` uma execução sem mudança não grava versão nova no lago. Um cron de hora em hora custaria praticamente o mesmo e baixaria a latência para até 1 hora, ainda sem Kafka nem slot de replicação.
 - **O CDC fica como caminho opcional**, fora do pipeline e do CI, no profile `cdc` do compose. Ele se justifica quando alguém escreve no OLTP fora do pipeline, como numa correção manual de um curso ou de uma matriz. Nesse caso, a recarga só levaria a correção ao lago no mês seguinte, e o CDC a leva em menos de 1 s, sem reprocessar nada.
 - **A semântica de entrega do CDC é "no mínimo uma vez" no transporte e "exatamente uma vez" no efeito.** O offset só é confirmado no Kafka depois da gravação no lago, e o `MERGE` só aplica um evento mais novo, pela posição no WAL, que a linha do lago. `src/cdc/demonstrar_reprocessamento.py` comprova isso com três reprocessamentos:
   - o consumidor cai depois de gravar e antes de confirmar, e o Kafka entrega de novo o lote de 100 mensagens;
