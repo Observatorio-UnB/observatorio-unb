@@ -63,12 +63,12 @@ A apresentação interativa fica no próprio painel: `streamlit run src/dashboar
 
 **O que mostrar na tela**:
 - Slide 6: clicar em **Consultar a publicação e o slot** e em **Ler o lago CDC de silver.cursos**.
-- Slide 7: clicar em **Calcular o sha256 do lago CDC**.
+- Slide 7: clicar em **Calcular o sha256 do lago CDC** e depois em **Forçar os reprocessamentos do CDC agora** (precisa do profile `cdc` no ar e do conector registrado; levou 1min43s no teste, então comece a falar enquanto roda).
 
 **O que falar**:
 > "O CDC viu mudança de verdade: o script `demonstrar.py` insere, altera e exclui um curso no OLTP e mede quanto cada mudança leva até o lago, entre 0,44 e 0,87 segundo.
 > A semântica de entrega é no mínimo uma vez no transporte e exatamente uma vez no efeito. O offset só é confirmado no Kafka depois da gravação no lago. E o `MERGE` só aplica um evento mais novo, pela posição no WAL, que a linha do lago.
-> Nós forçamos três reprocessamentos: o consumidor cai entre gravar e confirmar, o grupo relê os tópicos do primeiro offset, e o grupo relê tudo de novo depois de excluir as linhas. Nos três casos, o sha256 do lago, incluindo a hora de gravação de cada linha, não muda. Nenhuma linha é regravada e nenhuma linha excluída ressuscita.
+> Vou forçar os reprocessamentos agora, ao vivo, e enquanto roda eu explico. São três: o consumidor cai entre gravar e confirmar, o grupo relê os tópicos do primeiro offset, e o grupo relê tudo de novo depois de excluir as linhas. Nos três casos, o sha256 do lago, incluindo a hora de gravação de cada linha, não muda. Nenhuma linha é regravada e nenhuma linha excluída ressuscita.
 > Se confirmássemos o offset antes de gravar, teríamos no máximo uma vez, e uma queda perderia o lote em silêncio."
 
 ---
@@ -145,4 +145,5 @@ A apresentação interativa fica no próprio painel: `streamlit run src/dashboar
 
 1. **Teste as demonstrações antes**: sem o lago ou sem o banco, o botão mostra o erro e o comando para corrigir, mas perder tempo na frente da turma pesa.
 2. **Tenha os ADRs abertos**: `docs/adr/0024-lago-delta-parquet-zstd.md`, `docs/adr/0025-mecanismo-de-ingestao-recarga-e-cdc.md` e `docs/adr/0026-dado-atrasado-marca-dagua.md`.
-3. **Assuma os limites**: as demonstrações completas do CDC (`demonstrar.py` e `demonstrar_reprocessamento.py`) precisam de Kafka e Debezium no ar. Os números dos slides vêm da última execução registrada no README.
+3. **Assuma os limites**: as demonstrações do CDC (`demonstrar.py` e o botão de reprocessamento do slide 7) precisam de Kafka e Debezium no ar. Sem eles, o botão avisa como subir, e a tabela do slide 7 traz a última execução registrada no README.
+4. **Depois de apresentar**: `bash scripts/cdc.sh remover` apaga o conector e o slot de replicação, para o slot não segurar WAL no banco.
