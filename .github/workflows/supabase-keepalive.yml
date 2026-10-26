@@ -14,4 +14,4 @@ jobs:
       - name: Consulta trivial no Supabase
         env:
           SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
-        run: psql "$SUPABASE_DATABASE_URL" -c "select 1"
+        run: psql "$SUPABASE_DATABASE_URL" -c "select * from silver.cursos"
