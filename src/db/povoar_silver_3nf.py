@@ -46,8 +46,8 @@ TABELAS_3NF = (
     "silver.pibic_projetos",
 )
 
-# Mesmas regras de build_gold.py: normalize_turno_grupo, normalize_categoria_grau,
-# normalize_campus_nome e EXCLUDED_GENERIC_COURSES.
+# Mesmas regras da Gold (migração 0022): gold.turno_grupo, gold.categoria_grau, gold.campus_nome
+# e EXCLUDED_GENERIC_COURSES (build_gold.py).
 SQL_CURSOS = """
 INSERT INTO silver.cursos (id_curso, codigo_sigaa, nome_curso_norm, campus, turno, grau_academico,
                            categoria_grau, area_conhecimento, departamento, is_tronco_abi, ativo)
