@@ -39,7 +39,7 @@ bd2/
 │   │   └── lgpd_check.py
 │   ├── pipeline/                    # Pipeline em camadas (Bronze -> Silver -> Gold)
 │   │   ├── transform_silver.py
-│   │   └── build_gold.py
+│   │   └── build_gold.py            # semeia as regras e dispara CALL gold.atualizar_gold (ADR 0027)
 │   ├── db/                          # Banco: migrações, leitura/gravação das camadas, export e dicionário
 │   │   ├── migrar.py
 │   │   ├── tabelas.py               # gravar(df, tabela) / ler(tabela): o contrato com o esquema
@@ -112,7 +112,7 @@ python3 src/ingestion/inep_censo_superior.py
 # 2. Transformação Silver: bronze.* -> silver.* (Semana 2 - Dia 1)
 python3 src/pipeline/transform_silver.py
 
-# 3. Camada Gold com join heterogêneo: silver.* -> gold.* (Semana 2 - Dia 1)
+# 3. Camada Gold: silver.* -> gold.*, agregada em SQL no banco (gold.atualizar_gold, ADR 0027)
 python3 src/pipeline/build_gold.py
 
 # 4. Auditoria de qualidade (12 achados) e análise de k-anonimato, lidas da bronze (Semana 1 - Dias 4 e 5)
