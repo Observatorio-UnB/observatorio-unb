@@ -109,7 +109,7 @@ Estruturas curriculares (estrutura-curricular.csv). Uma linha por matriz curricu
 
 Censo da Educação Superior 2019 (INEP), recorte de cursos presenciais de universidades públicas federais. Uma linha por curso. Dado agregado por curso, sem registro individual de discente.
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 4.826
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -137,7 +137,7 @@ Censo da Educação Superior 2019 (INEP), recorte de cursos presenciais de unive
 
 Procedência do último download de cada tabela bronze: de onde veio, quando, com que encoding e separador, e o hash do arquivo. Substitui o arquivo bruto em disco como evidência da auditoria de qualidade.
 
-**Linhas na última carga:** 6
+**Linhas na última carga:** 7
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -228,6 +228,47 @@ SIGRA (sigra.csv, pacote dados-referente-aos-alunos-de-graduacao-pos-graduacao-l
 | `_ordem` | `integer` | sim | Posição do registro no arquivo de origem (1 = primeiro registro depois do cabeçalho). |
 
 ## Esquema `silver`
+
+### `silver.cargas_vinculos`
+
+Uma linha por carga de silver.movimentacoes_vinculos, com a marca d'água usada para classificar o que chegou.
+
+**Linhas na última carga:** 7
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `id_carga` | `integer (identity)` | não |  |
+| `carregada_em` | `timestamp with time zone` | não |  |
+| `publicada_em` | `date` | não | Publicação no portal do arquivo de vínculos mais recente da carga (SIGRA ou SIGAA, por bronze.ingestoes). É o tempo de processamento. |
+| `marca_dagua` | `integer` | não | Último período de saída (AAAAS, semestre 0 = verão) dado como fechado: o fim do período mais a tolerância não passa de publicada_em. |
+| `ultima_coorte_madura` | `smallint` | sim | Último ano de ingresso que entra na gold nesta carga (ADR 0014). Mudança em coorte até aqui revisa número já publicado. |
+| `total_vinculos` | `integer` | não |  |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (id_carga)`
+- Verificação: `CHECK (((marca_dagua % 10) = ANY (ARRAY[0, 1, 2])))`
+- Verificação: `CHECK ((total_vinculos >= 0))`
+
+### `silver.cargas_vinculos_retrato`
+
+Vínculos de cada carga por ano de ingresso, desfecho e período de saída. Só contagens: nenhuma linha identifica um discente.
+
+**Linhas na última carga:** 3.843
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `id_carga` | `integer` | não |  |
+| `ano_ingresso` | `smallint` | não |  |
+| `tipo_saida_grupo` | `text` | não |  |
+| `periodo_saida` | `integer` | sim | Período de saída (AAAAS). Nulo quando o vínculo não tem período: ativo, cancelado no SIGAA ou formado sem diploma registrado. |
+| `total` | `integer` | não |  |
+
+**Restrições:**
+
+- Única: `UNIQUE NULLS NOT DISTINCT (id_carga, ano_ingresso, tipo_saida_grupo, periodo_saida)`
+- Chave estrangeira: `FOREIGN KEY (id_carga) REFERENCES silver.cargas_vinculos(id_carga) ON DELETE CASCADE`
+- Verificação: `CHECK ((total > 0))`
 
 ### `silver.cursos`
 
@@ -426,7 +467,7 @@ Prazos e cargas horárias regulamentares por curso canônico (uma linha por matr
 
 Cursos presenciais das federais no Censo 2019, com as taxas por curso que permitem comparar a UnB com as demais. Uma linha por curso (CO_CURSO).
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 4.826
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -461,7 +502,7 @@ _Sem descrição._
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
-| `id_vinculo` | `bigint (identity)` | não |  |
+| `id_vinculo` | `bigint` | não |  |
 | `id_discente` | `bigint` | não |  |
 | `id_curso` | `integer` | não |  |
 | `id_estrutura` | `integer` | não |  |
@@ -497,7 +538,7 @@ _Sem descrição._
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
-| `id_vinculo` | `bigint (identity)` | não |  |
+| `id_vinculo` | `bigint` | não |  |
 | `id_discente` | `bigint` | não |  |
 | `id_curso` | `integer` | não |  |
 | `id_estrutura` | `integer` | não |  |
@@ -533,7 +574,7 @@ _Sem descrição._
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
-| `id_vinculo` | `bigint (identity)` | não |  |
+| `id_vinculo` | `bigint` | não |  |
 | `id_discente` | `bigint` | não |  |
 | `id_curso` | `integer` | não |  |
 | `id_estrutura` | `integer` | não |  |
@@ -569,7 +610,7 @@ _Sem descrição._
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
-| `id_vinculo` | `bigint (identity)` | não |  |
+| `id_vinculo` | `bigint` | não |  |
 | `id_discente` | `bigint` | não |  |
 | `id_curso` | `integer` | não |  |
 | `id_estrutura` | `integer` | não |  |
@@ -735,13 +776,13 @@ Dimensão geográfica dos campi da UnB.
 
 Dimensão de cursos canônicos de graduação. Chave natural nome_curso: a chave substituta sk_curso não muda quando entra curso novo.
 
-**Linhas na última carga:** 118
+**Linhas na última carga:** 112
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
 | `sk_curso` | `integer (identity)` | não |  |
-| `id_curso_origem` | `integer` | sim | id_curso do catálogo dono da matriz (silver.estruturas_curriculares). |
 | `nome_curso` | `text` | não |  |
+| `id_curso_origem` | `integer` | sim | id_curso do catálogo dono da matriz (silver.estruturas_curriculares). |
 | `grau_academico` | `text` | não |  |
 | `categoria_grau` | `text` | não |  |
 | `area_conhecimento` | `text` | não |  |
@@ -758,7 +799,7 @@ Dimensão de cursos canônicos de graduação. Chave natural nome_curso: a chave
 
 Dimensão social e de ações afirmativas: combinações distintas de perfil observadas em silver.pibic_projetos.
 
-**Linhas na última carga:** 10
+**Linhas na última carga:** 4
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -794,7 +835,7 @@ Dimensão temporal acadêmica com granularidade semestral.
 
 ### `gold.fato_alunos_ativos`
 
-Discentes ativos no semestre de referência por curso canônico, a partir de gold.ativos_hoje_cursos_unb (lista de ativos do SIGAA).
+Grão: snapshot periódico, um registro por curso canônico no semestre de referência da lista de ativos mais recente (sk_tempo_referencia). Chave do grão: UNIQUE (sk_curso): a carga substitui o snapshot, sem histórico. Contagens são aditivas entre cursos, mas não entre semestres (estoque). Só entram cursos com k >= 5.
 
 **Linhas na última carga:** 95
 
@@ -822,7 +863,7 @@ Discentes ativos no semestre de referência por curso canônico, a partir de gol
 
 ### `gold.fato_pibic_perfil`
 
-Planos de iniciação científica por curso canônico e perfil social do bolsista (todos os editais). Só entram grupos com 5 ou mais planos (k-anonimato).
+Grão: um registro por curso canônico e perfil social do bolsista (dim_perfil_social), somando todos os editais publicados. Chave do grão: UNIQUE (sk_curso, sk_perfil). Contagens e valor investido são aditivos entre cursos e perfis. Só entram grupos com 5 ou mais planos (k-anonimato).
 
 **Linhas na última carga:** 286
 
@@ -851,7 +892,7 @@ Planos de iniciação científica por curso canônico e perfil social do bolsist
 
 ### `gold.fato_retencao_curso`
 
-Retenção por curso canônico, calculada a partir de silver.movimentacoes_vinculos sobre as coortes maduras, com k >= 5: contagens, taxas, % no tempo ideal, atraso médio, IRC e classificação (mesmas regras de build_gold.py).
+Grão: um registro por curso canônico, agregando as coortes maduras (ingresso até o último ano da base menos 8). Chave do grão: UNIQUE (sk_curso). O campus (sk_campus) é atributo do curso, e não parte do grão. Contagens (total_*) são aditivas entre cursos; taxas, % no tempo ideal, atraso médio e IRC não são: para agregar, recalcular a partir das contagens. Só entram cursos com k >= 5. Mesmas regras de gold.retencao_cursos_unb.
 
 **Linhas na última carga:** 95
 
@@ -875,7 +916,7 @@ Retenção por curso canônico, calculada a partir de silver.movimentacoes_vincu
 **Restrições:**
 
 - Chave primária: `PRIMARY KEY (id_fato)`
-- Única: `UNIQUE (sk_curso, sk_campus)`
+- Única: `UNIQUE (sk_curso)`
 - Chave estrangeira: `FOREIGN KEY (sk_campus) REFERENCES gold.dim_campus(sk_campus)`
 - Chave estrangeira: `FOREIGN KEY (sk_curso) REFERENCES gold.dim_curso(sk_curso)`
 - Verificação: `CHECK ((classificacao_retencao = ANY (ARRAY['RETENÇÃO CRÍTICA'::text, 'RETENÇÃO ALTA'::text, 'RETENÇÃO MÉDIA'::text, 'RETENÇÃO BAIXA'::text])))`
@@ -892,7 +933,7 @@ Retenção por curso canônico, calculada a partir de silver.movimentacoes_vincu
 
 Cada curso da UnB comparado com o mesmo curso nas demais universidades federais (Censo INEP 2019). Uma linha por curso da UnB com 50 ou mais matrículas.
 
-**Linhas na última carga:** 0
+**Linhas na última carga:** 96
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
