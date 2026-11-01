@@ -43,7 +43,7 @@ O esquema estrela desacopla as métricas numéricas das entidades de contexto, p
 |             gold.fato_retencao_curso             |       |           gold.dim_curso           |
 +--------------------------------------------------+       +------------------------------------+
 | PK  id_fato (BIGINT)                             |  N  1 | PK  sk_curso (INTEGER)             |
-| FK  sk_curso (INTEGER) --------------------------+------>| UK  nome_curso (TEXT)              |
+| FK  sk_curso (INTEGER, UNIQUE) ------------------+------>| UK  nome_curso (TEXT)              |
 | FK  sk_campus (INTEGER)                          |       |     id_curso_origem (INTEGER)      |
 |     total_ingressantes (INT, CHECK >= 5)         |       |     grau_academico (TEXT)          |
 |     total_formados (INT, CHECK >= 0)             |       |     categoria_grau (TEXT)          |
@@ -136,14 +136,52 @@ Não podem ser somadas sob nenhuma hipótese. O SGBD ou a camada de apresentaç�
 
 Um dos erros mais comuns em análise universitária é misturar discentes recém-ingressos com discentes que já tiveram tempo regulamentar suficiente para se formar (o chamado **Viés de Maturação**).
 
-O nosso Star Schema resolve essa armadilha acadêmica separando três Tabelas Fato especializadas:
+O nosso Star Schema resolve essa armadilha acadêmica separando três Tabelas Fato especializadas. O grão de cada uma está escrito no catálogo (`COMMENT ON TABLE`, migração 0023), sai no dicionário de dados e é imposto por uma chave única igual a ele:
+
+| Fato | Grão | Chave do grão | Linhas na carga de 11/2026 |
+|:---|:---|:---|---:|
+| `fato_retencao_curso` | Um registro por curso canônico, sobre as coortes maduras | `UNIQUE (sk_curso)` | 95 |
+| `fato_alunos_ativos` | Um registro por curso canônico no semestre da lista de ativos mais recente (snapshot) | `UNIQUE (sk_curso)` | 95 |
+| `fato_pibic_perfil` | Um registro por curso canônico e perfil social do bolsista, somando todos os editais | `UNIQUE (sk_curso, sk_perfil)` | 286 |
+
 1. **`fato_retencao_curso` (Histórico de Coortes Maduras)**:
-   * **Grão**: Coortes de ingresso com pelo menos **8 anos de percurso** (`ano_ingresso` $\le 2016$).
+   * **Grão**: um registro por curso canônico, agregando as coortes de ingresso com pelo menos **8 anos de percurso** (`ano_ingresso` até o último ano da base menos 8; na carga de 11/2026, de 2010 a 2016). O campus é atributo do curso (MULTICAMPUS quando o nome é oferecido em mais de um campus), e não parte do grão.
    * **Finalidade**: Avaliar a taxa real de conclusão, jubilamento e evasão consolidada sem interferência de matrículas ativas recentes.
 2. **`fato_alunos_ativos` (O Momento Presente)**:
-   * **Grão**: Snapshot de discentes com matrícula regular ativa no semestre mais recente (2024/1).
+   * **Grão**: snapshot de discentes com matrícula regular ativa, um registro por curso no semestre da lista de ativos mais recente publicada (`sk_tempo_referencia`; na carga de 11/2026, 2025/1). A carga substitui o snapshot, sem histórico.
    * **Finalidade**: Identificar estudantes que estão estourando o prazo máximo regulamentar hoje, permitindo intervenção pedagógica preventiva do DEG/DAA.
 3. **`fato_pibic_perfil` (Fomento e Inclusão Social na Pesquisa)**:
    * **Grão**: Agregação de planos de Iniciação Científica por curso canônico e estrato de perfil social/ações afirmativas.
    * **Finalidade**: Mensurar a democratização da pesquisa acadêmica e o impacto das bolsas na permanência universitária, sob salvaguarda estrita de $k$-anonimato ($k \ge 5$).
 
+### 4.1 Por que a chave do fato de retenção é só o curso
+
+Até a migração 0023, a chave de `fato_retencao_curso` era `UNIQUE (sk_curso, sk_campus)`, mais larga que o grão. Ela aceitava o mesmo curso em dois campi, e a view do painel, que lê o fato por curso, mostraria o curso duas vezes, com as contagens repetidas.
+
+No banco local isso não acontece, porque o fato é recriado a cada carga. Mas a sincronização com o Supabase (`src/db/sincronizar_supabase.py`) faz upsert pela chave e nunca apaga linhas. Um curso que mudasse de campus ganharia uma segunda linha. O caso foi reproduzido com um segundo banco local fazendo o papel do Supabase: com a chave antiga, Ciência da Computação passou de DARCY RIBEIRO para MULTICAMPUS e ficou com 2 linhas no fato e 2 na view. Com a chave do grão, a sincronização atualiza o campus da linha que já existe. A migração 0023 remove duplicatas que já existam no destino, mantendo a atualizada por último, antes de criar a chave.
+
+### 4.2 Avaliação de outros níveis de grão
+
+O grão de decisão foi comparado com dois mais finos, sobre os mesmos vínculos das coortes maduras (carga de 11/2026, 68.339 vínculos de 2010 a 2016). Uma célula com menos de 5 vínculos é suprimida (k-anonimato).
+
+| Grão | Células | Células com k ≥ 5 | Vínculos suprimidos | Mediana de vínculos por célula |
+|:---|---:|---:|---:|---:|
+| **Curso (atual)** | 101 | 95 | 12 (0,02%) | 588 |
+| Curso × coorte (ano de ingresso) | 633 | 597 | 76 (0,11%) | 90 |
+| Curso × coorte × semestre de ingresso | 633 | 597 | 76 (0,11%) | 90 |
+
+* **Curso × coorte × semestre de ingresso não existe nos dados.** `semestre_ingresso` é nulo nos 152.680 vínculos, porque o SIGRA e o SIGAA publicam só o ano de ingresso (achado de qualidade do relatório da Semana 1). Esse grão é o mesmo que curso × coorte.
+* **Curso × coorte é viável pela privacidade** (só 0,11% suprimido), **mas não serve à decisão.** A taxa de evasão do mesmo curso varia, na mediana, 18 pontos percentuais entre as 7 coortes, e 33 dos 77 cursos com as 7 coortes variam 20 pontos ou mais. Com mediana de 90 vínculos por célula, boa parte dessa variação é ruído amostral. Um ranking de intervenção por coorte trocaria de curso de um ano para o outro.
+* **O grão por coorte expõe o viés de maturação dentro da janela madura.** A coorte de 2016 ainda tem 9,3% de vínculos ativos (contra 0,1% na de 2010), e por isso a evasão dela parece menor (39,7% contra 43% a 47% nas anteriores). No grão do curso, esse efeito se dilui nas 7 coortes.
+
+| Coorte | Cursos com k ≥ 5 | Vínculos por curso (média) | Evasão média | Ainda ativos (média) |
+|---:|---:|---:|---:|---:|
+| 2010 | 80 | 112 | 42,9% | 0,1% |
+| 2011 | 82 | 125 | 46,5% | 0,3% |
+| 2012 | 83 | 109 | 44,9% | 0,7% |
+| 2013 | 83 | 111 | 43,6% | 2,1% |
+| 2014 | 88 | 121 | 46,6% | 2,7% |
+| 2015 | 89 | 110 | 43,2% | 5,5% |
+| 2016 | 92 | 113 | 39,7% | 9,3% |
+
+**Decisão:** o fato de retenção fica no grão do curso, que é o grão da pergunta da E1 ("quais cursos apresentam os maiores índices de retenção?", `docs/challenge_canvas.md`). Uma linha por curso responde o ranking do IRC sem dupla agregação. O grão curso × coorte fica registrado como candidato a um segundo fato, para tendência entre coortes, e não para o ranking. A escolha da modelagem entra no ADR da E3 (issue #43).
