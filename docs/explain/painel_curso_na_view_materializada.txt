@@ -1,0 +1,12 @@
+ Seq Scan on mv_dashboard_executivo  (cost=8.16..12.57 rows=1 width=56) (actual time=0.020..0.029 rows=1 loops=1)
+   Filter: ((sk_curso = $0) AND (campus = 'DARCY RIBEIRO'::text))
+   Rows Removed by Filter: 93
+   Buffers: shared hit=5
+   InitPlan 1 (returns $0)
+     ->  Index Scan using dim_curso_nome_curso_key on dim_curso  (cost=0.14..8.16 rows=1 width=4) (actual time=0.011..0.011 rows=1 loops=1)
+           Index Cond: (nome_curso = 'CIENCIA DA COMPUTACAO'::text)
+           Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=116
+ Planning Time: 0.443 ms
+ Execution Time: 0.065 ms

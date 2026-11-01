@@ -1,0 +1,29 @@
+ Sort  (cost=32.09..32.16 rows=26 width=10) (actual time=0.291..0.293 rows=21 loops=1)
+   Sort Key: m.semestres_permanencia_valida
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=14
+   ->  HashAggregate  (cost=31.22..31.48 rows=26 width=10) (actual time=0.258..0.262 rows=21 loops=1)
+         Group Key: m.semestres_permanencia_valida
+         Batches: 1  Memory Usage: 24kB
+         Buffers: shared hit=11
+         ->  Nested Loop  (cost=0.41..29.75 rows=294 width=2) (actual time=0.067..0.219 rows=235 loops=1)
+               Buffers: shared hit=11
+               ->  Seq Scan on estruturas_curriculares e  (cost=0.00..3.40 rows=1 width=4) (actual time=0.012..0.023 rows=1 loops=1)
+                     Filter: (nome_curso_canonico = 'CIENCIA DA COMPUTACAO'::text)
+                     Rows Removed by Filter: 111
+                     Buffers: shared hit=2
+               ->  Append  (cost=0.41..22.97 rows=338 width=6) (actual time=0.052..0.178 rows=235 loops=1)
+                     Buffers: shared hit=9
+                     ->  Index Only Scan using movimentacoes_p2000_2015_id_estrutura_tipo_saida_grupo_ano__idx on movimentacoes_p2000_2015 m_1  (cost=0.41..16.12 rows=308 width=6) (actual time=0.051..0.095 rows=198 loops=1)
+                           Index Cond: ((id_estrutura = e.id_estrutura) AND (tipo_saida_grupo = 'FORMATURA'::text) AND (ano_ingresso >= 2010) AND (ano_ingresso <= 2016))
+                           Heap Fetches: 0
+                           Buffers: shared hit=5
+                     ->  Index Only Scan using movimentacoes_p2016_2020_id_estrutura_tipo_saida_grupo_ano__idx on movimentacoes_p2016_2020 m_2  (cost=0.41..5.17 rows=30 width=6) (actual time=0.063..0.067 rows=37 loops=1)
+                           Index Cond: ((id_estrutura = e.id_estrutura) AND (tipo_saida_grupo = 'FORMATURA'::text) AND (ano_ingresso >= 2010) AND (ano_ingresso <= 2016))
+                           Heap Fetches: 0
+                           Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=617
+ Planning Time: 3.674 ms
+ Execution Time: 0.418 ms
+
