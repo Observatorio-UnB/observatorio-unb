@@ -2,8 +2,8 @@
 Testes de integração da gold.dim_curso como SCD tipo 2 (migração 0025). Precisam de PostgreSQL.
 
   - TestRestricoesScd2: regras do esquema, numa transação desfeita no fim. Só precisam das migrações.
-  - TestCargaScd2: reclassificação de um curso na silver seguida da carga do Star Schema
-    (src/db/povoar_dimensional.py). Pulados se a silver não foi carregada.
+  - TestCargaScd2: reclassificação e renomeação de um curso na silver seguidas da carga do Star
+    Schema (src/db/povoar_dimensional.py). Pulados se a silver não foi carregada.
 
 Pulados se o banco não estiver no ar.
 
@@ -182,7 +182,30 @@ class TestCargaScd2(unittest.TestCase):
             )
             raise Rollback()
 
-    def test_03_recarga_sem_mudanca_nao_abre_versao(self):
+    def test_04_renomeacao_preserva_o_nome_antigo_e_leva_os_fatos_ao_novo(self):
+        """O curso renomeado na matriz (o nome canônico, ADR 0003) vira uma chave natural nova: o nome
+        antigo continua na dimensão com o histórico, e os fatos recriados passam para o nome novo."""
+        novo_nome = "MATEMATICA (RENOMEADO NO TESTE)"
+        with self.conn.transaction():
+            povoar_gold_dimensional(self.conn)
+            antigo = self.conn.execute(SQL_VERSOES, (CURSO,)).fetchall()
+            self.conn.execute(
+                "UPDATE silver.estruturas_curriculares SET nome_curso_canonico = %s WHERE nome_curso_canonico = %s",
+                (novo_nome, CURSO))
+            povoar_gold_dimensional(self.conn)
+
+            self.assertEqual(self.conn.execute(SQL_VERSOES, (CURSO,)).fetchall(), antigo)
+            [(sk_novo, _, vigente_de, vigente_ate, atual)] = self.conn.execute(SQL_VERSOES, (novo_nome,)).fetchall()
+            self.assertEqual((vigente_ate, atual), (None, True))
+            self.assertEqual(vigente_de, antigo[0][2])  # primeira versão do nome novo: início da série
+            fatos = self.conn.execute(
+                "SELECT c.nome_curso FROM gold.fato_retencao_curso f JOIN gold.dim_curso c USING (sk_curso) "
+                "WHERE c.nome_curso IN (%s, %s)", (CURSO, novo_nome)).fetchall()
+            self.assertEqual(fatos, [(novo_nome,)])
+            self.assertNotEqual(sk_novo, antigo[0][0])
+            raise Rollback()
+
+    def test_05_recarga_sem_mudanca_nao_abre_versao(self):
         with self.conn.transaction():
             povoar_gold_dimensional(self.conn)
             antes = self.conn.execute("SELECT sk_curso, vigente_de, is_atual FROM gold.dim_curso ORDER BY 1").fetchall()
