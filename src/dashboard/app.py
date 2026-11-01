@@ -6,6 +6,7 @@ Challenge de Dados Abertos da UnB - Metodologia CBL
 
 import base64
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -142,7 +143,7 @@ def load_gold_data(versao: str):
             "Sem dados da gold. Suba o banco (`docker compose up -d db`) e rode o pipeline "
             "(`bash scripts/rodar_pipeline.sh`)."
         )
-        return None, None, None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None, None
 
     tabelas, relatorios = dados["tabelas"], dados["relatorios"]
     df = pd.DataFrame(tabelas["retencao_cursos_unb"]) if tabelas.get("retencao_cursos_unb") else None
@@ -162,10 +163,11 @@ def load_gold_data(versao: str):
     df_inep = pd.DataFrame(tabelas["inep_benchmark_cursos_unb"]) if tabelas.get("inep_benchmark_cursos_unb") else None
     df_ativos = pd.DataFrame(tabelas["ativos_hoje_cursos_unb"]) if tabelas.get("ativos_hoje_cursos_unb") else None
 
-    return df, meta, join_meta, df_pibic, pibic_meta, regras_meta, df_inep, df_ativos
+    return df, meta, join_meta, df_pibic, pibic_meta, regras_meta, df_inep, df_ativos, dados.get("frescor")
 
 
-df_gold, global_meta, join_meta, df_pibic, pibic_meta, regras_meta, df_inep, df_ativos = load_gold_data(_versao_dos_dados())
+(df_gold, global_meta, join_meta, df_pibic, pibic_meta, regras_meta, df_inep, df_ativos,
+ frescor) = load_gold_data(_versao_dos_dados())
 # Cursos-tronco (Engenharia, ABI de Educação Física): definidos em build_gold.py e publicados na Gold.
 EXCLUDED_GENERIC_COURSES = set((global_meta or {}).get("cursos_tronco", []))
 
@@ -181,6 +183,18 @@ taxa_join = join_meta.get('taxa_de_casamento_pct',
                           100.0) if join_meta else 100.0
 st.sidebar.markdown(
     f"**Taxa de Casamento**: `{taxa_join:.2f}% (Harmonização Ativa)`")
+# Frescor da view do painel contra o SLA (docs/frescor_sla.md). A idade é calculada aqui, fora do
+# cache, para a versão estática do GitHub Pages também mostrar quando o export envelheceu.
+if frescor:
+    atualizada_em = datetime.fromisoformat(frescor["atualizada_em"])
+    idade = datetime.now(timezone.utc) - atualizada_em
+    idade_dias = idade.days
+    texto_frescor = (f"Dados atualizados em {atualizada_em:%d/%m/%Y} (há {idade_dias} dia(s)). "
+                     f"SLA: até {frescor['sla_dias']} dias.")
+    if idade <= timedelta(days=frescor["sla_dias"]):
+        st.sidebar.caption(f"🟢 {texto_frescor}")
+    else:
+        st.sidebar.warning(f"Fora do SLA de frescor. {texto_frescor}")
 st.sidebar.markdown("---")
 
 tab_choice = st.sidebar.radio(
