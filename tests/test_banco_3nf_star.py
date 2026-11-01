@@ -186,6 +186,37 @@ class TestRestricoes3NFStar(unittest.TestCase):
             self.assertEqual(self.particao_do_discente(id_discente), "silver.movimentacoes_p2035_2039")
             raise Rollback()
 
+    def test_09_curso_em_dois_campi_no_fato_de_retencao_e_rejeitado(self):
+        """O grão é o curso: uma segunda linha do mesmo curso em outro campus seria contada duas vezes."""
+        with self.conn.transaction():
+            sk_curso = self.conn.execute(
+                """
+                INSERT INTO gold.dim_curso (nome_curso, grau_academico, categoria_grau, area_conhecimento)
+                VALUES ('CURSO TESTE', 'BACHARELADO', 'BACHARELADO', 'TESTE') RETURNING sk_curso
+                """
+            ).fetchone()[0]
+            campi = [self.conn.execute(
+                "INSERT INTO gold.dim_campus (campus, regiao_admin) VALUES (%s, 'TESTE') RETURNING sk_campus",
+                (campus,)).fetchone()[0] for campus in ("CAMPUS TESTE 1", "CAMPUS TESTE 2")]
+            inserir = """
+                INSERT INTO gold.fato_retencao_curso (sk_curso, sk_campus, total_ingressantes, total_formados,
+                                                      total_evadidos)
+                VALUES (%s, %s, 10, 6, 3)
+            """
+            self.conn.execute(inserir, (sk_curso, campi[0]))
+            with self.assertRaises(errors.UniqueViolation), self.conn.transaction():
+                self.conn.execute(inserir, (sk_curso, campi[1]))
+            raise Rollback()
+
+    def test_10_cada_fato_declara_o_grao_no_catalogo(self):
+        """O grão fica no COMMENT ON TABLE, que o dicionário de dados publica (migração 0023)."""
+        for tabela in ("gold.fato_retencao_curso", "gold.fato_alunos_ativos", "gold.fato_pibic_perfil",
+                       "gold.mv_dashboard_executivo"):
+            with self.subTest(tabela=tabela):
+                comentario = self.conn.execute("SELECT obj_description(%s::regclass, 'pg_class')",
+                                               (tabela,)).fetchone()[0] or ""
+                self.assertTrue(comentario.startswith("Grão: "), comentario)
+
 
 class TestCarga3NFStar(unittest.TestCase):
 

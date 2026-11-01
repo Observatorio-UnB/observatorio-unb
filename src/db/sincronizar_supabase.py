@@ -86,8 +86,10 @@ SINCRONIAS = [
     Sincronia("gold.dim_tempo", ["sk_tempo"]),
     Sincronia("gold.dim_perfil_social", ["perfil_macro", "categoria_cota", "faixa_renda", "is_cotista"],
               conflito="ON CONSTRAINT uk_dim_perfil_social"),
+    # Chave do grão (migração 0023): o campus é atributo do curso e é atualizado, e não inserido de
+    # novo, quando muda. Com (sk_curso, sk_campus), um curso que mudasse de campus ficaria duplicado.
     Sincronia(
-        "gold.fato_retencao_curso", ["sk_curso", "sk_campus"],
+        "gold.fato_retencao_curso", ["sk_curso"],
         exportar=f"""
             SELECT c.nome_curso, camp.campus, {', '.join('f.' + m for m in MEDIDAS_RETENCAO)}
             FROM gold.fato_retencao_curso f
