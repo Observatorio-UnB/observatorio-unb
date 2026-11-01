@@ -1,0 +1,15 @@
+# Conexão lida do ambiente. scripts/dbt.sh preenche estas variáveis a partir do DATABASE_URL do
+# projeto; sem ele, vale o banco do docker-compose (porta 5435).
+observatorio:
+  target: padrao
+  outputs:
+    padrao:
+      type: postgres
+      host: "{{ env_var('DBT_HOST', 'localhost') }}"
+      port: "{{ env_var('DBT_PORT', '5435') | int }}"
+      user: "{{ env_var('DBT_USER', 'observatorio') }}"
+      password: "{{ env_var('DBT_PASSWORD', 'observatorio') }}"
+      dbname: "{{ env_var('DBT_DBNAME', 'observatorio') }}"
+      schema: dbt_marts
+      sslmode: "{{ env_var('DBT_SSLMODE', 'prefer') }}"
+      threads: 4
