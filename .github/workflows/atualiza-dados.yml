@@ -71,7 +71,9 @@ jobs:
       - name: "Versiona dados atualizados"
         id: versiona
         run: |
-          git add data/bronze/cnpq_valor_bolsa_ic.json docs/relatorio_qualidade.md docs/registro_privacidade_lgpd.md docs/dicionario_dados_banco.md
+          # -u: só arquivos já versionados. O JSON do CNPq fica em data/, que está no .gitignore, e
+          # o git add com o caminho explícito sai com erro mesmo para arquivo versionado.
+          git add -u -- data/bronze/cnpq_valor_bolsa_ic.json docs/relatorio_qualidade.md docs/registro_privacidade_lgpd.md docs/dicionario_dados_banco.md
           if git diff --cached --quiet; then
             echo "Fontes sem mudanças; nada a versionar."
             exit 0
