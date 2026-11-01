@@ -182,7 +182,7 @@ class TestCargaScd2(unittest.TestCase):
             )
             raise Rollback()
 
-    def test_04_renomeacao_preserva_o_nome_antigo_e_leva_os_fatos_ao_novo(self):
+    def test_03_renomeacao_preserva_o_nome_antigo_e_leva_os_fatos_ao_novo(self):
         """O curso renomeado na matriz (o nome canônico, ADR 0003) vira uma chave natural nova: o nome
         antigo continua na dimensão com o histórico, e os fatos recriados passam para o nome novo."""
         novo_nome = "MATEMATICA (RENOMEADO NO TESTE)"
@@ -205,7 +205,7 @@ class TestCargaScd2(unittest.TestCase):
             self.assertNotEqual(sk_novo, antigo[0][0])
             raise Rollback()
 
-    def test_05_recarga_sem_mudanca_nao_abre_versao(self):
+    def test_04_recarga_sem_mudanca_nao_abre_versao(self):
         with self.conn.transaction():
             povoar_gold_dimensional(self.conn)
             antes = self.conn.execute("SELECT sk_curso, vigente_de, is_atual FROM gold.dim_curso ORDER BY 1").fetchall()
