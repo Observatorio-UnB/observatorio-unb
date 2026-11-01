@@ -39,4 +39,4 @@ models:
         select: ["observatorio_leitura"]
 
 on-run-end:
-  - "GRANT USAGE ON SCHEMA dbt_marts TO observatorio_leitura"
+  - "GRANT USAGE ON SCHEMA {{ var('prefixo_esquema', '') }}dbt_marts TO observatorio_leitura"
