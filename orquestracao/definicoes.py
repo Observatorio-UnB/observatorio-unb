@@ -3,6 +3,9 @@ Orquestração do pipeline em Dagster (ADR 0030, issue #40).
 
 Cada etapa de scripts/rodar_pipeline.sh vira um asset que roda o mesmo script: a lógica continua
 em src/, e aqui fica só o grafo de dependências, o retry de cada etapa e as partições do backfill.
+Este grafo é a fonte da verdade da ordem das etapas: é ele que roda no agendamento mensal e no CI.
+O rodar_pipeline.sh fica para o Docker e para quem roda sem o Dagster, e um teste
+(tests/test_unit_orquestracao.py) acusa se os dois deixarem de chamar os mesmos scripts.
 Os modelos do dbt (transform/) entram no grafo um a um, pelo dagster-dbt, e os testes do dbt viram
 checagens dos assets.
 
@@ -14,7 +17,8 @@ checagens dos assets.
 Uso:
     dagster dev -m orquestracao                               # UI em http://localhost:3000
     dagster job execute -m orquestracao -j pipeline_mensal
-    dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio --partition-range 2000...2025
+    dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio \
+        --partition-range "$(python -c 'from orquestracao.definicoes import INTERVALO_BACKFILL as i; print(i)')"
 
 Retry, falha forçada e backfill demonstrados em docs/orquestracao.md.
 """
@@ -56,24 +60,37 @@ for _nome, _valor in variaveis_dbt().items():
 DBT_DIR = BASE_DIR / "transform"
 MANIFEST = DBT_DIR / "target" / "manifest.json"
 
-# Banco e rede caem por instantes: três novas tentativas, com espera exponencial (10, 30 e 70 s;
-# ver docs/orquestracao.md). O portal CKAN, mais instável, espera mais entre elas (30, 90 e 210 s).
+# Banco e rede caem por instantes: três novas tentativas. A espera é exponencial e conta entre uma
+# tentativa e a seguinte (não é acumulada): 10, 30 e 70 s depois de cada falha (docs/orquestracao.md).
+# O portal CKAN, mais instável, espera mais: 30, 90 e 210 s.
 RETRY_BANCO = RetryPolicy(max_retries=3, delay=10, backoff=Backoff.EXPONENTIAL)
 RETRY_PORTAL = RetryPolicy(max_retries=3, delay=30, backoff=Backoff.EXPONENTIAL)
 
-# Quinquênios de ingresso dos vínculos, a partição do lago (ADR 0024): de 2000 ao atual.
+# Uma etapa travada (rede pendurada, lock no banco) vira falha depois de 1 h, e o retry assume.
+TEMPO_MAXIMO_ETAPA = 3600
+
+# Quinquênios de ingresso dos vínculos, a partição do lago (ADR 0024): de 2000 ao atual. O intervalo
+# completo, para o backfill de todas as janelas, cresce sozinho com o ano (usado no medalhao.yml).
 QUINQUENIOS = StaticPartitionsDefinition([str(q) for q in range(2000, date.today().year + 1, 5)])
+INTERVALO_BACKFILL = f"{QUINQUENIOS.get_partition_keys()[0]}...{QUINQUENIOS.get_partition_keys()[-1]}"
 
 
 def rodar(context: AssetExecutionContext, script: str, *argumentos: str, tolerar_falha: bool = False) -> None:
     """Roda um script do pipeline com o mesmo Python do Dagster e leva a saída para o log do asset.
 
-    Saída diferente de zero levanta Failure, e o Dagster aplica o retry do asset. Com tolerar_falha,
-    a falha vira aviso: é o `|| echo AVISO` do rodar_pipeline.sh, para fontes que caem com frequência.
+    Saída diferente de zero, ou mais de TEMPO_MAXIMO_ETAPA rodando, levanta Failure, e o Dagster
+    aplica o retry do asset. Com tolerar_falha, a falha vira aviso: é o `|| echo AVISO` do
+    rodar_pipeline.sh, para fontes que caem com frequência.
     """
     comando = [sys.executable, script, *argumentos]
     context.log.info(f"Rodando {' '.join(comando[1:])} (tentativa {context.retry_number + 1})")
-    resultado = subprocess.run(comando, cwd=BASE_DIR, capture_output=True, text=True)
+    try:
+        resultado = subprocess.run(comando, cwd=BASE_DIR, capture_output=True, text=True, timeout=TEMPO_MAXIMO_ETAPA)
+    except subprocess.TimeoutExpired:
+        if tolerar_falha:
+            context.log.warning(f"{script} passou de {TEMPO_MAXIMO_ETAPA} s; seguindo sem atualizar esta fonte.")
+            return
+        raise Failure(f"{script} passou de {TEMPO_MAXIMO_ETAPA} s e foi interrompido")
     saida = (resultado.stdout + resultado.stderr).strip()
     if saida:
         context.log.info(saida[-4000:])
@@ -171,10 +188,21 @@ class TradutorDbt(DagsterDbtTranslator):
         return "transformacao_dbt"
 
 
-def preparar_manifest() -> Path:
-    """O dagster-dbt monta os assets a partir do manifest; sem ele (CI, clone novo), roda `dbt parse`."""
+def manifest_desatualizado() -> bool:
+    """Sem manifest, ou com algum arquivo do projeto dbt mais novo que ele (modelo, teste ou macro
+    editado depois do último parse): os assets montados a partir dele não bateriam com o dbt."""
     if not MANIFEST.exists():
-        subprocess.run(["bash", "scripts/dbt.sh", "parse", "--quiet"], cwd=BASE_DIR, check=True)
+        return True
+    fontes = [DBT_DIR / "dbt_project.yml",
+              *(p for pasta in ("models", "tests", "macros") for p in (DBT_DIR / pasta).rglob("*") if p.is_file())]
+    return any(p.stat().st_mtime > MANIFEST.stat().st_mtime for p in fontes)
+
+
+def preparar_manifest() -> Path:
+    """O dagster-dbt monta os assets a partir do manifest; desatualizado ou ausente, roda `dbt parse`."""
+    if manifest_desatualizado():
+        subprocess.run(["bash", "scripts/dbt.sh", "parse", "--quiet"], cwd=BASE_DIR, check=True,
+                       capture_output=True, text=True)
     return MANIFEST
 
 
