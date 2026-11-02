@@ -5,6 +5,8 @@ select
     id_estrutura,
     ano_ingresso,
     tipo_saida_grupo,
+    ano_saida,
+    periodo_saida_estimado,
     semestres_permanencia_valida,
     fonte
 from {{ source('silver', 'movimentacoes_vinculos') }}

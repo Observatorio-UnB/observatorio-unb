@@ -195,7 +195,7 @@ camadas e três esquemas: `dbt_staging` (views que só renomeiam a silver, sem o
 
 ```bash
 pip install -r requirements-dbt.txt
-bash scripts/dbt.sh build --full-refresh     # modelos e 35 testes, do zero, na ordem do grafo
+bash scripts/dbt.sh build --full-refresh     # modelos e 61 testes de dados, do zero, na ordem do grafo
 bash scripts/dbt.sh docs generate --static   # documentação e linhagem: transform/target/static_index.html
 ```
 
@@ -203,6 +203,14 @@ O teste `reconcilia_fato_retencao_com_a_gold` exige que o fato do dbt seja igual
 ao `gold.fato_retencao_curso` do pipeline Python. O CI roda o `dbt build` a cada push e publica a
 documentação com a linhagem no GitHub Pages, em `/dbt/`. Escolha da ferramenta e opção nula
 avaliada: [ADR 0029](docs/adr/0029-transformacoes-em-dbt.md).
+
+Os testes cobrem esquema (contrato de tipos), volume, unicidade, integridade referencial,
+distribuição (salto de série entre coortes, desfechos por coorte, curso que some, mediana da evasão)
+e o que o domínio tem de sujo (permanência negativa, saída antes do ingresso).
+`tests/test_dbt_dado_ruim.py` prova que cada um falha ao injetar um dado ruim numa cópia da silver.
+As variáveis `esquema_silver` e `prefixo_esquema` do dbt existem só para essa prova; com os padrões, o
+pipeline não muda.
+Limites, origem de cada um e a tabela de injeções: [docs/testes_de_dados.md](docs/testes_de_dados.md).
 
 ### Lago em formato aberto (Delta Lake)
 `src/db/exportar_lago.py` exporta a Silver 3NF (sem `silver.discentes`) e o Star Schema da
