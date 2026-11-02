@@ -1,0 +1,64 @@
+version: 2
+
+models:
+  - name: dim_curso
+    description: Cursos canônicos, um por linha, com os atributos de classificação.
+    columns:
+      - name: sk_curso
+        description: md5 do nome canônico.
+        data_tests: [unique, not_null]
+      - name: nome_curso
+        data_tests: [unique, not_null]
+      - name: categoria_grau
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["BACHARELADO", "LICENCIATURA", "MISTO"]
+
+  - name: dim_campus
+    description: Campi da UnB e MULTICAMPUS.
+    columns:
+      - name: sk_campus
+        data_tests: [unique, not_null]
+      - name: campus
+        data_tests: [unique, not_null]
+
+  - name: fct_retencao_curso
+    description: >
+      Grão: um registro por curso canônico, agregando as coortes maduras (ingresso até o último ano
+      da base menos 8). Mesmas regras de gold.fato_retencao_curso, com a qual é reconciliada
+      (tests/reconcilia_fato_retencao_com_a_gold.sql).
+    columns:
+      - name: sk_curso
+        description: Chave do grão.
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_curso')
+                field: sk_curso
+      - name: sk_campus
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_campus')
+                field: sk_campus
+      - name: classificacao_retencao
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["RETENÇÃO CRÍTICA", "RETENÇÃO ALTA", "RETENÇÃO MÉDIA", "RETENÇÃO BAIXA"]
+
+  - name: painel_cursos_criticos
+    description: >
+      Tabela de consumo do painel: cursos terminais ordenados pelo Índice de Retenção Crítica,
+      a resposta à pergunta de gestão da E1.
+    columns:
+      - name: nome_curso
+        data_tests: [unique, not_null]
+      - name: posicao
+        description: 1 é o curso mais crítico. Empates no IRC dividem a posição.
+        data_tests: [not_null]
