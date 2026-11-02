@@ -133,22 +133,35 @@ class TestDadoRuim(unittest.TestCase):
             self.conn.execute(f"CREATE TABLE {ESQUEMA}.{tabela} AS SELECT * FROM silver.{tabela}")
 
     def dbt(self, *argumentos: str) -> Dict[str, str]:
-        """Roda o dbt sobre a cópia; devolve o status de cada nó (pass, fail, warn, error, skipped)."""
+        """Roda o dbt sobre a cópia; devolve o status de cada nó (pass, fail, warn, error, skipped).
+
+        O run_results.json é apagado antes: se o dbt morrer sem gravar um novo (erro de compilação ou
+        de conexão), o teste falha aqui, e não lê o resultado do caso anterior. Código 1 é o dbt
+        acusando teste reprovado, que é o esperado nos casos de injeção; 2 ou mais é o dbt quebrado.
+        """
+        resultados = BASE_DIR / "transform" / TARGET / "run_results.json"
+        resultados.unlink(missing_ok=True)
         variaveis = json.dumps({"esquema_silver": ESQUEMA, "prefixo_esquema": PREFIXO})
-        subprocess.run(
+        execucao = subprocess.run(
             ["bash", "scripts/dbt.sh", *argumentos, "--vars", variaveis, "--target-path", TARGET],
             cwd=BASE_DIR, env={**os.environ, "DBT": self.dbt_exe}, capture_output=True, text=True, timeout=600,
         )
-        resultados = json.loads((BASE_DIR / "transform" / TARGET / "run_results.json").read_text())
-        return {r["unique_id"].split(".")[2]: r["status"] for r in resultados["results"]}
+        if execucao.returncode >= 2 or not resultados.exists():
+            self.fail(f"dbt {' '.join(argumentos)} não terminou (código {execucao.returncode}):\n"
+                      f"{(execucao.stdout + execucao.stderr)[-2000:]}")
+        return {r["unique_id"].split(".")[2]: r["status"] for r in json.loads(resultados.read_text())["results"]}
 
     def rodar_dbt(self) -> Dict[str, str]:
         return self.dbt("build", "--full-refresh", "--exclude", "reconcilia_fato_retencao_com_a_gold")
 
     def estragar(self, comandos) -> None:
+        """Estraga a cópia. Comando de dados que não afeta nenhuma linha (o dado mudou e o caso ficou
+        sem alvo, ex.: MEDICINA sem ingressantes em 2014) falha aqui, com o comando na mensagem."""
         self.copiar_silver()
         for comando in comandos:
-            self.conn.execute(comando)
+            linhas = self.conn.execute(comando).rowcount
+            if comando.split()[0] in ("UPDATE", "DELETE", "INSERT"):
+                self.assertGreater(linhas, 0, f"A injeção não afetou nenhuma linha: {comando}")
 
     def test_01_base_sem_injecao_passa(self):
         self.copiar_silver()
