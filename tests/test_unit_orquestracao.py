@@ -2,12 +2,16 @@
 Estrutura do grafo do Dagster (orquestracao/definicoes.py), sem banco: a ordem das etapas, o retry
 de cada uma, as partições do backfill e a ligação dos modelos do dbt ao star schema.
 
-Pulado sem o Dagster instalado (pip install -r requirements-orquestracao.txt).
+Pulado sem o Dagster ou sem o dbt instalados (pip install -r requirements-orquestracao.txt): o grafo
+só monta com o manifest do dbt, gerado por `dbt parse` quando falta ou está desatualizado.
 
 Uso:
     python3 -m unittest tests/test_unit_orquestracao.py
 """
 
+import os
+import re
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -21,6 +25,8 @@ try:
     from orquestracao import definicoes as d
 except ImportError as erro:  # sem dagster/dagster-dbt
     raise unittest.SkipTest(f"Dagster não instalado ({erro}).")
+except subprocess.CalledProcessError as erro:  # sem dbt para gerar o manifest
+    raise unittest.SkipTest(f"dbt indisponível para gerar o manifest ({erro.stderr or erro}).")
 
 
 def chave(nome: str) -> AssetKey:
@@ -65,6 +71,32 @@ class TestGrafo(unittest.TestCase):
         self.assertEqual(particoes[:3], ["2000", "2005", "2010"])
         self.assertTrue(all(int(p) % 5 == 0 for p in particoes))
         self.assertIs(self.grafo.get(chave("lago_vinculos_por_quinquenio")).partitions_def, d.QUINQUENIOS)
+
+    def test_06_mesmos_scripts_no_grafo_e_no_rodar_pipeline(self):
+        """O grafo é a fonte da verdade, e o rodar_pipeline.sh (Docker, sem Dagster) tem de chamar as
+        mesmas etapas: script novo num lado só faz este teste falhar."""
+        shell = set(re.findall(r'"\$PYTHON" (src/[\w/]+\.py)', (BASE_DIR / "scripts" / "rodar_pipeline.sh").read_text()))
+        grafo = set(re.findall(r'rodar\(context, "(src/[\w/]+\.py)"', (BASE_DIR / "orquestracao" / "definicoes.py").read_text()))
+        self.assertTrue(shell)
+        self.assertEqual(grafo, shell)
+        # O dbt entra pelo dagster-dbt no grafo e pelo scripts/dbt.sh no shell.
+        self.assertIn("scripts/dbt.sh build", (BASE_DIR / "scripts" / "rodar_pipeline.sh").read_text())
+        self.assertTrue(d.camadas_dbt.keys)
+
+    def test_07_manifest_desatualizado_quando_um_modelo_muda(self):
+        modelo = BASE_DIR / "transform" / "models" / "marts" / "dim_curso.sql"
+        manifest = d.MANIFEST.stat().st_mtime
+        original = modelo.stat().st_mtime
+        try:
+            os.utime(modelo, (original, manifest + 10))
+            self.assertTrue(d.manifest_desatualizado())
+        finally:
+            os.utime(modelo, (original, original))
+        self.assertFalse(d.manifest_desatualizado())
+
+    def test_08_intervalo_do_backfill_acompanha_as_particoes(self):
+        particoes = d.QUINQUENIOS.get_partition_keys()
+        self.assertEqual(d.INTERVALO_BACKFILL, f"{particoes[0]}...{particoes[-1]}")
 
     def test_05_job_mensal_cobre_tudo_menos_o_backfill(self):
         selecionados = d.pipeline_mensal.selection.resolve(self.grafo)
