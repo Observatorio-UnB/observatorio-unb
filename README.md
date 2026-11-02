@@ -208,6 +208,8 @@ Os testes cobrem esquema (contrato de tipos), volume, unicidade, integridade ref
 distribuição (salto de série entre coortes, desfechos por coorte, curso que some, mediana da evasão)
 e o que o domínio tem de sujo (permanência negativa, saída antes do ingresso).
 `tests/test_dbt_dado_ruim.py` prova que cada um falha ao injetar um dado ruim numa cópia da silver.
+As variáveis `esquema_silver` e `prefixo_esquema` do dbt existem só para essa prova; com os padrões, o
+pipeline não muda.
 Limites, origem de cada um e a tabela de injeções: [docs/testes_de_dados.md](docs/testes_de_dados.md).
 
 ### Lago em formato aberto (Delta Lake)

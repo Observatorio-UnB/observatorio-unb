@@ -18,12 +18,22 @@ Os testes ficam no projeto dbt (`transform/`) e rodam a cada `dbt build`: no CI 
 
 Os limites foram medidos na base de 10/2026 (152.680 vínculos; coortes maduras de 2010 a 2016) e têm folga para a variação normal entre cargas:
 
-| Teste | Regra | Na base atual |
+| Teste | Regra (variável em `transform/dbt_project.yml`) | Na base atual |
 |---|---|---|
-| Salto de série | O volume de uma coorte madura não varia mais de 30% em relação à anterior | Maior variação: 15% (2013 para 2014) |
-| Desfechos por coorte | Evasão entre 30% e 60%, formatura entre 35% e 70%, em cada coorte madura | Evasão de 40% a 47%; formatura de 47% a 57% |
-| Curso que some | Curso com 80 ou mais ingressantes na coorte anterior e na seguinte não pode ter zero na do meio | Os buracos reais são de cursos com entrada alternada, com no máximo 66 ingressantes ao lado (Educação do Campo) |
-| Mediana da evasão por curso | Entre 30% e 60% | 44,2% |
+| Salto de série | O volume de uma coorte madura não varia mais de 30% em relação à anterior (`salto_maximo_entre_coortes`) | Maior variação: 15% (2013 para 2014) |
+| Desfechos por coorte | Evasão entre 30% e 60% (`evasao_por_coorte`) e formatura entre 35% e 70% (`formatura_por_coorte`), em cada coorte madura | Evasão de 40% a 47%; formatura de 47% a 57% |
+| Curso que some | Curso com 80 ou mais ingressantes na coorte anterior e na seguinte não pode ter zero na do meio (`ingressantes_curso_que_some`) | Os buracos reais são de cursos com entrada alternada, com no máximo 66 ingressantes ao lado (Educação do Campo) |
+| Mediana da evasão por curso | Entre 30% e 60% (`mediana_evasao_por_curso`) | 44,2% |
+
+**Ponto cego do "curso que some".** O teste só olha cursos com 80 ou mais ingressantes nas duas coortes vizinhas. Abaixo disso, a entrada alternada real (Educação do Campo, Teatro, Música) daria alarme falso. Um curso pequeno que some não é acusado.
+
+### Quando revisar os limites
+
+Os limites são números fixos, medidos numa base: quando ela mudar de patamar, um teste pode falhar sem que o dado esteja errado. Revisar:
+
+- **A cada nova coorte madura** (todo ano, quando o corte de 8 anos avança): rodar as consultas dos testes de distribuição sem o filtro e conferir se os valores novos cabem nas faixas.
+- **Quando um teste de distribuição ou de volume falhar:** antes de mudar o limite, conferir se é erro de dado (carga parcial, mapeamento quebrado). Só mude o limite se o valor novo estiver certo, e registre o motivo aqui.
+- **Onde mudar:** os limites de distribuição são `vars` em `transform/dbt_project.yml`. As faixas de volume ficam nos `_staging.yml` e `_marts.yml`, porque o nome dos testes genéricos, usado pela prova de injeção, sai dos argumentos.
 
 **A anomalia conhecida.** Há 9 vínculos do SIGAA com a saída antes do ingresso. Todos têm o período de saída estimado pela data do diploma (ADR 0015), e todos ingressaram em 2023 ou 2024. Esses casos geram aviso, e viram erro se passarem de 50. Saída antes do ingresso com o período publicado pela fonte é sempre erro.
 
@@ -44,6 +54,8 @@ Os limites foram medidos na base de 10/2026 (152.680 vínculos; coortes maduras 
 | Permanência de −3 semestres | `entre` de `semestres_permanencia_valida` |
 | Saída dois anos antes do ingresso, com período publicado | `dominio_saida_antes_do_ingresso` |
 | Prazo ideal zerado numa matriz | `entre` de `semestre_ideal` |
+
+A prova roda em esquemas próprios graças a duas variáveis do dbt que só ela usa: `esquema_silver` (de onde o staging lê; padrão `silver`) e `prefixo_esquema` (prefixo dos esquemas de saída; padrão vazio). Com os padrões, nada muda no pipeline.
 
 Ficam de fora da injeção dois testes que o dado da silver não consegue violar: o k-anonimato e a soma dos desfechos. O primeiro é garantido pelo `HAVING` do modelo, e o segundo pela contagem sobre os mesmos vínculos. Os dois existem para pegar uma regressão no modelo, não um dado sujo.
 
