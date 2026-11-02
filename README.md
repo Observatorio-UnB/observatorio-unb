@@ -119,8 +119,9 @@ python3 src/pipeline/build_gold.py
 python3 src/audit/quality_auditor.py
 python3 src/privacy/lgpd_check.py
 
-# 5. Povoamento dimensional (Silver 3NF e Star Schema da gold) e export para o lago Delta
+# 5. Povoamento dimensional (Silver 3NF e Star Schema da gold), camadas dbt e export para o lago Delta
 python3 src/db/povoar_dimensional.py
+pip install -r requirements-dbt.txt && bash scripts/dbt.sh build --full-refresh
 python3 src/db/exportar_lago.py --janelas-alteradas
 
 # 6. Busca semântica e dicionário de dados do banco
@@ -184,6 +185,24 @@ Star Schema e `busca.documentos` do banco local para `SUPABASE_DATABASE_URL`. A 
 pela chave natural: insere o que é novo, atualiza o que mudou (`--somente-inserir` desliga a
 atualização) e não apaga nada; rodar de novo sem mudança não escreve nenhuma linha. No CI a
 etapa usa o secret `SUPABASE_DATABASE_URL` e não roda em pull request.
+
+### Transformações em dbt (staging, intermediate e marts)
+O projeto `transform/` reconstrói a camada de consumo a partir da Silver 3NF, com dbt, em três
+camadas e três esquemas: `dbt_staging` (views que só renomeiam a silver, sem o `id_discente`),
+`dbt_intermediate` (atributos do curso, coortes maduras, métricas com k ≥ 5 e IRC) e `dbt_marts`
+(`dim_curso`, `dim_campus`, `fct_retencao_curso` e `painel_cursos_criticos`, o ranking que responde
+à pergunta da E1). Só os marts são legíveis pelo papel `observatorio_leitura`.
+
+```bash
+pip install -r requirements-dbt.txt
+bash scripts/dbt.sh build --full-refresh     # modelos e 35 testes, do zero, na ordem do grafo
+bash scripts/dbt.sh docs generate --static   # documentação e linhagem: transform/target/static_index.html
+```
+
+O teste `reconcilia_fato_retencao_com_a_gold` exige que o fato do dbt seja igual, curso a curso,
+ao `gold.fato_retencao_curso` do pipeline Python. O CI roda o `dbt build` a cada push e publica a
+documentação com a linhagem no GitHub Pages, em `/dbt/`. Escolha da ferramenta e opção nula
+avaliada: [ADR 0029](docs/adr/0029-transformacoes-em-dbt.md).
 
 ### Lago em formato aberto (Delta Lake)
 `src/db/exportar_lago.py` exporta a Silver 3NF (sem `silver.discentes`) e o Star Schema da

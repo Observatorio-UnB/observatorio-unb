@@ -153,19 +153,24 @@ O PostgreSQL gerencia tabelas particionadas criando relações físicas filhas n
 ## 4. Camada Gold: Modelo Dimensional (Star Schema de Kimball)
 
 ### 4.1 Dimensão `gold.dim_curso`
-* **Tipo**: Dimensão Conformada (SCD Tipo 1).
-* **Chave Natural Única**: `nome_curso TEXT NOT NULL UNIQUE`. A surrogate key `sk_curso` não muda ao inserir cursos.
+* **Tipo**: Dimensão Conformada, **SCD Tipo 2** (migração `0025_dim_curso_scd2.sql`, [ADR 0028](../adr/0028-dim-curso-scd-tipo-2.md)). Cada linha é uma versão dos atributos de classificação de um curso.
+* **Chave Natural**: `nome_curso`. **Versão**: `UNIQUE (nome_curso, vigente_de)`. Uma única versão atual por curso (`EXCLUDE ... WHERE is_atual`, adiada para o commit).
+* **Atributos rastreados (tipo 2)**: `grau_academico`, `categoria_grau`, `area_conhecimento`, `departamento`, `is_tronco_abi`. Mudança em qualquer um fecha a versão atual e abre outra, com `sk_curso` nova. `id_curso_origem` é tipo 1 (sobrescrito na versão atual).
+* **Fatos**: são recriados a cada carga e apontam para a versão atual. A surrogate key de um curso não muda quando outro curso entra.
 
 | Coluna | Tipo Físico | Nulo? | Padrão / Restrição | Descrição Semântica |
 |:---|:---|:---:|:---:|:---|
 | `sk_curso` | `INTEGER` | **NÃO** | **PK** (`GENERATED ALWAYS AS IDENTITY`) | Chave substituta (*Surrogate Key*) dimensional. |
-| `nome_curso` | `TEXT` | **NÃO** | **UK** (`UNIQUE`) | Nome canônico do curso (chave natural da dimensão). |
+| `nome_curso` | `TEXT` | **NÃO** | **UK** com `vigente_de` | Nome canônico do curso (chave natural da dimensão). |
 | `id_curso_origem` | `INTEGER` | SIM | - | Identificador numérico do curso dono da matriz no catálogo. |
 | `grau_academico` | `TEXT` | **NÃO** | - | Bacharelado vs Licenciatura. |
 | `categoria_grau` | `TEXT` | **NÃO** | `CHECK (categoria_grau IN ('BACHARELADO', 'LICENCIATURA', 'MISTO'))` | Categoria agregada de titulação. |
 | `area_conhecimento`| `TEXT` | **NÃO** | - | Grande área acadêmica. |
 | `departamento` | `TEXT` | SIM | - | Departamento de lotação. |
 | `is_tronco_abi` | `BOOLEAN` | **NÃO** | `DEFAULT false` | Indicador de curso de tronco comum (Área Básica de Ingresso). |
+| `vigente_de` | `TIMESTAMPTZ` | **NÃO** | **UK** com `nome_curso`; `DEFAULT '1962-04-21'` | Início da versão: a carga que observou os atributos. A primeira versão de cada curso vale desde a fundação da UnB. |
+| `vigente_ate` | `TIMESTAMPTZ` | SIM | `CHECK (vigente_ate > vigente_de)` | Fim da versão: a carga que observou a mudança. Nulo na versão atual. |
+| `is_atual` | `BOOLEAN` | **NÃO** | `CHECK (is_atual = (vigente_ate IS NULL))` | Versão vigente hoje. |
 
 ---
 

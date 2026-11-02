@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: stg_cursos
+    description: Ofertas do catálogo de cursos, uma por id_curso.
+    columns:
+      - name: id_curso
+        data_tests: [unique, not_null]
+      - name: nome_curso
+        data_tests: [not_null]
+      - name: categoria_grau
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["BACHARELADO", "LICENCIATURA", "MISTO"]
+
+  - name: stg_estruturas_curriculares
+    description: Matrizes curriculares, uma por curso canônico.
+    columns:
+      - name: id_estrutura
+        data_tests: [unique, not_null]
+      - name: nome_curso
+        data_tests: [unique, not_null]
+      - name: id_curso_dono
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_cursos')
+                field: id_curso
+
+  - name: stg_vinculos
+    description: Vínculos de graduação, um por linha, sem identificação do discente.
+    columns:
+      - name: id_vinculo
+        data_tests: [unique, not_null]
+      - name: id_estrutura
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_estruturas_curriculares')
+                field: id_estrutura
+      - name: tipo_saida_grupo
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["FORMATURA", "EVASAO", "ATIVO", "OUTROS"]

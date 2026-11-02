@@ -68,11 +68,14 @@ class TestPovoamento(unittest.TestCase):
         self.assertEqual(truncates, [f"TRUNCATE {', '.join(dimensional.FATOS)} RESTART IDENTITY"])
         for dim in dimensional.DIMENSOES:
             self.assertNotIn(dim, truncates[0])
-        # Dimensões antes do TRUNCATE (upsert), fatos depois.
+        # Dimensões antes do TRUNCATE (upsert, ou versões da SCD da dim_curso), fatos depois.
         corte = sqls.index(truncates[0])
         alvos = [re.search(r"INSERT INTO (\S+)", s).group(1) for s in sqls if "INSERT INTO" in s]
         self.assertEqual(alvos, list(dimensional.TABELAS_GOLD))
-        self.assertTrue(all("ON CONFLICT" in s for s in sqls[:corte]))
+        scd = [" ".join(s.split()) for s in dimensional.SQL_DIM_CURSO]
+        self.assertTrue(all("ON CONFLICT" in s for s in sqls[:corte] if s not in scd))
+        # A SCD fecha as versões antes de abrir as novas.
+        self.assertEqual([s for s in sqls[:corte] if s in scd], scd)
         self.assertFalse(any("ON CONFLICT" in s for s in sqls[corte:]))
         self.assertEqual(set(contagens), set(dimensional.TABELAS_GOLD))
 

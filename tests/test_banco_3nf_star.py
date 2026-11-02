@@ -3,7 +3,7 @@ Testes de integração da Silver 3NF e do Star Schema da gold (precisam de Postg
 
 Dois grupos:
   - TestRestricoes3NFStar: restrições do esquema (unicidade, FK, partição DEFAULT, k >= 5, chave
-    natural da dim_curso). Só precisam das migrações: cada teste cria as próprias linhas numa
+    natural e versões da dim_curso). Só precisam das migrações: cada teste cria as próprias linhas numa
     transação desfeita no fim, e roda num banco vazio.
   - TestCarga3NFStar: conferem o resultado de src/db/povoar_dimensional.py contra as tabelas de
     origem. São pulados se a silver não foi carregada (ex.: banco só com a gold).
@@ -32,7 +32,7 @@ from src.db.povoar_silver_3nf import povoar_silver_3nf, silver_carregada  # noqa
 
 # Chaves substitutas de dim_curso e dim_perfil_social, que a recarga não pode mudar.
 SQL_CHAVES = """
-    SELECT 'curso', nome_curso, sk_curso FROM gold.dim_curso
+    SELECT 'curso', nome_curso || '|' || vigente_de, sk_curso FROM gold.dim_curso
     UNION ALL
     SELECT 'perfil', concat_ws('|', perfil_macro, categoria_cota, faixa_renda, is_cotista), sk_perfil
     FROM gold.dim_perfil_social
@@ -138,16 +138,17 @@ class TestRestricoes3NFStar(unittest.TestCase):
 
     def test_05_curso_novo_nao_muda_a_chave_dos_existentes(self):
         """A chave substituta segue a chave natural: um curso que entra antes na ordem alfabética não desloca as outras."""
-        upsert = """
+        inserir = """
             INSERT INTO gold.dim_curso (nome_curso, grau_academico, categoria_grau, area_conhecimento)
             VALUES (%s, 'BACHARELADO', 'BACHARELADO', 'TESTE')
-            ON CONFLICT (nome_curso) DO UPDATE SET area_conhecimento = EXCLUDED.area_conhecimento
             RETURNING sk_curso
         """
         with self.conn.transaction():
-            sk_antes = self.conn.execute(upsert, ("ZZ CURSO TESTE",)).fetchone()[0]
-            self.conn.execute(upsert, ("AA CURSO TESTE",))
-            sk_depois = self.conn.execute(upsert, ("ZZ CURSO TESTE",)).fetchone()[0]
+            sk_antes = self.conn.execute(inserir, ("ZZ CURSO TESTE",)).fetchone()[0]
+            self.conn.execute(inserir, ("AA CURSO TESTE",))
+            sk_depois = self.conn.execute(
+                "SELECT sk_curso FROM gold.dim_curso WHERE nome_curso = 'ZZ CURSO TESTE' AND is_atual"
+            ).fetchone()[0]
             self.assertEqual(sk_antes, sk_depois)
             raise Rollback()
 
