@@ -1,0 +1,28 @@
+# Retry com o banco derrubado de propósito
+#
+# 19:30:02  docker compose stop db   (o Postgres sai do ar)
+#           dagster asset materialize -m orquestracao --select '(group:gold and not key:gold_tabular) or key:view_painel'
+# 19:30:27  docker compose start db  (o Postgres volta)
+#
+# Esperado: star_schema falha, é repetido com espera de 10 s e 30 s, passa quando o banco volta;
+# view_painel só roda depois dele. Log do Dagster filtrado (scripts e eventos de etapa).
+
+2026-11-02 19:30:04 -0300 - RUN_START - Started execution of run for "__ASSET_JOB".
+2026-11-02 19:30:04 -0300 - star_schema - STEP_START - Started execution of step "star_schema".
+2026-11-02 19:30:04 -0300 - star_schema - Rodando src/db/povoar_dimensional.py (tentativa 1)
+psycopg.OperationalError: connection failed: connection to server at "127.0.0.1", port 5435 failed: Connection refused
+2026-11-02 19:30:04 -0300 - star_schema - STEP_UP_FOR_RETRY - Execution of step "star_schema" failed and has requested a retry in 10 seconds.
+Failure: src/db/povoar_dimensional.py terminou com código 1
+2026-11-02 19:30:14 -0300 - star_schema - STEP_RESTARTED - Started re-execution (attempt # 2) of step "star_schema".
+2026-11-02 19:30:15 -0300 - star_schema - Rodando src/db/povoar_dimensional.py (tentativa 2)
+psycopg.OperationalError: connection failed: connection to server at "127.0.0.1", port 5435 failed: Connection refused
+2026-11-02 19:30:15 -0300 - star_schema - STEP_UP_FOR_RETRY - Execution of step "star_schema" failed and has requested a retry in 30 seconds.
+Failure: src/db/povoar_dimensional.py terminou com código 1
+2026-11-02 19:30:45 -0300 - star_schema - STEP_RESTARTED - Started re-execution (attempt # 3) of step "star_schema".
+2026-11-02 19:30:45 -0300 - star_schema - Rodando src/db/povoar_dimensional.py (tentativa 3)
+2026-11-02 19:30:48 -0300 - star_schema - STEP_SUCCESS - Finished execution of step "star_schema" in 3.44s.
+2026-11-02 19:30:48 -0300 - view_painel - STEP_START - Started execution of step "view_painel".
+2026-11-02 19:30:48 -0300 - view_painel - Rodando src/db/atualizar_view_painel.py (tentativa 1)
+2026-11-02 19:30:49 -0300 - view_painel - STEP_SUCCESS - Finished execution of step "view_painel" in 380ms.
+2026-11-02 19:30:49 -0300 - RUN_SUCCESS - Finished execution of run for "__ASSET_JOB".
+dagster exit=0

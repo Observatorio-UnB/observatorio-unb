@@ -204,6 +204,22 @@ ao `gold.fato_retencao_curso` do pipeline Python. O CI roda o `dbt build` a cada
 documentação com a linhagem no GitHub Pages, em `/dbt/`. Escolha da ferramenta e opção nula
 avaliada: [ADR 0029](docs/adr/0029-transformacoes-em-dbt.md).
 
+### Orquestração (Dagster)
+O pipeline também roda como um grafo do Dagster (`orquestracao/`, ADR 0030). Cada etapa chama o
+mesmo script deste roteiro, com dependências explícitas e retry por etapa (3 novas tentativas, com
+espera exponencial). Os 12 modelos do dbt entram um a um, depois do star schema. O `atualiza-dados.yml`
+dispara o job `pipeline_mensal` no dia 1 de cada mês, e o lago tem backfill por quinquênio de ingresso.
+
+```bash
+pip install -r requirements-orquestracao.txt
+dagster dev -m orquestracao                     # UI em http://localhost:3000
+dagster job execute -m orquestracao -j pipeline_mensal
+dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio --partition-range 2000...2025
+```
+
+Retry com o banco derrubado de propósito, falha definitiva, backfill de uma janela perdida e o job
+completo, com os logs: [docs/orquestracao.md](docs/orquestracao.md).
+
 ### Lago em formato aberto (Delta Lake)
 `src/db/exportar_lago.py` exporta a Silver 3NF (sem `silver.discentes`) e o Star Schema da
 gold para tabelas Delta Lake em `data/lake/lote/` (não versionado). São arquivos Parquet com
