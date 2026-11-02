@@ -38,7 +38,7 @@ A E3 pede transformações declarativas e versionadas, em camadas.
 - **Acesso.** Só os marts, agregados com k ≥ 5, recebem `GRANT SELECT` para `observatorio_leitura`. `staging` e `intermediate` carregam vínculos individuais e ficam inacessíveis a esse papel, como a silver.
 - **Chave substituta por hash do nome** (`md5(nome_curso)`). É estável entre reconstruções e entre bancos, o que um `IDENTITY` não é.
 - **Reconciliação com a gold atual.** O teste `reconcilia_fato_retencao_com_a_gold` exige que `fct_retencao_curso` seja igual, curso a curso e em todas as medidas, ao `gold.fato_retencao_curso` do pipeline Python. Com o corte de maturação trocado para 7 anos, o teste acusa 188 diferenças, então ele não passa por acaso.
-- **No CI** (`medalhao.yml`), depois do refresh da view do painel: `dbt build --full-refresh` reconstrói tudo do zero e roda os 35 testes. Em seguida, `dbt docs generate --static` gera a documentação e a linhagem, publicadas no GitHub Pages em `/dbt/`. No `rodar_pipeline.sh` e na imagem Docker a etapa também roda; fora deles, sem o dbt instalado, ela só avisa.
+- **No CI** (`medalhao.yml`), depois do refresh da view do painel: `dbt build --full-refresh` reconstrói tudo do zero e roda os testes de dados (`docs/testes_de_dados.md`). Em seguida, `dbt docs generate --static` gera a documentação e a linhagem, publicadas no GitHub Pages em `/dbt/`. No `rodar_pipeline.sh` e na imagem Docker a etapa também roda; fora deles, sem o dbt instalado, ela só avisa.
 
 ## Consequências
 
