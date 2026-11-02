@@ -102,7 +102,8 @@ jobs:
         run: |
           mkdir -p "$DAGSTER_HOME"
           dagster definitions validate -m orquestracao
-          dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio --partition-range 2000...2025
+          INTERVALO=$(python -c 'from orquestracao.definicoes import INTERVALO_BACKFILL as i; print(i)')
+          dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio --partition-range "$INTERVALO"
 
       - name: "Cache do modelo de embedding"
         uses: actions/cache@v4
