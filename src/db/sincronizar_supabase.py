@@ -215,6 +215,8 @@ def main(argv: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--somente-inserir", action="store_true",
                         help="Não atualiza linhas que já existem no Supabase, mesmo que tenham mudado.")
+    parser.add_argument("--verificar", action="store_true",
+                        help="Executa auditoria e reconciliação com o Supabase após a sincronização.")
     args = parser.parse_args(argv)
 
     url_destino = ler_variavel("SUPABASE_DATABASE_URL")
@@ -226,6 +228,10 @@ def main(argv: Optional[List[str]] = None):
         raise SystemExit("DATABASE_URL e SUPABASE_DATABASE_URL apontam para o mesmo banco. "
                          "DATABASE_URL deve ser o banco local do pipeline.")
     sincronizar(url_destino, args.somente_inserir)
+    if args.verificar:
+        from src.db.reconciliar_supabase import executar_auditoria_completa, formatar_relatorio_markdown
+        auditoria = executar_auditoria_completa(url_destino, database_url() if ler_variavel("DATABASE_URL") else None)
+        print(formatar_relatorio_markdown(auditoria))
 
 
 if __name__ == "__main__":
