@@ -32,3 +32,4 @@ Cada arquivo registra uma decisão: o contexto que a motivou, o que foi decidido
 | 0026 | [Dado atrasado aceito e registrado pela marca d'água, com reprocessamento só da janela alterada](0026-dado-atrasado-marca-dagua.md) | 2026-10-13 |
 | 0028 | [`gold.dim_curso` como dimensão de variação lenta tipo 2](0028-dim-curso-scd-tipo-2.md) | 2026-11-01 |
 | 0029 | [Transformações da gold em dbt, em três camadas](0029-transformacoes-em-dbt.md) | 2026-11-01 |
+| 0030 | [Modelagem analítica em estrela com fato no grão do curso, transformação em dbt e orquestração em Dagster](0030-modelagem-analitica-e-ferramentas.md) | 2026-11-01 |
