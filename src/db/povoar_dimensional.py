@@ -3,7 +3,7 @@ Povoamento do Star Schema da gold a partir da Silver 3NF, dentro do PostgreSQL.
 
   1. Silver 3NF (src/db/povoar_silver_3nf.py)
   2. gold.dim_campus        <- silver.cursos
-  3. gold.dim_curso         <- silver.estruturas_curriculares + silver.cursos (chave natural nome_curso)
+  3. gold.dim_curso         <- silver.estruturas_curriculares + silver.cursos (SCD tipo 2 por nome_curso)
   4. gold.dim_tempo         <- anos de ingresso de silver.movimentacoes_vinculos até o ano corrente
   5. gold.dim_perfil_social <- silver.pibic_projetos
   6. gold.fato_retencao_curso <- silver.movimentacoes_vinculos (coortes maduras: contagens, taxas,
@@ -12,7 +12,9 @@ Povoamento do Star Schema da gold a partir da Silver 3NF, dentro do PostgreSQL.
   8. gold.fato_pibic_perfil   <- silver.pibic_projetos (por curso e perfil social)
 
 As dimensões são atualizadas por chave natural (upsert): a chave substituta de um curso não muda
-quando outro curso entra. Os fatos são recriados por inteiro a cada execução.
+quando outro curso entra. A dim_curso guarda histórico (SCD tipo 2): mudança de atributo rastreado
+fecha a versão atual e abre outra, com chave substituta nova. Os fatos são recriados por inteiro a
+cada execução e apontam para a versão atual.
 
 O refresh da gold.mv_dashboard_executivo fica em src/db/atualizar_view_painel.py, etapa seguinte.
 
@@ -61,36 +63,69 @@ ON CONFLICT (campus) DO UPDATE SET regiao_admin = EXCLUDED.regiao_admin
 # Mesmas regras de build_gold.py: os atributos vêm da oferta principal do nome (catálogo vigente,
 # menor id_curso), e bacharelado + licenciatura com o mesmo nome vira MISTO. Sem oferta com o nome
 # (ex.: COMUNICACAO SOCIAL), valem os do curso dono da matriz.
-SQL_DIM_CURSO = """
+SQL_ORIGEM_CURSO = """
 WITH principal AS (
     SELECT DISTINCT ON (nome_curso_norm) *
     FROM silver.cursos
     ORDER BY nome_curso_norm, ativo DESC, id_curso
 ), misto AS (
     SELECT nome_curso_norm FROM silver.cursos GROUP BY nome_curso_norm HAVING count(DISTINCT categoria_grau) > 1
+), origem AS (
+    SELECT e.nome_curso_canonico AS nome_curso,
+           e.id_curso AS id_curso_origem,
+           CASE WHEN m.nome_curso_norm IS NOT NULL THEN 'MISTO (BACHARELADO + LICENCIATURA)'
+                ELSE coalesce(p.grau_academico, dono.grau_academico) END AS grau_academico,
+           CASE WHEN m.nome_curso_norm IS NOT NULL THEN 'MISTO'
+                ELSE coalesce(p.categoria_grau, dono.categoria_grau) END AS categoria_grau,
+           coalesce(p.area_conhecimento, dono.area_conhecimento) AS area_conhecimento,
+           coalesce(p.departamento, dono.departamento) AS departamento,
+           coalesce(p.is_tronco_abi, dono.is_tronco_abi) AS is_tronco_abi
+    FROM silver.estruturas_curriculares e
+    JOIN silver.cursos dono ON dono.id_curso = e.id_curso
+    LEFT JOIN principal p ON p.nome_curso_norm = e.nome_curso_canonico
+    LEFT JOIN misto m ON m.nome_curso_norm = e.nome_curso_canonico
 )
-INSERT INTO gold.dim_curso (nome_curso, id_curso_origem, grau_academico, categoria_grau, area_conhecimento,
-                            departamento, is_tronco_abi)
-SELECT e.nome_curso_canonico,
-       e.id_curso,
-       CASE WHEN m.nome_curso_norm IS NOT NULL THEN 'MISTO (BACHARELADO + LICENCIATURA)'
-            ELSE coalesce(p.grau_academico, dono.grau_academico) END,
-       CASE WHEN m.nome_curso_norm IS NOT NULL THEN 'MISTO' ELSE coalesce(p.categoria_grau, dono.categoria_grau) END,
-       coalesce(p.area_conhecimento, dono.area_conhecimento),
-       coalesce(p.departamento, dono.departamento),
-       coalesce(p.is_tronco_abi, dono.is_tronco_abi)
-FROM silver.estruturas_curriculares e
-JOIN silver.cursos dono ON dono.id_curso = e.id_curso
-LEFT JOIN principal p ON p.nome_curso_norm = e.nome_curso_canonico
-LEFT JOIN misto m ON m.nome_curso_norm = e.nome_curso_canonico
-ON CONFLICT (nome_curso) DO UPDATE
-SET id_curso_origem = EXCLUDED.id_curso_origem,
-    grau_academico = EXCLUDED.grau_academico,
-    categoria_grau = EXCLUDED.categoria_grau,
-    area_conhecimento = EXCLUDED.area_conhecimento,
-    departamento = EXCLUDED.departamento,
-    is_tronco_abi = EXCLUDED.is_tronco_abi
 """
+
+# SCD tipo 2 (migração 0025, ADR 0028). Três passos na transação da carga, em que now() é o mesmo:
+# a versão fechada termina no instante em que a nova começa.
+#  1. fecha a versão atual dos cursos cujos atributos rastreados mudaram;
+#  2. abre versão para quem ficou sem versão atual: o curso que mudou (vigente desde agora) e o
+#     curso novo (vigente desde a fundação da UnB, como a primeira versão de todos);
+#  3. sobrescreve id_curso_origem na versão atual (tipo 1).
+# Curso que some da origem fica com a última versão atual: a gold não apaga curso.
+ATRIBUTOS_TIPO_2 = ("grau_academico", "categoria_grau", "area_conhecimento", "departamento", "is_tronco_abi")
+INICIO_DA_SERIE = "1962-04-21 00:00:00-03"
+
+SQL_DIM_CURSO_FECHAR = SQL_ORIGEM_CURSO + f"""
+UPDATE gold.dim_curso d
+SET vigente_ate = now(), is_atual = false
+FROM origem o
+WHERE d.nome_curso = o.nome_curso
+  AND d.is_atual
+  AND ({', '.join('d.' + a for a in ATRIBUTOS_TIPO_2)}) IS DISTINCT FROM ({', '.join('o.' + a for a in ATRIBUTOS_TIPO_2)})
+"""
+
+SQL_DIM_CURSO_ABRIR = SQL_ORIGEM_CURSO + f"""
+INSERT INTO gold.dim_curso (nome_curso, id_curso_origem, {', '.join(ATRIBUTOS_TIPO_2)}, vigente_de, vigente_ate, is_atual)
+SELECT o.nome_curso, o.id_curso_origem, {', '.join('o.' + a for a in ATRIBUTOS_TIPO_2)},
+       CASE WHEN EXISTS (SELECT 1 FROM gold.dim_curso d WHERE d.nome_curso = o.nome_curso)
+            THEN now() ELSE TIMESTAMPTZ '{INICIO_DA_SERIE}' END,
+       NULL, true
+FROM origem o
+WHERE NOT EXISTS (SELECT 1 FROM gold.dim_curso d WHERE d.nome_curso = o.nome_curso AND d.is_atual)
+"""
+
+SQL_DIM_CURSO_TIPO_1 = SQL_ORIGEM_CURSO + """
+UPDATE gold.dim_curso d
+SET id_curso_origem = o.id_curso_origem
+FROM origem o
+WHERE d.nome_curso = o.nome_curso
+  AND d.is_atual
+  AND d.id_curso_origem IS DISTINCT FROM o.id_curso_origem
+"""
+
+SQL_DIM_CURSO = (SQL_DIM_CURSO_FECHAR, SQL_DIM_CURSO_ABRIR, SQL_DIM_CURSO_TIPO_1)
 
 SQL_DIM_TEMPO = """
 INSERT INTO gold.dim_tempo (sk_tempo, ano, semestre, rotulo, decada)
@@ -191,7 +226,7 @@ SELECT dc.sk_curso, camp.sk_campus, m.ingressantes, m.formados, m.evadidos, m.at
 FROM metricas m
 JOIN irc i USING (curso)
 CROSS JOIN quartis q
-JOIN gold.dim_curso dc ON dc.nome_curso = m.curso
+JOIN gold.dim_curso dc ON dc.nome_curso = m.curso AND dc.is_atual
 JOIN campus_do_curso cc ON cc.curso = m.curso
 JOIN gold.dim_campus camp ON camp.campus = cc.campus
 """
@@ -206,7 +241,7 @@ SELECT dc.sk_curso, ps.sk_perfil, count(*),
        sum(p.valor_bolsa_total)
 FROM silver.pibic_projetos p
 JOIN silver.estruturas_curriculares e USING (id_estrutura)
-JOIN gold.dim_curso dc ON dc.nome_curso = e.nome_curso_canonico
+JOIN gold.dim_curso dc ON dc.nome_curso = e.nome_curso_canonico AND dc.is_atual
 JOIN gold.dim_perfil_social ps
   ON ps.perfil_macro = coalesce(p.perfil_social_macro, 'NAO INFORMADO')
  AND ps.categoria_cota = coalesce(p.cota_detalhe, 'NAO INFORMADO')
@@ -222,13 +257,13 @@ INSERT INTO gold.fato_alunos_ativos (sk_curso, sk_tempo_referencia, total_ativos
 SELECT dc.sk_curso, replace(a.periodo_referencia, '/', '')::int, a.total_ativos_hoje,
        a.ativos_acima_prazo_ideal, a.ativos_acima_prazo_maximo, a.pct_acima_prazo_ideal
 FROM gold.ativos_hoje_cursos_unb a
-JOIN gold.dim_curso dc ON dc.nome_curso = a.curso
+JOIN gold.dim_curso dc ON dc.nome_curso = a.curso AND dc.is_atual
 """
 
 
 def povoar_gold_dimensional(conn: psycopg.Connection) -> Dict[str, int]:
     """Atualiza dimensões e recria fatos na transação de `conn`; devolve o número de linhas por tabela."""
-    for sql in (SQL_DIM_CAMPUS, SQL_DIM_CURSO, SQL_DIM_TEMPO, SQL_DIM_PERFIL_SOCIAL):
+    for sql in (SQL_DIM_CAMPUS, *SQL_DIM_CURSO, SQL_DIM_TEMPO, SQL_DIM_PERFIL_SOCIAL):
         conn.execute(sql)
     conn.execute(f"TRUNCATE {', '.join(FATOS)} RESTART IDENTITY")
     conn.execute(SQL_FATO_RETENCAO, {"anos_maturacao": ANOS_MATURACAO_COORTE})
