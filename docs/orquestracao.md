@@ -4,6 +4,8 @@ O pipeline roda como um grafo de assets do Dagster (`orquestracao/definicoes.py`
 
 ## O grafo
 
+**O grafo do Dagster é a fonte da verdade da ordem das etapas**: é ele que roda no agendamento mensal e no CI. O `scripts/rodar_pipeline.sh` continua existindo para o Docker e para quem roda sem o Dagster. Como os dois listam as etapas, `tests/test_unit_orquestracao.py` exige que chamem exatamente os mesmos scripts. Etapa nova entra nos dois, ou o teste falha.
+
 ```text
 migracoes ─┬─ bronze_ckan ─┐
            ├─ bronze_inep ─┼─ silver ─┬─ gold_tabular ─┬─ star_schema ─┬─ view_painel ─────────┐
@@ -30,8 +32,10 @@ migracoes ─┬─ bronze_ckan ─┐
 
 | Política | Onde | Novas tentativas e espera |
 |---|---|---|
-| `RETRY_BANCO` | Etapas que só dependem do banco | 3, com espera exponencial de 10, 30 e 70 s |
-| `RETRY_PORTAL` | Ingestão (CKAN, INEP, CNPq) e Supabase | 3, com espera de 30, 90 e 210 s |
+| `RETRY_BANCO` | Etapas que só dependem do banco | 3, esperando 10, 30 e 70 s entre uma tentativa e a seguinte |
+| `RETRY_PORTAL` | Ingestão (CKAN, INEP, CNPq) e Supabase | 3, esperando 30, 90 e 210 s entre uma tentativa e a seguinte |
+
+As esperas não são acumuladas: a 4ª tentativa começa 110 s (10 + 30 + 70) depois da 1ª falha. Uma etapa que passa de 1 h rodando é interrompida e conta como falha, e o retry assume.
 
 O INEP e o CNPq continuam tolerados como no `rodar_pipeline.sh`: se falharem nas 4 tentativas, a etapa registra um aviso e o pipeline segue com o que já está versionado.
 
@@ -46,7 +50,7 @@ O INEP e o CNPq continuam tolerados como no `rodar_pipeline.sh`: se falharem nas
 `lago_vinculos_por_quinquenio` tem uma partição por quinquênio de ingresso, de 2000 até o atual. É a partição do lago Delta (ADR 0024). Materializar uma partição regrava aquela janela inteira, com o overwrite com predicado do ADR 0026. Um intervalo de partições vira uma execução só (`BackfillPolicy.single_run`).
 
 ```bash
-dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio --partition-range 2000...2025
+dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio --partition-range 2000...2025   # hoje; INTERVALO_BACKFILL dá o atual
 ```
 
 ## Demonstrações

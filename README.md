@@ -214,7 +214,7 @@ dispara o job `pipeline_mensal` no dia 1 de cada mês, e o lago tem backfill por
 pip install -r requirements-orquestracao.txt
 dagster dev -m orquestracao                     # UI em http://localhost:3000
 dagster job execute -m orquestracao -j pipeline_mensal
-dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio --partition-range 2000...2025
+dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio --partition-range 2000...2025   # hoje; INTERVALO_BACKFILL dá o atual
 ```
 
 Retry com o banco derrubado de propósito, falha definitiva, backfill de uma janela perdida e o job
