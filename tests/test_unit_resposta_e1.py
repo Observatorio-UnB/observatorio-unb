@@ -14,7 +14,8 @@ import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR / "src" / "dashboard"))
-from resposta_e1 import COLUNAS, FONTE_DBT, FONTE_GOLD, SLA_DIAS, frescor, ranking_cursos_criticos  # noqa: E402
+from resposta_e1 import (  # noqa: E402
+    COLUNAS, FONTE_DBT, FONTE_GOLD, FONTE_GOLD_MART_ANTIGO, SLA_DIAS, frescor, ranking_cursos_criticos)
 
 
 def linha_mart(posicao, curso, irc, classificacao="RETENÇÃO CRÍTICA"):
@@ -48,6 +49,20 @@ class TestRanking(unittest.TestCase):
         # Empate no IRC divide a posição, como o rank() do mart.
         self.assertEqual(ranking["posicao"].tolist(), [1, 1, 3])
         self.assertEqual(list(ranking.columns), list(COLUNAS))
+
+    def test_04_mart_da_mesma_carga_da_gold_e_usado(self):
+        painel = [linha_mart(1, "A", 90.0), linha_mart(2, "B", 80.0)]
+        df_gold = pd.DataFrame([gold("A", 90.0), gold("B", 80.0), gold("ENGENHARIA", 99.0)])
+        _, fonte = ranking_cursos_criticos({"painel_cursos_criticos": painel}, df_gold, ["ENGENHARIA"])
+        self.assertEqual(fonte, FONTE_DBT)
+
+    def test_05_mart_de_outra_carga_e_descartado(self):
+        """Pipeline rodou sem o dbt: o mart que ficou no banco tem outro IRC, e o ranking sai da gold."""
+        painel = [linha_mart(1, "A", 90.0), linha_mart(2, "B", 80.0)]
+        df_gold = pd.DataFrame([gold("A", 70.0), gold("B", 85.0)])
+        ranking, fonte = ranking_cursos_criticos({"painel_cursos_criticos": painel}, df_gold)
+        self.assertEqual(fonte, FONTE_GOLD_MART_ANTIGO)
+        self.assertEqual(ranking["nome_curso"].tolist(), ["B", "A"])
 
     def test_03_sem_dado_nenhum(self):
         self.assertEqual(ranking_cursos_criticos({}, None), (None, FONTE_GOLD))
