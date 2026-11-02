@@ -184,7 +184,11 @@ class TestCargaScd2(unittest.TestCase):
 
     def test_03_renomeacao_preserva_o_nome_antigo_e_leva_os_fatos_ao_novo(self):
         """O curso renomeado na matriz (o nome canônico, ADR 0003) vira uma chave natural nova: o nome
-        antigo continua na dimensão com o histórico, e os fatos recriados passam para o nome novo."""
+        antigo continua na dimensão com o histórico, e os fatos recriados passam para o nome novo.
+
+        O nome canônico sai da mesma fonte para a Silver 3NF (de onde vem a dim_curso) e para a
+        gold.retencao_cursos_unb (de onde o fato copia as medidas, migração 0022). Uma renomeação real
+        chega aos dois, e o teste renomeia nos dois."""
         novo_nome = "MATEMATICA (RENOMEADO NO TESTE)"
         with self.conn.transaction():
             povoar_gold_dimensional(self.conn)
@@ -192,6 +196,7 @@ class TestCargaScd2(unittest.TestCase):
             self.conn.execute(
                 "UPDATE silver.estruturas_curriculares SET nome_curso_canonico = %s WHERE nome_curso_canonico = %s",
                 (novo_nome, CURSO))
+            self.conn.execute("UPDATE gold.retencao_cursos_unb SET curso = %s WHERE curso = %s", (novo_nome, CURSO))
             povoar_gold_dimensional(self.conn)
 
             self.assertEqual(self.conn.execute(SQL_VERSOES, (CURSO,)).fetchall(), antigo)
