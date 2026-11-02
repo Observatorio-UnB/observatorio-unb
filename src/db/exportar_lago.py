@@ -29,6 +29,7 @@ Uso:
 
 import argparse
 import logging
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,7 +51,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("exportar_lago")
 
-LAGO_DIR = BASE_DIR / "data" / "lake" / "lote"
+# LAGO_DIR no ambiente troca o destino (ex.: a demonstração do backfill, docs/orquestracao.md).
+LAGO_DIR = Path(os.environ.get("LAGO_DIR") or BASE_DIR / "data" / "lake" / "lote")
 RETENCAO_HORAS = 7 * 24
 COLUNA_QUINQUENIO = "quinquenio_ingresso"
 
