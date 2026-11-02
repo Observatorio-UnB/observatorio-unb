@@ -84,7 +84,8 @@ WHERE c.is_tronco_abi = false
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_executivo_sk ON gold.mv_dashboard_executivo (sk_curso, campus);
 
 COMMENT ON MATERIALIZED VIEW gold.mv_dashboard_executivo IS
-  'Visão executiva do DEG pré-computada para o painel: um registro por curso canônico terminal (sem cursos-tronco), '
-  'na versão atual da gold.dim_curso. Atualizada por gold.atualizar_mv_dashboard_executivo() (REFRESH CONCURRENTLY).';
+  'Grão: um registro por curso canônico terminal (sem cursos-tronco), na versão atual da gold.dim_curso, o mesmo de '
+  'gold.fato_retencao_curso, com os ativos do snapshot de gold.fato_alunos_ativos ao lado. Pré-computada para o painel; '
+  'atualizada por gold.atualizar_mv_dashboard_executivo() (REFRESH CONCURRENTLY).';
 
 GRANT SELECT ON gold.mv_dashboard_executivo TO observatorio_leitura;
