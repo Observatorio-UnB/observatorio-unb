@@ -134,10 +134,16 @@ def _ler_dados_da_gold():
 
 
 @st.cache_data
+def _snapshot(versao: str):
+    """Um snapshot da gold por versão, compartilhado pelas leituras abaixo."""
+    return _ler_dados_da_gold()
+
+
+@st.cache_data
 def load_gold_data(versao: str):
     # `versao` só existe para entrar na chave do cache (sem "_" na frente: o Streamlit
     # ignora parâmetros com "_" ao montar a chave).
-    dados = _ler_dados_da_gold()
+    dados = _snapshot(versao)
     if dados is None:
         st.error(
             "Sem dados da gold. Suba o banco (`docker compose up -d db`) e rode o pipeline "
@@ -175,7 +181,7 @@ from resposta_e1 import COLUNAS as COLUNAS_E1, PERGUNTA_E1, SLA_DIAS, frescor, r
 
 @st.cache_data
 def load_resposta_e1(versao: str):
-    dados = _ler_dados_da_gold() or {}
+    dados = _snapshot(versao) or {}
     return dados.get("tabelas", {}).get("painel_cursos_criticos") or [], dados.get("carregado_em")
 
 
