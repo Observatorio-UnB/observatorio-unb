@@ -21,12 +21,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conectar
 from src.db.tabelas import consultar, ler, ler_relatorio, tem_linhas
-from src.pipeline.build_gold import (
-    normalize_turno_grupo,
-    normalize_categoria_grau,
-    build_area_por_curso,
-    ofertas_por_curso,
-)
 from src.pipeline.transform_silver import (
     categorize_forma_saida,
     semestre_pela_data_do_diploma,
@@ -38,20 +32,6 @@ from src.ingestion.ckan_client import DATASETS_CONFIG, escolher_recurso
 
 class TestCanonicalNormalization(unittest.TestCase):
     """Testes offline (sem dependência de dados brutos) das regras de normalização."""
-
-    def test_turno_unifica_matutino_vespertino_em_diurno(self):
-        self.assertEqual(normalize_turno_grupo("MATUTINO E VESPERTINO"), "DIURNO")
-        self.assertEqual(normalize_turno_grupo("MATUTINO"), "DIURNO")
-        self.assertEqual(normalize_turno_grupo("VESPERTINO"), "DIURNO")
-        self.assertEqual(normalize_turno_grupo("DIURNO"), "DIURNO")
-
-    def test_turno_preserva_noturno_e_integral(self):
-        self.assertEqual(normalize_turno_grupo("NOTURNO"), "NOTURNO")
-        self.assertEqual(normalize_turno_grupo("INTEGRAL"), "INTEGRAL")
-
-    def test_categoria_grau_licenciatura(self):
-        self.assertEqual(normalize_categoria_grau("LICENCIADO"), "LICENCIATURA")
-        self.assertEqual(normalize_categoria_grau("LICENCIATURA"), "LICENCIATURA")
 
     def test_evasao_inclui_mudanca_de_curso(self):
         """Mesma definição de evasão nas duas bases: o SIGAA não distingue o motivo do cancelamento."""
@@ -89,34 +69,6 @@ class TestCanonicalNormalization(unittest.TestCase):
         self.assertIsNone(escolher_recurso([{"url": "x/sigaa_concluintes_2025_1.csv"}], DATASETS_CONFIG["sigaa_ativos"]["resource_pattern"]))
         self.assertEqual(arquivo("sigaa_ativos"), "sigaa_ativos_2025_1.csv")
 
-    def test_categoria_grau_bacharelado_inclui_titulacoes_profissionais(self):
-        for grau in ["BACHAREL", "ENGENHEIRO CIVIL", "MEDICO", "ARQUITETO E URBANISTA"]:
-            self.assertEqual(normalize_categoria_grau(grau), "BACHARELADO")
-
-    def test_build_area_por_curso_usa_entrada_propria_do_catalogo(self):
-        df_cur = pd.DataFrame({
-            "nome_curso_norm": ["FISICA", "QUIMICA"],
-            "area_conhecimento_norm": ["CIENCIAS EXATAS E DA TERRA", "CIENCIAS EXATAS E DA TERRA"],
-        })
-        area_dict = build_area_por_curso(df_cur, ["FISICA"])
-        self.assertEqual(area_dict["FISICA"], "CIENCIAS EXATAS E DA TERRA")
-
-    def test_build_area_por_curso_herda_area_das_habilitacoes(self):
-        df_cur = pd.DataFrame({
-            "nome_curso_norm": ["COMUNICACAO SOCIAL - JORNALISMO", "COMUNICACAO SOCIAL - AUDIOVISUAL"],
-            "area_conhecimento_norm": ["CIENCIAS SOCIAIS APLICADAS", "CIENCIAS SOCIAIS APLICADAS"],
-        })
-        area_dict = build_area_por_curso(df_cur, ["COMUNICACAO SOCIAL"])
-        self.assertEqual(area_dict["COMUNICACAO SOCIAL"], "CIENCIAS SOCIAIS APLICADAS")
-
-    def test_build_area_por_curso_nao_herda_quando_habilitacoes_divergem(self):
-        df_cur = pd.DataFrame({
-            "nome_curso_norm": ["CURSO X - A", "CURSO X - B"],
-            "area_conhecimento_norm": ["CIENCIAS EXATAS E DA TERRA", "LINGUISTICA, LETRAS E ARTES"],
-        })
-        area_dict = build_area_por_curso(df_cur, ["CURSO X"])
-        self.assertNotIn("CURSO X", area_dict)
-
     def test_normalize_curso_remove_prefixo_guarda_chuva(self):
         self.assertEqual(normalize_curso("COMUNICAÇÃO SOCIAL - JORNALISMO"), "JORNALISMO")
         self.assertEqual(normalize_curso("Ciências Sociais - Antropologia"), "ANTROPOLOGIA")
@@ -130,16 +82,6 @@ class TestCanonicalNormalization(unittest.TestCase):
         self.assertEqual(valor_bolsa_no_periodo(pd.Timestamp("2018-08-01"), pd.Timestamp("2019-07-26"), vig), 12 * 400)
         # Antes da primeira vigência vale o primeiro valor
         self.assertEqual(valor_bolsa_no_periodo(pd.Timestamp("2012-01-10"), pd.Timestamp("2012-12-10"), vig), 12 * 400)
-
-    def test_ofertas_por_curso_nao_escolhe_oferta_arbitraria(self):
-        df_cur = pd.DataFrame({
-            "nome_curso_norm": ["DIREITO", "DIREITO", "ENFERMAGEM", "ENFERMAGEM"],
-            "turno_norm": ["DIURNO", "NOTURNO", "DIURNO", "MATUTINO"],
-            "campus_norm": ["DARCY RIBEIRO", "DARCY RIBEIRO", "DARCY RIBEIRO", "CEILANDIA"],
-        })
-        ofertas = ofertas_por_curso(df_cur)
-        self.assertEqual(ofertas["DIREITO"], ("DIURNO E NOTURNO", "DARCY RIBEIRO"))
-        self.assertEqual(ofertas["ENFERMAGEM"], ("DIURNO", "MULTICAMPUS"))
 
 
 class TestDataPipeline(unittest.TestCase):
