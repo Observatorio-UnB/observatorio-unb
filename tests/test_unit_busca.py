@@ -55,6 +55,9 @@ class TestDocumentacao(unittest.TestCase):
         (docs / "adr" / "0028-scd.md").write_text("# ADR 0028: SCD tipo 2\nVersões com vigência.\n",
                                                    encoding="utf-8")
         (docs / "diagrama.md").write_text("# Diagrama\n" + "+----+----+\n|    |    |\n" * 20, encoding="utf-8")
+        (docs / "adr" / "0014-janela.md").write_text(
+            "# ADR 0014: Janela de maturação de 8 anos\n- **Status:** Aceita\n- **Data:** 2026-09-28\n",
+            encoding="utf-8")
         (self.raiz / "README.md").write_text("# Projeto\nObservatório de retenção.\n", encoding="utf-8")
         self.docs = documentos_da_documentacao(docs, self.raiz / "README.md")
         self.por_arquivo = {d.metadados["arquivo"]: d for d in self.docs}
@@ -73,6 +76,10 @@ class TestDocumentacao(unittest.TestCase):
 
     def test_desenho_em_ascii_fica_de_fora(self):
         self.assertNotIn("docs/diagrama.md", self.por_arquivo)
+
+    def test_secao_de_corpo_curto_entra_pelo_titulo(self):
+        """A abertura de um ADR é o título e a data: poucas letras no corpo, mas o título conta."""
+        self.assertIn("docs/adr/0014-janela.md", self.por_arquivo)
 
 
 class TestConsultaPorTexto(unittest.TestCase):

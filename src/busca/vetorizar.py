@@ -263,13 +263,16 @@ def documentos_da_documentacao(docs_dir: Path = DOCS_DIR, readme: Path = README)
 
         for i, (titulo_secao, corpo) in enumerate(secoes):
             for j, trecho in enumerate(_trechos(corpo)):
-                if sum(c.isalpha() for c in trecho) < FRACAO_MINIMA_DE_LETRAS * len(trecho):
+                conteudo = f"{titulo_secao}\n{trecho}"
+                # Com o título: a seção de abertura de um ADR tem corpo curto (status e data), e o
+                # título é o que ela tem de melhor para a busca.
+                if sum(c.isalpha() for c in conteudo) < FRACAO_MINIMA_DE_LETRAS * len(conteudo):
                     continue
                 docs.append(Documento(
                     tipo="documentacao",
                     chave=f"{nome}#{i}.{j}",
                     titulo=f"{nome} › {titulo_secao}",
-                    conteudo=f"{titulo_secao}\n{trecho}",
+                    conteudo=conteudo,
                     metadados={"arquivo": caminho, "secao": titulo_secao},
                 ))
     return docs
