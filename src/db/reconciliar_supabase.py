@@ -319,11 +319,15 @@ def executar_auditoria_completa(url_supabase: str, url_local: Optional[str] = No
         url_local = None
 
     # autocommit: a auditoria só lê, e um erro numa consulta não aborta as seguintes.
-    with psycopg.connect(url_supabase, connect_timeout=15, autocommit=True) as conn_supa:
+    # prepare_threshold=None: a auditoria repete a mesma consulta dezenas de vezes (uma por tabela), e
+    # o psycopg passaria a usar prepared statement na quinta. O pooler transacional do Supabase troca
+    # a conexão do servidor a cada transação, e o prepared statement some ou já existe
+    # (DuplicatePreparedStatement, reproduzido com PgBouncer em modo transação).
+    with psycopg.connect(url_supabase, connect_timeout=15, autocommit=True, prepare_threshold=None) as conn_supa:
         conn_loc = None
         if url_local:
             try:
-                conn_loc = psycopg.connect(url_local, connect_timeout=5, autocommit=True)
+                conn_loc = psycopg.connect(url_local, connect_timeout=5, autocommit=True, prepare_threshold=None)
             except Exception as e:
                 logger.warning(f"Banco local inacessível: a reconciliação sai NAO_VERIFICADO ({e}).")
 
