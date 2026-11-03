@@ -256,7 +256,7 @@
   </g>
   <!-- Tabela: gold.dim_curso -->
   <g filter="url(#shadow)">
-    <rect x="870" y="120" width="360" height="228" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <rect x="870" y="120" width="360" height="297" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
     <rect x="870" y="120" width="360" height="36" rx="8" fill="#1e293b"/>
     <rect x="870" y="151" width="360" height="5" fill="#1e293b"/>
     <text x="884" y="143" fill="#38bdf8" font-size="13" font-weight="700">gold.dim_curso</text>
@@ -285,74 +285,83 @@
 <circle cx="893" cy="329" r="2" fill="#64748b"/>
     <text x="912" y="333" fill="#cbd5e1" font-size="11.5" font-weight="400">is_tronco_abi</text>
     <text x="1218" y="333" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BOOLEAN</text>
+<rect x="880" y="345" width="26" height="14" rx="3" fill="#10b981"/><text x="886" y="356" fill="#0f172a" font-size="9" font-weight="bold">UK</text>
+    <text x="912" y="356" fill="#f8fafc" font-size="11.5" font-weight="600">vigente_de</text>
+    <text x="1218" y="356" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TIMESTAMPTZ</text>
+<circle cx="893" cy="375" r="2" fill="#64748b"/>
+    <text x="912" y="379" fill="#cbd5e1" font-size="11.5" font-weight="400">vigente_ate</text>
+    <text x="1218" y="379" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TIMESTAMPTZ</text>
+<circle cx="893" cy="398" r="2" fill="#64748b"/>
+    <text x="912" y="402" fill="#cbd5e1" font-size="11.5" font-weight="400">is_atual</text>
+    <text x="1218" y="402" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">BOOLEAN</text>
   </g>
   <!-- Tabela: gold.mv_dashboard_executivo -->
   <g filter="url(#shadow)">
-    <rect x="870" y="380" width="360" height="504" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5"/>
-    <rect x="870" y="380" width="360" height="36" rx="8" fill="#065f46"/>
-    <rect x="870" y="411" width="360" height="5" fill="#065f46"/>
-    <text x="884" y="403" fill="#d1fae5" font-size="13" font-weight="700">gold.mv_dashboard_executivo</text>
+    <rect x="870" y="450" width="360" height="504" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5"/>
+    <rect x="870" y="450" width="360" height="36" rx="8" fill="#065f46"/>
+    <rect x="870" y="481" width="360" height="5" fill="#065f46"/>
+    <text x="884" y="473" fill="#d1fae5" font-size="13" font-weight="700">gold.mv_dashboard_executivo</text>
 
-<circle cx="893" cy="428" r="2" fill="#64748b"/>
-    <text x="912" y="432" fill="#cbd5e1" font-size="11.5" font-weight="400">sk_curso</text>
-    <text x="1218" y="432" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
-<circle cx="893" cy="451" r="2" fill="#64748b"/>
-    <text x="912" y="455" fill="#cbd5e1" font-size="11.5" font-weight="400">id_curso_origem</text>
-    <text x="1218" y="455" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
-<circle cx="893" cy="474" r="2" fill="#64748b"/>
-    <text x="912" y="478" fill="#cbd5e1" font-size="11.5" font-weight="400">nome_curso</text>
-    <text x="1218" y="478" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
-<circle cx="893" cy="497" r="2" fill="#64748b"/>
-    <text x="912" y="501" fill="#cbd5e1" font-size="11.5" font-weight="400">area_conhecimento</text>
-    <text x="1218" y="501" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
-<circle cx="893" cy="520" r="2" fill="#64748b"/>
-    <text x="912" y="524" fill="#cbd5e1" font-size="11.5" font-weight="400">categoria_grau</text>
-    <text x="1218" y="524" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
-<circle cx="893" cy="543" r="2" fill="#64748b"/>
-    <text x="912" y="547" fill="#cbd5e1" font-size="11.5" font-weight="400">campus</text>
-    <text x="1218" y="547" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
-<circle cx="893" cy="566" r="2" fill="#64748b"/>
-    <text x="912" y="570" fill="#cbd5e1" font-size="11.5" font-weight="400">total_ingressantes</text>
-    <text x="1218" y="570" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
-<circle cx="893" cy="589" r="2" fill="#64748b"/>
-    <text x="912" y="593" fill="#cbd5e1" font-size="11.5" font-weight="400">total_formados</text>
-    <text x="1218" y="593" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
-<circle cx="893" cy="612" r="2" fill="#64748b"/>
-    <text x="912" y="616" fill="#cbd5e1" font-size="11.5" font-weight="400">total_evadidos</text>
-    <text x="1218" y="616" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
-<circle cx="893" cy="635" r="2" fill="#64748b"/>
-    <text x="912" y="639" fill="#cbd5e1" font-size="11.5" font-weight="400">total_ainda_ativos</text>
-    <text x="1218" y="639" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
-<circle cx="893" cy="658" r="2" fill="#64748b"/>
-    <text x="912" y="662" fill="#cbd5e1" font-size="11.5" font-weight="400">taxa_formatura_pct</text>
-    <text x="1218" y="662" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
-<circle cx="893" cy="681" r="2" fill="#64748b"/>
-    <text x="912" y="685" fill="#cbd5e1" font-size="11.5" font-weight="400">taxa_evasao_pct</text>
-    <text x="1218" y="685" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
-<circle cx="893" cy="704" r="2" fill="#64748b"/>
-    <text x="912" y="708" fill="#cbd5e1" font-size="11.5" font-weight="400">formados_tempo_ideal_pct</text>
-    <text x="1218" y="708" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
-<circle cx="893" cy="727" r="2" fill="#64748b"/>
-    <text x="912" y="731" fill="#cbd5e1" font-size="11.5" font-weight="400">atraso_medio_semestres</text>
-    <text x="1218" y="731" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
-<circle cx="893" cy="750" r="2" fill="#64748b"/>
-    <text x="912" y="754" fill="#cbd5e1" font-size="11.5" font-weight="400">indice_retencao_critica</text>
-    <text x="1218" y="754" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
-<circle cx="893" cy="773" r="2" fill="#64748b"/>
-    <text x="912" y="777" fill="#cbd5e1" font-size="11.5" font-weight="400">classificacao_retencao</text>
-    <text x="1218" y="777" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
-<circle cx="893" cy="796" r="2" fill="#64748b"/>
-    <text x="912" y="800" fill="#cbd5e1" font-size="11.5" font-weight="400">ativos_hoje_total</text>
-    <text x="1218" y="800" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
-<circle cx="893" cy="819" r="2" fill="#64748b"/>
-    <text x="912" y="823" fill="#cbd5e1" font-size="11.5" font-weight="400">ativos_hoje_atrasados</text>
-    <text x="1218" y="823" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
-<circle cx="893" cy="842" r="2" fill="#64748b"/>
-    <text x="912" y="846" fill="#cbd5e1" font-size="11.5" font-weight="400">pct_ativos_hoje_atrasados</text>
-    <text x="1218" y="846" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
-<circle cx="893" cy="865" r="2" fill="#64748b"/>
-    <text x="912" y="869" fill="#cbd5e1" font-size="11.5" font-weight="400">gerado_em</text>
-    <text x="1218" y="869" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TIMESTAMPTZ</text>
+<circle cx="893" cy="498" r="2" fill="#64748b"/>
+    <text x="912" y="502" fill="#cbd5e1" font-size="11.5" font-weight="400">sk_curso</text>
+    <text x="1218" y="502" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="893" cy="521" r="2" fill="#64748b"/>
+    <text x="912" y="525" fill="#cbd5e1" font-size="11.5" font-weight="400">id_curso_origem</text>
+    <text x="1218" y="525" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="893" cy="544" r="2" fill="#64748b"/>
+    <text x="912" y="548" fill="#cbd5e1" font-size="11.5" font-weight="400">nome_curso</text>
+    <text x="1218" y="548" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="893" cy="567" r="2" fill="#64748b"/>
+    <text x="912" y="571" fill="#cbd5e1" font-size="11.5" font-weight="400">area_conhecimento</text>
+    <text x="1218" y="571" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="893" cy="590" r="2" fill="#64748b"/>
+    <text x="912" y="594" fill="#cbd5e1" font-size="11.5" font-weight="400">categoria_grau</text>
+    <text x="1218" y="594" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="893" cy="613" r="2" fill="#64748b"/>
+    <text x="912" y="617" fill="#cbd5e1" font-size="11.5" font-weight="400">campus</text>
+    <text x="1218" y="617" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="893" cy="636" r="2" fill="#64748b"/>
+    <text x="912" y="640" fill="#cbd5e1" font-size="11.5" font-weight="400">total_ingressantes</text>
+    <text x="1218" y="640" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="893" cy="659" r="2" fill="#64748b"/>
+    <text x="912" y="663" fill="#cbd5e1" font-size="11.5" font-weight="400">total_formados</text>
+    <text x="1218" y="663" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="893" cy="682" r="2" fill="#64748b"/>
+    <text x="912" y="686" fill="#cbd5e1" font-size="11.5" font-weight="400">total_evadidos</text>
+    <text x="1218" y="686" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="893" cy="705" r="2" fill="#64748b"/>
+    <text x="912" y="709" fill="#cbd5e1" font-size="11.5" font-weight="400">total_ainda_ativos</text>
+    <text x="1218" y="709" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="893" cy="728" r="2" fill="#64748b"/>
+    <text x="912" y="732" fill="#cbd5e1" font-size="11.5" font-weight="400">taxa_formatura_pct</text>
+    <text x="1218" y="732" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="893" cy="751" r="2" fill="#64748b"/>
+    <text x="912" y="755" fill="#cbd5e1" font-size="11.5" font-weight="400">taxa_evasao_pct</text>
+    <text x="1218" y="755" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="893" cy="774" r="2" fill="#64748b"/>
+    <text x="912" y="778" fill="#cbd5e1" font-size="11.5" font-weight="400">formados_tempo_ideal_pct</text>
+    <text x="1218" y="778" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="893" cy="797" r="2" fill="#64748b"/>
+    <text x="912" y="801" fill="#cbd5e1" font-size="11.5" font-weight="400">atraso_medio_semestres</text>
+    <text x="1218" y="801" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="893" cy="820" r="2" fill="#64748b"/>
+    <text x="912" y="824" fill="#cbd5e1" font-size="11.5" font-weight="400">indice_retencao_critica</text>
+    <text x="1218" y="824" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="893" cy="843" r="2" fill="#64748b"/>
+    <text x="912" y="847" fill="#cbd5e1" font-size="11.5" font-weight="400">classificacao_retencao</text>
+    <text x="1218" y="847" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TEXT</text>
+<circle cx="893" cy="866" r="2" fill="#64748b"/>
+    <text x="912" y="870" fill="#cbd5e1" font-size="11.5" font-weight="400">ativos_hoje_total</text>
+    <text x="1218" y="870" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="893" cy="889" r="2" fill="#64748b"/>
+    <text x="912" y="893" fill="#cbd5e1" font-size="11.5" font-weight="400">ativos_hoje_atrasados</text>
+    <text x="1218" y="893" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">INTEGER</text>
+<circle cx="893" cy="912" r="2" fill="#64748b"/>
+    <text x="912" y="916" fill="#cbd5e1" font-size="11.5" font-weight="400">pct_ativos_hoje_atrasados</text>
+    <text x="1218" y="916" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">NUMERIC</text>
+<circle cx="893" cy="935" r="2" fill="#64748b"/>
+    <text x="912" y="939" fill="#cbd5e1" font-size="11.5" font-weight="400">gerado_em</text>
+    <text x="1218" y="939" fill="#94a3b8" font-size="10.5" font-family="monospace" text-anchor="end">TIMESTAMPTZ</text>
   </g>
   <!-- Tabela: gold.retencao_cursos_unb -->
   <g filter="url(#shadow)">
@@ -616,5 +625,5 @@
   <path d="M 800 591 L 850 591 L 850 168 L 870 168" fill="none" stroke="#facc15" stroke-width="1.8" marker-start="url(#dotGold)" marker-end="url(#arrowGold)"/>
   <path d="M 440 874 L 395 874 L 395 528 L 370 528" fill="none" stroke="#facc15" stroke-width="1.8" marker-start="url(#dotGold)" marker-end="url(#arrowGold)"/>
   <path d="M 800 851 L 830 851 L 830 168 L 870 168" fill="none" stroke="#facc15" stroke-width="1.8" marker-start="url(#dotGold)" marker-end="url(#arrowGold)"/>
-  <path d="M 870 428 L 840 428 L 840 168 L 870 168" fill="none" stroke="#10b981" stroke-width="1.8" stroke-dasharray="5,3" marker-start="url(#dotGold)" marker-end="url(#arrowGreen)"/>
+  <path d="M 870 498 L 840 498 L 840 168 L 870 168" fill="none" stroke="#10b981" stroke-width="1.8" stroke-dasharray="5,3" marker-start="url(#dotGold)" marker-end="url(#arrowGreen)"/>
 </svg>

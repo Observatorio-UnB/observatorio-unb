@@ -6,6 +6,7 @@ Challenge de Dados Abertos da UnB - Metodologia CBL
 
 import base64
 import json
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import numpy as np
@@ -134,16 +135,22 @@ def _ler_dados_da_gold():
 
 
 @st.cache_data
+def _snapshot(versao: str):
+    """Um snapshot da gold por versão, compartilhado pelas leituras abaixo."""
+    return _ler_dados_da_gold()
+
+
+@st.cache_data
 def load_gold_data(versao: str):
     # `versao` só existe para entrar na chave do cache (sem "_" na frente: o Streamlit
     # ignora parâmetros com "_" ao montar a chave).
-    dados = _ler_dados_da_gold()
+    dados = _snapshot(versao)
     if dados is None:
         st.error(
             "Sem dados da gold. Suba o banco (`docker compose up -d db`) e rode o pipeline "
             "(`bash scripts/rodar_pipeline.sh`)."
         )
-        return None, None, None, None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None
 
     tabelas, relatorios = dados["tabelas"], dados["relatorios"]
     df = pd.DataFrame(tabelas["retencao_cursos_unb"]) if tabelas.get("retencao_cursos_unb") else None
@@ -163,11 +170,45 @@ def load_gold_data(versao: str):
     df_inep = pd.DataFrame(tabelas["inep_benchmark_cursos_unb"]) if tabelas.get("inep_benchmark_cursos_unb") else None
     df_ativos = pd.DataFrame(tabelas["ativos_hoje_cursos_unb"]) if tabelas.get("ativos_hoje_cursos_unb") else None
 
-    return df, meta, join_meta, df_pibic, pibic_meta, regras_meta, df_inep, df_ativos, dados.get("frescor")
+    return df, meta, join_meta, df_pibic, pibic_meta, regras_meta, df_inep, df_ativos
 
 
-(df_gold, global_meta, join_meta, df_pibic, pibic_meta, regras_meta, df_inep, df_ativos,
- frescor) = load_gold_data(_versao_dos_dados())
+df_gold, global_meta, join_meta, df_pibic, pibic_meta, regras_meta, df_inep, df_ativos = load_gold_data(_versao_dos_dados())
+# Resposta à pergunta da E1 (src/dashboard/resposta_e1.py), lida à parte do cache da gold: o mart do
+# dbt e a data da carga entram no snapshot, mas não nas tabelas que o resto do painel usa.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from resposta_e1 import COLUNAS as COLUNAS_E1, PERGUNTA_E1, SLA_DIAS, frescor, ranking_cursos_criticos  # noqa: E402
+
+
+@st.cache_data
+def load_resposta_e1(versao: str):
+    dados = _snapshot(versao) or {}
+    return dados.get("tabelas", {}).get("painel_cursos_criticos") or [], dados.get("carregado_em")
+
+
+painel_e1, carregado_em = load_resposta_e1(_versao_dos_dados())
+
+
+@st.cache_data(ttl=3600)
+def load_frescor_da_view():
+    """Atualização da view do painel e SLA (docs/frescor_sla.md), fora do cache da gold: uma
+    sincronização sem dado novo atualiza a view, mas não muda a versão da gold."""
+    try:
+        from src.db.conexao import conectar
+        from src.db.frescor import resumo_para_o_painel
+
+        with conectar() as conn:
+            resumo = resumo_para_o_painel(conn)
+        if resumo:
+            return resumo
+    except Exception:
+        pass  # sem psycopg (stlite) ou banco fora do ar
+    if EXPORT_PATH.exists():
+        return json.loads(EXPORT_PATH.read_text(encoding="utf-8")).get("frescor")
+    return None
+
+
+frescor_da_view = load_frescor_da_view()
 # Cursos-tronco (Engenharia, ABI de Educação Física): definidos em build_gold.py e publicados na Gold.
 EXCLUDED_GENERIC_COURSES = set((global_meta or {}).get("cursos_tronco", []))
 
@@ -185,13 +226,13 @@ st.sidebar.markdown(
     f"**Taxa de Casamento**: `{taxa_join:.2f}% (Harmonização Ativa)`")
 # Frescor da view do painel contra o SLA (docs/frescor_sla.md). A idade é calculada aqui, fora do
 # cache, para a versão estática do GitHub Pages também mostrar quando o export envelheceu.
-if frescor:
-    atualizada_em = datetime.fromisoformat(frescor["atualizada_em"])
+if frescor_da_view:
+    atualizada_em = datetime.fromisoformat(frescor_da_view["atualizada_em"])
     idade = datetime.now(timezone.utc) - atualizada_em
     idade_dias = idade.days
     texto_frescor = (f"Dados atualizados em {atualizada_em:%d/%m/%Y} (há {idade_dias} dia(s)). "
-                     f"SLA: até {frescor['sla_dias']} dias.")
-    if idade <= timedelta(days=frescor["sla_dias"]):
+                     f"SLA: até {frescor_da_view['sla_dias']} dias.")
+    if idade <= timedelta(days=frescor_da_view["sla_dias"]):
         st.sidebar.caption(f"🟢 {texto_frescor}")
     else:
         st.sidebar.warning(f"Fora do SLA de frescor. {texto_frescor}")
@@ -225,6 +266,33 @@ if df_gold is not None:
         # Cursos-tronco de ingresso comum (ex.: Engenharia genérica) não são cursos terminais
         # e distorcem rankings/scatter de retenção por curso — ficam de fora só nesta visão.
         df_gold = df_gold[~df_gold["curso"].isin(EXCLUDED_GENERIC_COURSES)]
+
+        # A resposta à pergunta de gestão da E1 (docs/challenge_canvas.md) vem antes de tudo.
+        ranking_e1, fonte_e1 = ranking_cursos_criticos(
+            {"painel_cursos_criticos": painel_e1}, df_gold, EXCLUDED_GENERIC_COURSES)
+        st.subheader("❓ Pergunta da E1: em quais cursos intervir primeiro?")
+        st.markdown(f"> *{PERGUNTA_E1}*")
+        if ranking_e1 is not None:
+            n_criticos_e1 = (ranking_e1["classificacao_retencao"] == "RETENÇÃO CRÍTICA").sum()
+            primeiros = ", ".join(f"**{c}**" for c in ranking_e1["nome_curso"].head(3))
+            st.markdown(
+                f"**Resposta:** {n_criticos_e1} cursos estão em retenção crítica, o quartil mais alto do "
+                f"Índice de Retenção Crítica (IRC). Os primeiros da fila de intervenção são {primeiros}. "
+                "O IRC combina a evasão (peso 0,7) e o atraso na formatura (peso 0,3), medidos nas "
+                "coortes que já tiveram 8 anos para se formar."
+            )
+            st.dataframe(ranking_e1.head(15).rename(columns=COLUNAS_E1), use_container_width=True, hide_index=True)
+            legenda = f"Ranking completo: {len(ranking_e1)} cursos. Fonte: `{fonte_e1}`."
+            dados_frescor = frescor(carregado_em)
+            if dados_frescor:
+                data_carga, idade_dias, dentro_do_sla = dados_frescor
+                legenda += (f" Dados da carga de {data_carga:%d/%m/%Y} (há {idade_dias} dia(s); "
+                            f"SLA de frescor: {SLA_DIAS} dias).")
+                if not dentro_do_sla:
+                    st.warning(f"Os dados têm {idade_dias} dias, acima do SLA de frescor de {SLA_DIAS} dias: "
+                               "o ranking pode não refletir a publicação mais recente do portal.")
+            st.caption(legenda)
+        st.markdown("---")
 
         # KPIs Globais
         c1, c2, c3, c4 = st.columns(4)

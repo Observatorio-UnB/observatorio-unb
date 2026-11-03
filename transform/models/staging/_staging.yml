@@ -1,0 +1,96 @@
+version: 2
+
+# Testes de dados da entrada (issue #39). As faixas de volume valem para a base atual com folga de
+# ~50%: 158 cursos, 112 matrizes e 152.680 vínculos em 10/2026.
+
+models:
+  - name: stg_cursos
+    description: Ofertas do catálogo de cursos, uma por id_curso.
+    data_tests:
+      - volume_entre:
+          arguments: {minimo: 100, maximo: 300}
+    columns:
+      - name: id_curso
+        data_tests: [unique, not_null]
+      - name: nome_curso
+        data_tests: [not_null]
+      - name: categoria_grau
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["BACHARELADO", "LICENCIATURA", "MISTO"]
+
+  - name: stg_estruturas_curriculares
+    description: Matrizes curriculares, uma por curso canônico.
+    data_tests:
+      - volume_entre:
+          arguments: {minimo: 80, maximo: 200}
+    columns:
+      - name: id_estrutura
+        data_tests: [unique, not_null]
+      - name: nome_curso
+        data_tests: [unique, not_null]
+      - name: id_curso_dono
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_cursos')
+                field: id_curso
+      - name: semestre_ideal
+        description: Prazo ideal em semestres. Zero ou negativo zeraria o "tempo ideal" de todo o curso.
+        data_tests:
+          - not_null
+          - entre:
+              arguments: {minimo: 4, maximo: 16}
+
+  - name: stg_vinculos
+    description: Vínculos de graduação, um por linha, sem identificação do discente.
+    # Esquema: o tipo de cada coluna é contrato. Coluna renomeada ou com outro tipo na silver
+    # interrompe o build antes de chegar ao fato.
+    config:
+      contract:
+        enforced: true
+    data_tests:
+      - volume_entre:
+          arguments: {minimo: 100000, maximo: 300000}
+    columns:
+      - name: id_vinculo
+        data_type: bigint
+        data_tests: [unique, not_null]
+      - name: id_estrutura
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_estruturas_curriculares')
+                field: id_estrutura
+      - name: ano_ingresso
+        data_type: smallint
+        data_tests:
+          - not_null
+          - entre:
+              arguments: {minimo: 1962, maximo: 2100}
+      - name: tipo_saida_grupo
+        data_type: text
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["FORMATURA", "EVASAO", "ATIVO", "OUTROS"]
+      - name: ano_saida
+        data_type: smallint
+      - name: periodo_saida_estimado
+        data_type: boolean
+      - name: semestres_permanencia_valida
+        data_type: smallint
+        description: Semestres até a saída. Negativo ou zero é erro de cálculo; acima de 35 passa do jubilamento.
+        data_tests:
+          - entre:
+              arguments: {minimo: 1, maximo: 35}
+      - name: fonte
+        data_type: text
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["SIGRA", "SIGAA"]

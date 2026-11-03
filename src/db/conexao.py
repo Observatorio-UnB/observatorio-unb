@@ -9,7 +9,8 @@ SUPABASE_DATABASE_URL, lida do mesmo jeito, é o destino da sincronização da g
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
+from urllib.parse import parse_qs, unquote, urlsplit
 
 import psycopg
 
@@ -33,6 +34,19 @@ def ler_variavel(nome: str) -> Optional[str]:
 def database_url() -> str:
     """Resolve a URL do banco: ambiente, depois .env, depois o padrão do docker-compose."""
     return ler_variavel("DATABASE_URL") or URL_PADRAO
+
+
+def variaveis_dbt(url: Optional[str] = None) -> Dict[str, str]:
+    """As variáveis que transform/profiles.yml lê, a partir da URL do banco (padrão: DATABASE_URL)."""
+    u = urlsplit(url or database_url())
+    return {
+        "DBT_HOST": u.hostname or "localhost",
+        "DBT_PORT": str(u.port or 5432),
+        "DBT_USER": unquote(u.username or ""),
+        "DBT_PASSWORD": unquote(u.password or ""),
+        "DBT_DBNAME": u.path.lstrip("/"),
+        "DBT_SSLMODE": parse_qs(u.query).get("sslmode", ["prefer"])[0],
+    }
 
 
 def conectar(url: Optional[str] = None, **kwargs) -> psycopg.Connection:

@@ -39,7 +39,7 @@ bd2/
 │   │   └── lgpd_check.py
 │   ├── pipeline/                    # Pipeline em camadas (Bronze -> Silver -> Gold)
 │   │   ├── transform_silver.py
-│   │   └── build_gold.py
+│   │   └── build_gold.py            # semeia as regras e dispara CALL gold.atualizar_gold (ADR 0027)
 │   ├── db/                          # Banco: migrações, leitura/gravação das camadas, export e dicionário
 │   │   ├── migrar.py
 │   │   ├── tabelas.py               # gravar(df, tabela) / ler(tabela): o contrato com o esquema
@@ -112,15 +112,16 @@ python3 src/ingestion/inep_censo_superior.py
 # 2. Transformação Silver: bronze.* -> silver.* (Semana 2 - Dia 1)
 python3 src/pipeline/transform_silver.py
 
-# 3. Camada Gold com join heterogêneo: silver.* -> gold.* (Semana 2 - Dia 1)
+# 3. Camada Gold: silver.* -> gold.*, agregada em SQL no banco (gold.atualizar_gold, ADR 0027)
 python3 src/pipeline/build_gold.py
 
 # 4. Auditoria de qualidade (12 achados) e análise de k-anonimato, lidas da bronze (Semana 1 - Dias 4 e 5)
 python3 src/audit/quality_auditor.py
 python3 src/privacy/lgpd_check.py
 
-# 5. Povoamento dimensional (Silver 3NF e Star Schema da gold) e export para o lago Delta
+# 5. Povoamento dimensional (Silver 3NF e Star Schema da gold), camadas dbt e export para o lago Delta
 python3 src/db/povoar_dimensional.py
+pip install -r requirements-dbt.txt && bash scripts/dbt.sh build --full-refresh
 python3 src/db/exportar_lago.py --janelas-alteradas
 
 # 6. Busca semântica e dicionário de dados do banco
@@ -142,6 +143,25 @@ streamlit run src/dashboard/app.py
 O painel lê a gold do banco. Sem banco, lê `export/gold.json`, se existir
 (`python3 src/db/exportar_gold.py`), que é o que a versão do GitHub Pages usa. Com o
 banco no ar, a página **busca semântica** aparece no menu lateral.
+
+**Roteiro: a resposta à pergunta da E1.** A pergunta do DEG (`docs/challenge_canvas.md`) é *em
+quais cursos a retenção e o atraso na integralização são mais críticos, demandando intervenção
+prioritária?*
+
+1. Abra o painel. A página inicial, **📊 Visão Executiva (DEG)**, começa pela pergunta e pela resposta.
+2. A frase de resposta diz quantos cursos estão em **retenção crítica** (o quartil mais alto do
+   Índice de Retenção Crítica) e quais são os primeiros da fila de intervenção. Na carga de 10/2026,
+   são 23 cursos, e o primeiro é Física Computacional.
+3. A tabela logo abaixo é a fila: os 15 cursos de maior IRC, com a evasão, o atraso médio na
+   formatura e o percentual de formados no prazo ideal, que mostram por que cada curso está ali.
+4. A legenda diz de onde vem o ranking, `dbt_marts.painel_cursos_criticos` (a camada transformada
+   em dbt), e de quando são os dados. Se os dados passarem do SLA de frescor de 35 dias, aparece um aviso.
+5. Para o detalhe de um curso da fila, use **🔍 Detalhe por Curso** no menu lateral. A matriz de
+   atraso contra evasão, mais abaixo na Visão Executiva, mostra onde ele fica entre os demais.
+
+O ranking é o mesmo no painel local, que lê o banco, e no GitHub Pages, que lê o `export/gold.json`
+gerado pelo CI. Sem a camada dbt (banco ou export antigos), o painel calcula o mesmo ranking a
+partir de `gold.retencao_cursos_unb` e indica isso na legenda.
 
 ---
 
@@ -184,6 +204,48 @@ Star Schema e `busca.documentos` do banco local para `SUPABASE_DATABASE_URL`. A 
 pela chave natural: insere o que é novo, atualiza o que mudou (`--somente-inserir` desliga a
 atualização) e não apaga nada; rodar de novo sem mudança não escreve nenhuma linha. No CI a
 etapa usa o secret `SUPABASE_DATABASE_URL` e não roda em pull request.
+
+### Transformações em dbt (staging, intermediate e marts)
+O projeto `transform/` reconstrói a camada de consumo a partir da Silver 3NF, com dbt, em três
+camadas e três esquemas: `dbt_staging` (views que só renomeiam a silver, sem o `id_discente`),
+`dbt_intermediate` (atributos do curso, coortes maduras, métricas com k ≥ 5 e IRC) e `dbt_marts`
+(`dim_curso`, `dim_campus`, `fct_retencao_curso` e `painel_cursos_criticos`, o ranking que responde
+à pergunta da E1). Só os marts são legíveis pelo papel `observatorio_leitura`.
+
+```bash
+pip install -r requirements-dbt.txt
+bash scripts/dbt.sh build --full-refresh     # modelos e 61 testes de dados, do zero, na ordem do grafo
+bash scripts/dbt.sh docs generate --static   # documentação e linhagem: transform/target/static_index.html
+```
+
+O teste `reconcilia_fato_retencao_com_a_gold` exige que o fato do dbt seja igual, curso a curso,
+ao `gold.fato_retencao_curso` do pipeline Python. O CI roda o `dbt build` a cada push e publica a
+documentação com a linhagem no GitHub Pages, em `/dbt/`. Escolha da ferramenta e opção nula
+avaliada: [ADR 0029](docs/adr/0029-transformacoes-em-dbt.md).
+
+Os testes cobrem esquema (contrato de tipos), volume, unicidade, integridade referencial,
+distribuição (salto de série entre coortes, desfechos por coorte, curso que some, mediana da evasão)
+e o que o domínio tem de sujo (permanência negativa, saída antes do ingresso).
+`tests/test_dbt_dado_ruim.py` prova que cada um falha ao injetar um dado ruim numa cópia da silver.
+As variáveis `esquema_silver` e `prefixo_esquema` do dbt existem só para essa prova; com os padrões, o
+pipeline não muda.
+Limites, origem de cada um e a tabela de injeções: [docs/testes_de_dados.md](docs/testes_de_dados.md).
+
+### Orquestração (Dagster)
+O pipeline também roda como um grafo do Dagster (`orquestracao/`, ADR 0030). Cada etapa chama o
+mesmo script deste roteiro, com dependências explícitas e retry por etapa (3 novas tentativas, com
+espera exponencial). Os 12 modelos do dbt entram um a um, depois do star schema. O `atualiza-dados.yml`
+dispara o job `pipeline_mensal` no dia 1 de cada mês, e o lago tem backfill por quinquênio de ingresso.
+
+```bash
+pip install -r requirements-orquestracao.txt
+dagster dev -m orquestracao                     # UI em http://localhost:3000
+dagster job execute -m orquestracao -j pipeline_mensal
+dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio --partition-range 2000...2025   # hoje; INTERVALO_BACKFILL dá o atual
+```
+
+Retry com o banco derrubado de propósito, falha definitiva, backfill de uma janela perdida e o job
+completo, com os logs: [docs/orquestracao.md](docs/orquestracao.md).
 
 ### Lago em formato aberto (Delta Lake)
 `src/db/exportar_lago.py` exporta a Silver 3NF (sem `silver.discentes`) e o Star Schema da

@@ -3,7 +3,7 @@ Povoamento do Star Schema da gold a partir da Silver 3NF, dentro do PostgreSQL.
 
   1. Silver 3NF (src/db/povoar_silver_3nf.py)
   2. gold.dim_campus        <- silver.cursos
-  3. gold.dim_curso         <- silver.estruturas_curriculares + silver.cursos (chave natural nome_curso)
+  3. gold.dim_curso         <- silver.estruturas_curriculares + silver.cursos (SCD tipo 2 por nome_curso)
   4. gold.dim_tempo         <- anos de ingresso de silver.movimentacoes_vinculos até o ano corrente
   5. gold.dim_perfil_social <- silver.pibic_projetos
   6. gold.fato_retencao_curso <- silver.movimentacoes_vinculos (coortes maduras: contagens, taxas,
@@ -12,7 +12,9 @@ Povoamento do Star Schema da gold a partir da Silver 3NF, dentro do PostgreSQL.
   8. gold.fato_pibic_perfil   <- silver.pibic_projetos (por curso e perfil social)
 
 As dimensões são atualizadas por chave natural (upsert): a chave substituta de um curso não muda
-quando outro curso entra. Os fatos são recriados por inteiro a cada execução.
+quando outro curso entra. A dim_curso guarda histórico (SCD tipo 2): mudança de atributo rastreado
+fecha a versão atual e abre outra, com chave substituta nova. Os fatos são recriados por inteiro a
+cada execução e apontam para a versão atual.
 
 O refresh da gold.mv_dashboard_executivo fica em src/db/atualizar_view_painel.py, etapa seguinte.
 
@@ -31,7 +33,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conectar  # noqa: E402
 from src.db.povoar_silver_3nf import povoar_silver_3nf, silver_carregada  # noqa: E402
-from src.pipeline.build_gold import ANOS_MATURACAO_COORTE  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,36 +62,69 @@ ON CONFLICT (campus) DO UPDATE SET regiao_admin = EXCLUDED.regiao_admin
 # Mesmas regras de build_gold.py: os atributos vêm da oferta principal do nome (catálogo vigente,
 # menor id_curso), e bacharelado + licenciatura com o mesmo nome vira MISTO. Sem oferta com o nome
 # (ex.: COMUNICACAO SOCIAL), valem os do curso dono da matriz.
-SQL_DIM_CURSO = """
+SQL_ORIGEM_CURSO = """
 WITH principal AS (
     SELECT DISTINCT ON (nome_curso_norm) *
     FROM silver.cursos
     ORDER BY nome_curso_norm, ativo DESC, id_curso
 ), misto AS (
     SELECT nome_curso_norm FROM silver.cursos GROUP BY nome_curso_norm HAVING count(DISTINCT categoria_grau) > 1
+), origem AS (
+    SELECT e.nome_curso_canonico AS nome_curso,
+           e.id_curso AS id_curso_origem,
+           CASE WHEN m.nome_curso_norm IS NOT NULL THEN 'MISTO (BACHARELADO + LICENCIATURA)'
+                ELSE coalesce(p.grau_academico, dono.grau_academico) END AS grau_academico,
+           CASE WHEN m.nome_curso_norm IS NOT NULL THEN 'MISTO'
+                ELSE coalesce(p.categoria_grau, dono.categoria_grau) END AS categoria_grau,
+           coalesce(p.area_conhecimento, dono.area_conhecimento) AS area_conhecimento,
+           coalesce(p.departamento, dono.departamento) AS departamento,
+           coalesce(p.is_tronco_abi, dono.is_tronco_abi) AS is_tronco_abi
+    FROM silver.estruturas_curriculares e
+    JOIN silver.cursos dono ON dono.id_curso = e.id_curso
+    LEFT JOIN principal p ON p.nome_curso_norm = e.nome_curso_canonico
+    LEFT JOIN misto m ON m.nome_curso_norm = e.nome_curso_canonico
 )
-INSERT INTO gold.dim_curso (nome_curso, id_curso_origem, grau_academico, categoria_grau, area_conhecimento,
-                            departamento, is_tronco_abi)
-SELECT e.nome_curso_canonico,
-       e.id_curso,
-       CASE WHEN m.nome_curso_norm IS NOT NULL THEN 'MISTO (BACHARELADO + LICENCIATURA)'
-            ELSE coalesce(p.grau_academico, dono.grau_academico) END,
-       CASE WHEN m.nome_curso_norm IS NOT NULL THEN 'MISTO' ELSE coalesce(p.categoria_grau, dono.categoria_grau) END,
-       coalesce(p.area_conhecimento, dono.area_conhecimento),
-       coalesce(p.departamento, dono.departamento),
-       coalesce(p.is_tronco_abi, dono.is_tronco_abi)
-FROM silver.estruturas_curriculares e
-JOIN silver.cursos dono ON dono.id_curso = e.id_curso
-LEFT JOIN principal p ON p.nome_curso_norm = e.nome_curso_canonico
-LEFT JOIN misto m ON m.nome_curso_norm = e.nome_curso_canonico
-ON CONFLICT (nome_curso) DO UPDATE
-SET id_curso_origem = EXCLUDED.id_curso_origem,
-    grau_academico = EXCLUDED.grau_academico,
-    categoria_grau = EXCLUDED.categoria_grau,
-    area_conhecimento = EXCLUDED.area_conhecimento,
-    departamento = EXCLUDED.departamento,
-    is_tronco_abi = EXCLUDED.is_tronco_abi
 """
+
+# SCD tipo 2 (migração 0025, ADR 0028). Três passos na transação da carga, em que now() é o mesmo:
+# a versão fechada termina no instante em que a nova começa.
+#  1. fecha a versão atual dos cursos cujos atributos rastreados mudaram;
+#  2. abre versão para quem ficou sem versão atual: o curso que mudou (vigente desde agora) e o
+#     curso novo (vigente desde a fundação da UnB, como a primeira versão de todos);
+#  3. sobrescreve id_curso_origem na versão atual (tipo 1).
+# Curso que some da origem fica com a última versão atual: a gold não apaga curso.
+ATRIBUTOS_TIPO_2 = ("grau_academico", "categoria_grau", "area_conhecimento", "departamento", "is_tronco_abi")
+INICIO_DA_SERIE = "1962-04-21 00:00:00-03"
+
+SQL_DIM_CURSO_FECHAR = SQL_ORIGEM_CURSO + f"""
+UPDATE gold.dim_curso d
+SET vigente_ate = now(), is_atual = false
+FROM origem o
+WHERE d.nome_curso = o.nome_curso
+  AND d.is_atual
+  AND ({', '.join('d.' + a for a in ATRIBUTOS_TIPO_2)}) IS DISTINCT FROM ({', '.join('o.' + a for a in ATRIBUTOS_TIPO_2)})
+"""
+
+SQL_DIM_CURSO_ABRIR = SQL_ORIGEM_CURSO + f"""
+INSERT INTO gold.dim_curso (nome_curso, id_curso_origem, {', '.join(ATRIBUTOS_TIPO_2)}, vigente_de, vigente_ate, is_atual)
+SELECT o.nome_curso, o.id_curso_origem, {', '.join('o.' + a for a in ATRIBUTOS_TIPO_2)},
+       CASE WHEN EXISTS (SELECT 1 FROM gold.dim_curso d WHERE d.nome_curso = o.nome_curso)
+            THEN now() ELSE TIMESTAMPTZ '{INICIO_DA_SERIE}' END,
+       NULL, true
+FROM origem o
+WHERE NOT EXISTS (SELECT 1 FROM gold.dim_curso d WHERE d.nome_curso = o.nome_curso AND d.is_atual)
+"""
+
+SQL_DIM_CURSO_TIPO_1 = SQL_ORIGEM_CURSO + """
+UPDATE gold.dim_curso d
+SET id_curso_origem = o.id_curso_origem
+FROM origem o
+WHERE d.nome_curso = o.nome_curso
+  AND d.is_atual
+  AND d.id_curso_origem IS DISTINCT FROM o.id_curso_origem
+"""
+
+SQL_DIM_CURSO = (SQL_DIM_CURSO_FECHAR, SQL_DIM_CURSO_ABRIR, SQL_DIM_CURSO_TIPO_1)
 
 SQL_DIM_TEMPO = """
 INSERT INTO gold.dim_tempo (sk_tempo, ano, semestre, rotulo, decada)
@@ -109,91 +143,20 @@ FROM silver.pibic_projetos
 ON CONFLICT ON CONSTRAINT uk_dim_perfil_social DO NOTHING
 """
 
-# Port de build_gold.py (seções 6 a 8) para SQL, com as mesmas regras:
-#  - coortes com ingresso até (último ano de ingresso - ANOS_MATURACAO_COORTE), k >= 5;
-#  - % no tempo ideal e atraso médio só sobre formados com permanência calculável;
-#  - IRC = (0,3 x atraso + 0,7 x evasão) x 100, cada um saturado nos percentis 5 e 95 e
-#    normalizado min-max entre os cursos; classificação pelos quartis do IRC;
-#  - campus MULTICAMPUS quando o nome tem ofertas em mais de um campus.
-# percentile_cont interpola como o quantile do pandas. O arredondamento pode diferir em 0,01
-# (taxas) ou 0,1 (IRC) nos empates de meio: o numeric do PostgreSQL arredonda 0,5 para cima.
+# A regra de retenção (coortes maduras, k >= 5, IRC e quartis) mora em gold.atualizar_retencao
+# (db/migrations/0022): o fato lê a gold.retencao_cursos_unb já calculada, sem repetir o cálculo.
 SQL_FATO_RETENCAO = """
-WITH corte AS (
-    SELECT max(ano_ingresso) - %(anos_maturacao)s AS ano FROM silver.movimentacoes_vinculos
-), coortes AS (
-    SELECT e.nome_curso_canonico AS curso,
-           count(*) AS ingressantes,
-           count(*) FILTER (WHERE m.tipo_saida_grupo = 'FORMATURA') AS formados,
-           count(*) FILTER (WHERE m.tipo_saida_grupo = 'EVASAO') AS evadidos,
-           count(*) FILTER (WHERE m.tipo_saida_grupo = 'ATIVO') AS ativos,
-           count(m.semestres_permanencia_valida) FILTER (WHERE m.tipo_saida_grupo = 'FORMATURA') AS formados_com_prazo,
-           count(*) FILTER (WHERE m.tipo_saida_grupo = 'FORMATURA'
-                              AND m.semestres_permanencia_valida <= e.semestre_ideal) AS formados_no_ideal,
-           avg(m.semestres_permanencia_valida - e.semestre_ideal)
-               FILTER (WHERE m.tipo_saida_grupo = 'FORMATURA') AS atraso
-    FROM silver.movimentacoes_vinculos m
-    JOIN silver.estruturas_curriculares e USING (id_estrutura)
-    WHERE m.ano_ingresso <= (SELECT ano FROM corte)
-    GROUP BY e.nome_curso_canonico
-    HAVING count(*) >= 5
-), metricas AS (
-    SELECT *,
-           round(100.0 * formados / ingressantes, 2) AS taxa_formatura,
-           round(100.0 * evadidos / ingressantes, 2) AS taxa_evasao,
-           CASE WHEN formados_com_prazo > 0 THEN round(100.0 * formados_no_ideal / formados_com_prazo, 2)
-                ELSE 0 END AS pct_tempo_ideal,
-           round(atraso, 2) AS atraso_medio
-    FROM coortes
-), entradas AS (
-    SELECT curso, greatest(coalesce(atraso_medio, 0), 0)::float8 AS x_atraso, taxa_evasao::float8 AS x_evasao
-    FROM metricas
-), limites AS (
-    SELECT percentile_cont(0.05) WITHIN GROUP (ORDER BY x_atraso) AS a05,
-           percentile_cont(0.95) WITHIN GROUP (ORDER BY x_atraso) AS a95,
-           percentile_cont(0.05) WITHIN GROUP (ORDER BY x_evasao) AS e05,
-           percentile_cont(0.95) WITHIN GROUP (ORDER BY x_evasao) AS e95
-    FROM entradas
-), saturados AS (
-    SELECT curso,
-           least(greatest(x_atraso, a05), a95) AS s_atraso,
-           least(greatest(x_evasao, e05), e95) AS s_evasao
-    FROM entradas, limites
-), irc AS (
-    SELECT curso,
-           round(((0.3 * (s_atraso - min(s_atraso) OVER ()) / (max(s_atraso) OVER () - min(s_atraso) OVER () + 1e-6)
-                 + 0.7 * (s_evasao - min(s_evasao) OVER ()) / (max(s_evasao) OVER () - min(s_evasao) OVER () + 1e-6))
-                 * 100)::numeric, 1) AS indice
-    FROM saturados
-), quartis AS (
-    SELECT percentile_cont(0.25) WITHIN GROUP (ORDER BY indice) AS q25,
-           percentile_cont(0.50) WITHIN GROUP (ORDER BY indice) AS q50,
-           percentile_cont(0.75) WITHIN GROUP (ORDER BY indice) AS q75
-    FROM irc
-), campus_do_curso AS (
-    SELECT e.nome_curso_canonico AS curso,
-           CASE WHEN count(DISTINCT o.campus) > 1 THEN 'MULTICAMPUS'
-                ELSE coalesce(min(o.campus), dono.campus) END AS campus
-    FROM silver.estruturas_curriculares e
-    JOIN silver.cursos dono ON dono.id_curso = e.id_curso
-    LEFT JOIN silver.cursos o ON o.nome_curso_norm = e.nome_curso_canonico
-    GROUP BY e.nome_curso_canonico, dono.campus
-)
 INSERT INTO gold.fato_retencao_curso (
     sk_curso, sk_campus, total_ingressantes, total_formados, total_evadidos, total_ainda_ativos,
     taxa_formatura_pct, taxa_evasao_pct, formados_tempo_ideal_pct, atraso_medio_semestres,
     indice_retencao_critica, classificacao_retencao)
-SELECT dc.sk_curso, camp.sk_campus, m.ingressantes, m.formados, m.evadidos, m.ativos,
-       m.taxa_formatura, m.taxa_evasao, m.pct_tempo_ideal, m.atraso_medio, i.indice,
-       CASE WHEN i.indice >= q.q75 THEN 'RETENÇÃO CRÍTICA'
-            WHEN i.indice >= q.q50 THEN 'RETENÇÃO ALTA'
-            WHEN i.indice >= q.q25 THEN 'RETENÇÃO MÉDIA'
-            ELSE 'RETENÇÃO BAIXA' END
-FROM metricas m
-JOIN irc i USING (curso)
-CROSS JOIN quartis q
-JOIN gold.dim_curso dc ON dc.nome_curso = m.curso
-JOIN campus_do_curso cc ON cc.curso = m.curso
-JOIN gold.dim_campus camp ON camp.campus = cc.campus
+SELECT dc.sk_curso, camp.sk_campus, r.total_discentes_registrados, r.total_formados,
+       r.total_evadidos_desligados, r.total_ainda_ativos, r.taxa_formatura_pct, r.taxa_evasao_pct,
+       r.formados_tempo_ideal_pct, r.desvio_medio_semestres, r.indice_retencao_critica,
+       r.classificacao_retencao
+FROM gold.retencao_cursos_unb r
+JOIN gold.dim_curso dc ON dc.nome_curso = r.curso AND dc.is_atual
+JOIN gold.dim_campus camp ON camp.campus = r.campus
 """
 
 # Um grupo por curso canônico e perfil social; grupos com menos de 5 planos ficam de fora.
@@ -206,7 +169,7 @@ SELECT dc.sk_curso, ps.sk_perfil, count(*),
        sum(p.valor_bolsa_total)
 FROM silver.pibic_projetos p
 JOIN silver.estruturas_curriculares e USING (id_estrutura)
-JOIN gold.dim_curso dc ON dc.nome_curso = e.nome_curso_canonico
+JOIN gold.dim_curso dc ON dc.nome_curso = e.nome_curso_canonico AND dc.is_atual
 JOIN gold.dim_perfil_social ps
   ON ps.perfil_macro = coalesce(p.perfil_social_macro, 'NAO INFORMADO')
  AND ps.categoria_cota = coalesce(p.cota_detalhe, 'NAO INFORMADO')
@@ -222,16 +185,16 @@ INSERT INTO gold.fato_alunos_ativos (sk_curso, sk_tempo_referencia, total_ativos
 SELECT dc.sk_curso, replace(a.periodo_referencia, '/', '')::int, a.total_ativos_hoje,
        a.ativos_acima_prazo_ideal, a.ativos_acima_prazo_maximo, a.pct_acima_prazo_ideal
 FROM gold.ativos_hoje_cursos_unb a
-JOIN gold.dim_curso dc ON dc.nome_curso = a.curso
+JOIN gold.dim_curso dc ON dc.nome_curso = a.curso AND dc.is_atual
 """
 
 
 def povoar_gold_dimensional(conn: psycopg.Connection) -> Dict[str, int]:
     """Atualiza dimensões e recria fatos na transação de `conn`; devolve o número de linhas por tabela."""
-    for sql in (SQL_DIM_CAMPUS, SQL_DIM_CURSO, SQL_DIM_TEMPO, SQL_DIM_PERFIL_SOCIAL):
+    for sql in (SQL_DIM_CAMPUS, *SQL_DIM_CURSO, SQL_DIM_TEMPO, SQL_DIM_PERFIL_SOCIAL):
         conn.execute(sql)
     conn.execute(f"TRUNCATE {', '.join(FATOS)} RESTART IDENTITY")
-    conn.execute(SQL_FATO_RETENCAO, {"anos_maturacao": ANOS_MATURACAO_COORTE})
+    conn.execute(SQL_FATO_RETENCAO)
     conn.execute(SQL_FATO_ATIVOS)
     conn.execute(SQL_FATO_PIBIC_PERFIL)
     return {t: conn.execute(f"SELECT count(*) FROM {t}").fetchone()[0] for t in TABELAS_GOLD}
@@ -242,6 +205,9 @@ def executar_elt_dimensional() -> Dict[str, int]:
         if not silver_carregada(conn):
             logger.warning("silver.discentes_graduacao vazia (banco só com a gold?): Star Schema não atualizado.")
             return {}
+        if not conn.execute("SELECT EXISTS (SELECT 1 FROM gold.retencao_cursos_unb)").fetchone()[0]:
+            raise RuntimeError("gold.retencao_cursos_unb vazia: o fato de retenção copia essa tabela. "
+                               "Rode antes: python src/pipeline/build_gold.py")
         with conn.transaction():
             contagens = povoar_silver_3nf(conn)
             contagens.update(povoar_gold_dimensional(conn))
