@@ -134,7 +134,12 @@ def buscar(consulta: str, k: int = 5, tipo: Optional[str] = None) -> List[Dict]:
             ) candidatos
             WHERE nota >= %(min_texto)s
         )
-        SELECT d.tipo, d.titulo, d.conteudo, d.metadados,
+        SELECT tipo, titulo, conteudo, metadados, similaridade, relevancia
+        FROM (
+        -- Um trecho por arquivo da documentação, o mais relevante: sem isso, as seções de um mesmo
+        -- arquivo ocupam o top k e empurram os outros arquivos para fora.
+        SELECT DISTINCT ON (coalesce(d.metadados->>'arquivo', d.id::text))
+               d.tipo, d.titulo, d.conteudo, d.metadados,
                1 - (d.embedding <=> %(v)s) AS similaridade,
                coalesce(1.0 / (%(rrf_k)s + v.posicao), 0)
                  + coalesce(%(peso_completo)s / (%(rrf_k)s + c.posicao), 0)
@@ -152,6 +157,8 @@ def buscar(consulta: str, k: int = 5, tipo: Optional[str] = None) -> List[Dict]:
         WHERE v.forte OR t.id IS NOT NULL OR c.id IS NOT NULL
            OR (v.proximo AND (EXISTS (SELECT 1 FROM vetorial WHERE forte)
                               OR EXISTS (SELECT 1 FROM titulo) OR EXISTS (SELECT 1 FROM texto_completo)))
+        ORDER BY coalesce(d.metadados->>'arquivo', d.id::text), relevancia DESC, similaridade DESC
+        ) por_arquivo
         ORDER BY relevancia DESC, similaridade DESC
         LIMIT %(k)s
         """
@@ -172,6 +179,10 @@ def buscar(consulta: str, k: int = 5, tipo: Optional[str] = None) -> List[Dict]:
                 # documentos). A varredura iterativa (pgvector >= 0.8) continua buscando até
                 # completar os candidatos.
                 cur.execute("SET LOCAL hnsw.iterative_scan = strict_order")
+                # O padrão (40) deixava o HNSW longe da busca exata: numa consulta, o melhor vizinho
+                # achado tinha 0,37 de similaridade, e o exato, 0,42. Com 13 mil documentos, 200 custa
+                # poucos milissegundos e devolve os mesmos vizinhos da busca exata.
+                cur.execute("SET LOCAL hnsw.ef_search = 200")
                 # Os termos da consulta já reduzidos ao radical, sem palavras vazias ("de", "nos").
                 termos = cur.execute(
                     "SELECT tsvector_to_array(to_tsvector('portuguese', %s))", (consulta,)
