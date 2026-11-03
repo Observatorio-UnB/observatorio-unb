@@ -25,17 +25,20 @@ Um conjunto de 20 consultas com o documento esperado (`tests/test_banco_busca.py
 
 **Decisão:**
 
-- **Documentação inteira:** `docs/` com as subpastas e o `README.md`. Trechos de desenho em ASCII (menos de 40% de letras) ficam de fora. Os trechos são cortados em espaço, com 80 caracteres de sobreposição.
+- **Documentação inteira:** `docs/` com as subpastas e o `README.md`. Trechos de desenho em ASCII (menos de 40% de letras, contando o título da seção) ficam de fora. Os trechos são cortados em espaço, com 80 caracteres de sobreposição.
+- **Um trecho por arquivo no resultado:** o mais relevante. Sem isso, as seções de um mesmo arquivo ocupavam o top 5 e empurravam os outros arquivos para fora.
 - **Busca híbrida** (migração 0026), com três listas combinadas por Reciprocal Rank Fusion:
   - a vetorial;
   - o texto completo em português (`tsvector` gerado), que exige ao menos metade dos termos da consulta;
   - o trigrama no título, em que o título que contém a consulta inteira vale como primeiro de mais uma lista.
 - **Limiar por evidência:** o vetor sozinho só basta a partir de 0,55. Abaixo disso, o documento entra se a consulta tiver evidência de texto em algum documento; aí os vizinhos vetoriais a partir de 0,45 também entram.
+- **`hnsw.ef_search = 200`:** com o padrão (40), o HNSW ficava longe da busca exata. Numa consulta, o melhor vizinho achado tinha 0,37 de similaridade, e o exato, 0,42. Com o padrão, o banco local, com 13 mil documentos, usava o índice aproximado, enquanto o CI, só com cursos e documentação, fazia a busca exata, e os dois davam ordens diferentes.
 
 **Medido nas 20 consultas:**
-- recall@5 subiu de 14 para 18;
-- o MRR, a média de 1/posição do documento esperado, subiu de 0,55 para 0,75;
-- as 8 consultas sem sentido do teste voltam vazias;
+- recall@5 subiu de 14 para 19;
+- o MRR, a média de 1/posição do documento esperado, subiu de 0,55 para 0,80;
+- o resultado é o mesmo com o índice HNSW e com a busca exata;
+- as consultas sem sentido do teste voltam vazias. As que este ADR cita como exemplo trazem o próprio ADR, porque ele contém a frase;
 - a busca leva de 10 a 80 ms depois do modelo carregado.
 
 **Alternativas descartadas:**
@@ -45,5 +48,5 @@ Um conjunto de 20 consultas com o documento esperado (`tests/test_banco_busca.py
 
 **O que se perde:**
 - Uma consulta cujas palavras estão espalhadas por trechos diferentes e que fica abaixo de 0,55 no vetor volta vazia. Exemplo: "pergunta de gestão do decanato no challenge canvas", em que cada trecho do canvas tem um só dos termos.
-- O teste acompanha esse caso como um dos 2 de 20 que faltam.
+- O teste acompanha esse caso: é o 1 de 20 que falta.
 
