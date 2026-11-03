@@ -422,9 +422,11 @@ python3 src/db/demonstrar_dado_atrasado.py            # uma publicação no praz
 
 ### Busca semântica
 Cada curso da gold, cada plano de iniciação científica (título, ano, curso e linha,
-sem nome nem matrícula) e cada seção da documentação em `docs/` vira um documento
-vetorizado com o modelo multilíngue `paraphrase-multilingual-MiniLM-L12-v2`.
-A busca compara a consulta por distância de cosseno no pgvector:
+sem nome nem matrícula) e cada seção da documentação em `docs/` (subpastas incluídas) e do
+`README.md` vira um documento vetorizado com o modelo multilíngue
+`paraphrase-multilingual-MiniLM-L12-v2`. A busca é híbrida (ADR 0011): combina a distância de
+cosseno no pgvector com a busca em texto completo e por trigramas no título, que acham sigla e
+nome exato (`"ADR 0028"`). Consulta sem relação com nada volta vazia:
 
 ```bash
 python3 src/busca/buscar.py "inteligência artificial na saúde" --tipo projeto_pibic -k 10
@@ -438,6 +440,10 @@ documentação a busca acerta bem (ex.: 0,83 de similaridade no primeiro resulta
 turno mas mistura faixas de evasão, mesmo com o texto de cada curso descrevendo a
 faixa ("evasão alta", "formatura com muito atraso"). Para filtrar por atributo, use
 SQL em `gold.retencao_cursos_unb` ou o painel.
+
+**Qualidade medida:** `tests/test_banco_busca.py` tem 20 consultas com o documento esperado e exige
+recall@5 de ao menos 0,8 por tipo. O relatório caso a caso sai com
+`python3 tests/test_banco_busca.py --relatorio`.
 
 ---
 
