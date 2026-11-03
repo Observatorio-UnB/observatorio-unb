@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Pipeline completo, do portal ao banco. Cada etapa lê a camada anterior do
 # PostgreSQL e grava a sua nele: migrações -> bronze (CKAN e INEP) -> silver -> gold
-# -> auditoria -> privacidade -> Silver 3NF e Star Schema -> lago Delta -> vetorização -> dicionário do banco.
+# -> auditoria -> privacidade -> Silver 3NF e Star Schema -> camadas dbt -> lago Delta -> vetorização
+# -> dicionário do banco.
+#
+# A ordem que vale é a do grafo do Dagster (orquestracao/definicoes.py), que roda no agendamento
+# mensal e no CI. Este roteiro fica para o Docker e para quem roda sem o Dagster; um teste
+# (tests/test_unit_orquestracao.py) acusa se os dois deixarem de chamar os mesmos scripts.
 #
 # Requer o banco no ar (docker compose up -d db) ou DATABASE_URL apontando para ele.
 # Uso: bash scripts/rodar_pipeline.sh
@@ -48,6 +53,15 @@ etapa "Banco: Silver 3NF e Star Schema"
 
 etapa "Gold: refresh da view do painel"
 "$PYTHON" src/db/atualizar_view_painel.py
+
+# Camadas declarativas em dbt (transform/, ADR 0029). O dbt é opcional fora do CI e do Docker:
+# sem ele instalado (pip install -r requirements-dbt.txt), a etapa só avisa.
+etapa "Transformações dbt: staging, intermediate e marts"
+if command -v dbt >/dev/null 2>&1 || [ -x .venv/bin/dbt ]; then
+  bash scripts/dbt.sh build --full-refresh
+else
+  echo "AVISO: dbt não instalado; camadas dbt não reconstruídas (pip install -r requirements-dbt.txt)."
+fi
 
 # Só as tabelas e as janelas (quinquênios de ingresso) que mudaram desde a última exportação, como
 # as que receberam dado atrasado. A carga anterior já registrou o que chegou (src/db/dado_atrasado.py).

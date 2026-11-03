@@ -1,0 +1,22 @@
+version: 2
+
+sources:
+  - name: silver
+    description: Silver 3NF, carregada por src/db/povoar_silver_3nf.py a partir da silver tabular.
+    # Trocado só pelo teste de dado ruim (tests/test_dbt_dado_ruim.py), que lê uma cópia adulterada.
+    schema: "{{ var('esquema_silver', 'silver') }}"
+    tables:
+      - name: cursos
+        description: Uma linha por oferta de curso do catálogo (id_curso).
+      - name: estruturas_curriculares
+        description: Uma matriz curricular por curso canônico, com os prazos regulamentares.
+      - name: movimentacoes_vinculos
+        description: Um vínculo de graduação por linha (SIGRA + SIGAA), particionado por ano de ingresso.
+
+  - name: gold
+    description: Gold gerada pelo pipeline Python. Só serve de referência para a reconciliação.
+    schema: gold
+    tables:
+      - name: fato_retencao_curso
+      - name: dim_curso
+      - name: dim_campus

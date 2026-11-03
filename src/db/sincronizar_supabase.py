@@ -11,8 +11,8 @@ Cada tabela é comparada pela chave natural:
 Rodar duas vezes seguidas não duplica nem altera nada.
 
 As chaves substitutas do Star Schema (sk_curso, sk_campus, sk_perfil) são de cada banco: os fatos
-viajam com os atributos naturais (nome do curso, campus, perfil social) e são religados às
-dimensões do Supabase na chegada.
+viajam com os atributos naturais (nome e início da vigência da versão do curso, campus, perfil
+social) e são religados às dimensões do Supabase na chegada.
 
 O destino vem de SUPABASE_DATABASE_URL (ambiente ou .env). Sem ela, a etapa é pulada.
 As migrações pendentes são aplicadas no destino antes da cópia.
@@ -82,7 +82,10 @@ SINCRONIAS = [
     Sincronia("gold.relatorios", ["nome"]),
     Sincronia("busca.documentos", ["tipo", "chave"]),
     Sincronia("gold.dim_campus", ["campus"]),
-    Sincronia("gold.dim_curso", ["nome_curso"]),
+    # SCD tipo 2 (migração 0025): uma linha por versão. A versão fechada chega como atualização
+    # (vigente_ate, is_atual) e a nova como inserção, no mesmo comando: a restrição de uma versão
+    # atual por curso só é conferida no commit.
+    Sincronia("gold.dim_curso", ["nome_curso", "vigente_de"]),
     Sincronia("gold.dim_tempo", ["sk_tempo"]),
     Sincronia("gold.dim_perfil_social", ["perfil_macro", "categoria_cota", "faixa_renda", "is_cotista"],
               conflito="ON CONSTRAINT uk_dim_perfil_social"),
@@ -91,33 +94,33 @@ SINCRONIAS = [
     Sincronia(
         "gold.fato_retencao_curso", ["sk_curso"],
         exportar=f"""
-            SELECT c.nome_curso, camp.campus, {', '.join('f.' + m for m in MEDIDAS_RETENCAO)}
+            SELECT c.nome_curso, c.vigente_de, camp.campus, {', '.join('f.' + m for m in MEDIDAS_RETENCAO)}
             FROM gold.fato_retencao_curso f
             JOIN gold.dim_curso c USING (sk_curso)
             JOIN gold.dim_campus camp USING (sk_campus)""",
         inserir=f"""
             SELECT c.sk_curso, camp.sk_campus, {', '.join('tmp.' + m for m in MEDIDAS_RETENCAO)}
             FROM tmp
-            JOIN gold.dim_curso c ON c.nome_curso = tmp.nome_curso
+            JOIN gold.dim_curso c ON (c.nome_curso, c.vigente_de) = (tmp.nome_curso, tmp.vigente_de)
             JOIN gold.dim_campus camp ON camp.campus = tmp.campus""",
         colunas=["sk_curso", "sk_campus", *MEDIDAS_RETENCAO],
     ),
     Sincronia(
         "gold.fato_alunos_ativos", ["sk_curso"],
         exportar=f"""
-            SELECT c.nome_curso, {', '.join('f.' + m for m in MEDIDAS_ATIVOS)}
+            SELECT c.nome_curso, c.vigente_de, {', '.join('f.' + m for m in MEDIDAS_ATIVOS)}
             FROM gold.fato_alunos_ativos f
             JOIN gold.dim_curso c USING (sk_curso)""",
         inserir=f"""
             SELECT c.sk_curso, {', '.join('tmp.' + m for m in MEDIDAS_ATIVOS)}
             FROM tmp
-            JOIN gold.dim_curso c ON c.nome_curso = tmp.nome_curso""",
+            JOIN gold.dim_curso c ON (c.nome_curso, c.vigente_de) = (tmp.nome_curso, tmp.vigente_de)""",
         colunas=["sk_curso", *MEDIDAS_ATIVOS],
     ),
     Sincronia(
         "gold.fato_pibic_perfil", ["sk_curso", "sk_perfil"],
         exportar=f"""
-            SELECT c.nome_curso, p.perfil_macro, p.categoria_cota, p.faixa_renda, p.is_cotista,
+            SELECT c.nome_curso, c.vigente_de, p.perfil_macro, p.categoria_cota, p.faixa_renda, p.is_cotista,
                    {', '.join('f.' + m for m in MEDIDAS_PIBIC)}
             FROM gold.fato_pibic_perfil f
             JOIN gold.dim_curso c USING (sk_curso)
@@ -125,7 +128,7 @@ SINCRONIAS = [
         inserir=f"""
             SELECT c.sk_curso, p.sk_perfil, {', '.join('tmp.' + m for m in MEDIDAS_PIBIC)}
             FROM tmp
-            JOIN gold.dim_curso c ON c.nome_curso = tmp.nome_curso
+            JOIN gold.dim_curso c ON (c.nome_curso, c.vigente_de) = (tmp.nome_curso, tmp.vigente_de)
             JOIN gold.dim_perfil_social p
               ON (p.perfil_macro, p.categoria_cota, p.is_cotista) = (tmp.perfil_macro, tmp.categoria_cota, tmp.is_cotista)
              AND p.faixa_renda IS NOT DISTINCT FROM tmp.faixa_renda""",

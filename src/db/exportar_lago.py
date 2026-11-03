@@ -29,6 +29,7 @@ Uso:
 
 import argparse
 import logging
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,7 +51,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("exportar_lago")
 
-LAGO_DIR = BASE_DIR / "data" / "lake" / "lote"
+# LAGO_DIR no ambiente troca o destino (ex.: a demonstração do backfill, docs/orquestracao.md).
+LAGO_DIR = Path(os.environ.get("LAGO_DIR") or BASE_DIR / "data" / "lake" / "lote")
 RETENCAO_HORAS = 7 * 24
 COLUNA_QUINQUENIO = "quinquenio_ingresso"
 
@@ -160,11 +162,19 @@ def gravar_no_lago(
         mode="overwrite",
         partition_by=[COLUNA_QUINQUENIO] if particionada else None,
         predicate=predicado,
+        # Regravação inteira acompanha as colunas do banco; a de janelas mantém o esquema do lago.
+        schema_mode="overwrite" if predicado is None else None,
         writer_properties=PROPRIEDADES,
     )
     delta = DeltaTable(str(destino))
     delta.vacuum(retention_hours=RETENCAO_HORAS, dry_run=False)
     return delta
+
+
+def _colunas_mudaram(tabela: pa.Table, destino: Path) -> bool:
+    """O banco ganhou ou perdeu colunas desde a última exportação (ex.: a vigência da SCD da dim_curso)."""
+    no_lago = DeltaTable(str(destino)).schema().to_arrow().names
+    return set(no_lago) != set(tabela.schema.names)
 
 
 def _ordenada(tabela: pa.Table) -> pa.Table:
@@ -196,8 +206,8 @@ def janelas_alteradas(tabela: pa.Table, destino: Path) -> List[int]:
 
 
 def tabela_alterada(tabela: pa.Table, destino: Path) -> bool:
-    """A tabela difere da versão no lago (ou ainda não está nele)."""
-    if not DeltaTable.is_deltatable(str(destino)):
+    """A tabela difere da versão no lago (ou ainda não está nele, ou mudou de colunas)."""
+    if not DeltaTable.is_deltatable(str(destino)) or _colunas_mudaram(tabela, destino):
         return True
     return not _ordenada(tabela).equals(_ordenada(_ler_do_lago(destino, tabela.schema)))
 

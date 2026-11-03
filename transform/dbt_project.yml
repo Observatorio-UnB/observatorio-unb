@@ -1,0 +1,49 @@
+# Transformações declarativas da gold em dbt (ADR 0029). Lê a Silver 3NF do PostgreSQL e
+# reconstrói as tabelas de consumo em três camadas, cada uma no seu esquema:
+#
+#   staging       (dbt_staging, views)      uma view por tabela da silver: só renomeia e tipa
+#   intermediate  (dbt_intermediate, views)  regras de negócio: atributos do curso, coortes, IRC
+#   marts         (dbt_marts, tabelas)       star schema e a tabela do painel, agregadas (k >= 5)
+#
+# Rodar: bash scripts/dbt.sh build   (usa o DATABASE_URL do projeto)
+name: observatorio
+version: "1.0.0"
+config-version: 2
+profile: observatorio
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: target
+clean-targets: ["target", "dbt_packages", "logs"]
+
+vars:
+  # Mesmos parâmetros do pipeline: src/pipeline/build_gold.py (ANOS_MATURACAO_COORTE) e ADR 0005.
+  anos_maturacao: 8
+  k_minimo: 5
+  # Limites dos testes de distribuição (tests/distribuicao_*.sql), medidos na base de 10/2026. Revisar
+  # quando a base mudar de patamar: ver "Quando revisar os limites" em docs/testes_de_dados.md.
+  salto_maximo_entre_coortes: 0.30
+  evasao_por_coorte: [30, 60]
+  formatura_por_coorte: [35, 70]
+  mediana_evasao_por_curso: [30, 60]
+  ingressantes_curso_que_some: 80
+
+models:
+  observatorio:
+    staging:
+      +materialized: view
+      +schema: dbt_staging
+    intermediate:
+      +materialized: view
+      +schema: dbt_intermediate
+    marts:
+      +materialized: table
+      +schema: dbt_marts
+      # Só os marts são agregados: o papel de leitura do painel lê só eles (staging e intermediate
+      # carregam vínculos individuais da silver, como a própria silver).
+      +grants:
+        select: ["observatorio_leitura"]
+
+on-run-end:
+  - "GRANT USAGE ON SCHEMA {{ var('prefixo_esquema', '') }}dbt_marts TO observatorio_leitura"

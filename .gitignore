@@ -35,3 +35,6 @@ export/
 # Agentes de IA e skills locais
 .agents/
 
+
+# Instância temporária do Dagster criada pelo `dagster dev` (orquestracao/)
+.tmp_dagster_home*/

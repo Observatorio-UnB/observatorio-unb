@@ -774,7 +774,7 @@ Dimensão geográfica dos campi da UnB.
 
 ### `gold.dim_curso`
 
-Dimensão de cursos canônicos de graduação. Chave natural nome_curso: a chave substituta sk_curso não muda quando entra curso novo.
+Dimensão de cursos, SCD tipo 2: uma linha por versão dos atributos de classificação de um curso canônico. Chave natural: nome_curso; versão: (nome_curso, vigente_de). A versão atual tem is_atual e vigente_ate nulo. Mudança em grau, categoria, área, departamento ou tronco ABI abre versão nova; id_curso_origem é sobrescrito (tipo 1).
 
 **Linhas na última carga:** 112
 
@@ -788,11 +788,16 @@ Dimensão de cursos canônicos de graduação. Chave natural nome_curso: a chave
 | `area_conhecimento` | `text` | não |  |
 | `departamento` | `text` | sim |  |
 | `is_tronco_abi` | `boolean` | não |  |
+| `vigente_de` | `timestamp with time zone` | não | Início da versão: a carga que observou os atributos. A primeira versão de cada curso vale desde 21/04/1962 (fundação da UnB). |
+| `vigente_ate` | `timestamp with time zone` | sim | Fim da versão: a carga que observou a mudança. Nulo na versão atual. |
+| `is_atual` | `boolean` | não | Versão vigente hoje. Os fatos são recriados a cada carga e apontam para ela. |
 
 **Restrições:**
 
 - Chave primária: `PRIMARY KEY (sk_curso)`
-- Única: `UNIQUE (nome_curso)`
+- Única: `UNIQUE (nome_curso, vigente_de)`
+- Verificação: `CHECK ((is_atual = (vigente_ate IS NULL)))`
+- Verificação: `CHECK (((vigente_ate IS NULL) OR (vigente_ate > vigente_de)))`
 - Verificação: `CHECK ((categoria_grau = ANY (ARRAY['BACHARELADO'::text, 'LICENCIATURA'::text, 'MISTO'::text])))`
 
 ### `gold.dim_perfil_social`

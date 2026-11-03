@@ -43,19 +43,19 @@ O esquema estrela desacopla as métricas numéricas das entidades de contexto, p
 |             gold.fato_retencao_curso             |       |           gold.dim_curso           |
 +--------------------------------------------------+       +------------------------------------+
 | PK  id_fato (BIGINT)                             |  N  1 | PK  sk_curso (INTEGER)             |
-| FK  sk_curso (INTEGER, UNIQUE) ------------------+------>| UK  nome_curso (TEXT)              |
-| FK  sk_campus (INTEGER)                          |       |     id_curso_origem (INTEGER)      |
+| FK  sk_curso (INTEGER, UNIQUE) ------------------+------>| UK  nome_curso, vigente_de         |
+| FK  sk_campus (INTEGER)                          |       |     id_curso_origem (INT, tipo 1)  |
 |     total_ingressantes (INT, CHECK >= 5)         |       |     grau_academico (TEXT)          |
 |     total_formados (INT, CHECK >= 0)             |       |     categoria_grau (TEXT)          |
 |     total_evadidos (INT, CHECK >= 0)             |       |     area_conhecimento (TEXT)       |
 |     total_ainda_ativos (INT, CHECK >= 0)         |       |     departamento (TEXT)            |
 |     taxa_formatura_pct (NUMERIC(5,2))            |       |     is_tronco_abi (BOOLEAN)        |
-|     taxa_evasao_pct (NUMERIC(5,2))               |       +----+--------------------------+----+
-|     formados_tempo_ideal_pct (NUMERIC(5,2))      |            |                          |
-|     atraso_medio_semestres (NUMERIC(5,2))        |            | 1                        | 1
-|     indice_retencao_critica (NUMERIC(4,1))       |            |                          |
-|     classificacao_retencao (TEXT)                |            | N                        | N
-|     atualizado_em (TIMESTAMPTZ)                  |            |                          |
+|     taxa_evasao_pct (NUMERIC(5,2))               |       |     vigente_de (TIMESTAMPTZ)       |
+|     formados_tempo_ideal_pct (NUMERIC(5,2))      |       |     vigente_ate (TIMESTAMPTZ)      |
+|     atraso_medio_semestres (NUMERIC(5,2))        |       |     is_atual (BOOLEAN)             |
+|     indice_retencao_critica (NUMERIC(4,1))       |       +----+--------------------------+----+
+|     classificacao_retencao (TEXT)                |            | 1                        | 1
+|     atualizado_em (TIMESTAMPTZ)                  |            | N                        | N
 +--------------------------------------------------+            |                          |
                                                                 |                          |
 +--------------------------------------------------+            |                          |
