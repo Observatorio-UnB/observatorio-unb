@@ -193,7 +193,7 @@ jobs:
         run: |
           mkdir -p _site/app/src/dashboard/assets _site/app/export _site/app/docs
           cp site/index.html _site/index.html
-          cp src/dashboard/app.py _site/app/src/dashboard/app.py
+          cp src/dashboard/app.py src/dashboard/resposta_e1.py _site/app/src/dashboard/
           cp -r src/dashboard/assets/* _site/app/src/dashboard/assets/ 2>/dev/null || true
           cp artifact/export/gold.json _site/app/export/gold.json
           cp artifact/docs/*.md _site/app/docs/

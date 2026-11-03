@@ -144,6 +144,25 @@ O painel lê a gold do banco. Sem banco, lê `export/gold.json`, se existir
 (`python3 src/db/exportar_gold.py`), que é o que a versão do GitHub Pages usa. Com o
 banco no ar, a página **busca semântica** aparece no menu lateral.
 
+**Roteiro: a resposta à pergunta da E1.** A pergunta do DEG (`docs/challenge_canvas.md`) é *em
+quais cursos a retenção e o atraso na integralização são mais críticos, demandando intervenção
+prioritária?*
+
+1. Abra o painel. A página inicial, **📊 Visão Executiva (DEG)**, começa pela pergunta e pela resposta.
+2. A frase de resposta diz quantos cursos estão em **retenção crítica** (o quartil mais alto do
+   Índice de Retenção Crítica) e quais são os primeiros da fila de intervenção. Na carga de 10/2026,
+   são 23 cursos, e o primeiro é Física Computacional.
+3. A tabela logo abaixo é a fila: os 15 cursos de maior IRC, com a evasão, o atraso médio na
+   formatura e o percentual de formados no prazo ideal, que mostram por que cada curso está ali.
+4. A legenda diz de onde vem o ranking, `dbt_marts.painel_cursos_criticos` (a camada transformada
+   em dbt), e de quando são os dados. Se os dados passarem do SLA de frescor de 35 dias, aparece um aviso.
+5. Para o detalhe de um curso da fila, use **🔍 Detalhe por Curso** no menu lateral. A matriz de
+   atraso contra evasão, mais abaixo na Visão Executiva, mostra onde ele fica entre os demais.
+
+O ranking é o mesmo no painel local, que lê o banco, e no GitHub Pages, que lê o `export/gold.json`
+gerado pelo CI. Sem a camada dbt (banco ou export antigos), o painel calcula o mesmo ranking a
+partir de `gold.retencao_cursos_unb` e indica isso na legenda.
+
 ---
 
 ## 🗄️ Banco de Dados (PostgreSQL + pgvector)
@@ -195,7 +214,7 @@ camadas e três esquemas: `dbt_staging` (views que só renomeiam a silver, sem o
 
 ```bash
 pip install -r requirements-dbt.txt
-bash scripts/dbt.sh build --full-refresh     # modelos e 35 testes, do zero, na ordem do grafo
+bash scripts/dbt.sh build --full-refresh     # modelos e 61 testes de dados, do zero, na ordem do grafo
 bash scripts/dbt.sh docs generate --static   # documentação e linhagem: transform/target/static_index.html
 ```
 
@@ -203,6 +222,14 @@ O teste `reconcilia_fato_retencao_com_a_gold` exige que o fato do dbt seja igual
 ao `gold.fato_retencao_curso` do pipeline Python. O CI roda o `dbt build` a cada push e publica a
 documentação com a linhagem no GitHub Pages, em `/dbt/`. Escolha da ferramenta e opção nula
 avaliada: [ADR 0029](docs/adr/0029-transformacoes-em-dbt.md).
+
+Os testes cobrem esquema (contrato de tipos), volume, unicidade, integridade referencial,
+distribuição (salto de série entre coortes, desfechos por coorte, curso que some, mediana da evasão)
+e o que o domínio tem de sujo (permanência negativa, saída antes do ingresso).
+`tests/test_dbt_dado_ruim.py` prova que cada um falha ao injetar um dado ruim numa cópia da silver.
+As variáveis `esquema_silver` e `prefixo_esquema` do dbt existem só para essa prova; com os padrões, o
+pipeline não muda.
+Limites, origem de cada um e a tabela de injeções: [docs/testes_de_dados.md](docs/testes_de_dados.md).
 
 ### Orquestração (Dagster)
 O pipeline também roda como um grafo do Dagster (`orquestracao/`, ADR 0030). Cada etapa chama o
