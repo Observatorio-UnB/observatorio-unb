@@ -151,6 +151,14 @@ CREATE INDEX idx_mov_evasao ON silver.movimentacoes_vinculos (id_curso)
 
 O índice parcial `idx_mov_evasao` armazena apenas tuplas onde `tipo_saida_grupo = 'EVASAO'`, ocupando uma fração do espaço em disco de um índice global e permitindo leituras ultrarrápidas das coortes de evasão.
 
+A chave estrangeira `id_estrutura`, pela qual o curso canônico chega aos vínculos, ficou sem índice até a migração 0024. O índice dela saiu da leitura de um plano real, e não de antemão (seção 5.1):
+
+```sql
+-- Vínculos de um curso canônico por tipo de saída e coorte (migração 0024):
+CREATE INDEX idx_mov_estrutura_saida_ano ON silver.movimentacoes_vinculos
+    (id_estrutura, tipo_saida_grupo, ano_ingresso) INCLUDE (semestres_permanencia_valida);
+```
+
 ### 3.2 GIN com `pg_trgm` (Generalized Inverted Index para Trigrama)
 
 A busca por cursos universitários frequentemente envolve erros de digitação, acentuação ausente ou termos parciais (ex: "Engenharia Mecatrônica" digitado como "mecatronica" ou "eng mecat").
@@ -250,49 +258,93 @@ REFRESH MATERIALIZED VIEW CONCURRENTLY gold.mv_dashboard_executivo;
 
 ---
 
+
 ## 5. Análise Empírica de Performance: `EXPLAIN (ANALYZE, BUFFERS)`
 
-A consulta analítica principal do dashboard foi submetida a profiling de execução diretamente no PostgreSQL 17 utilizando o catálogo oficial:
+Os planos desta seção estão versionados em [`docs/explain/`](../explain/), junto com a consulta que os gera. Foram medidos no PostgreSQL 16 do `docker compose`, com o banco do pipeline completo (152.680 vínculos), depois do autovacuum. Cada consulta rodou duas vezes, e o plano guardado é o da segunda, com o cache quente: antes e depois são comparados nas mesmas condições.
 
-### Consulta Testada:
+### 5.1 Detalhamento de um curso na Silver 3NF (otimizado)
+
+**Consulta** ([`distribuicao_formatura_por_curso.sql`](../explain/distribuicao_formatura_por_curso.sql)): distribuição de semestres até a formatura dos formados de Ciência da Computação nas coortes maduras (2010 a 2016). É o detalhamento por curso do painel e o caso de uso de orientação ao calouro ("em quantos semestres os formados deste curso de fato se formam?").
 
 ```sql
-EXPLAIN (ANALYZE, BUFFERS, COSTS, TIMING, SUMMARY)
-SELECT
-    nome_curso,
-    campus,
-    total_ingressantes,
-    taxa_formatura_pct,
-    taxa_evasao_pct
-FROM gold.mv_dashboard_executivo
-WHERE sk_curso = 77
-  AND campus = 'DARCY RIBEIRO';
+SELECT m.semestres_permanencia_valida AS semestres, count(*) AS formados
+FROM silver.movimentacoes_vinculos m
+JOIN silver.estruturas_curriculares e USING (id_estrutura)
+WHERE e.nome_curso_canonico = 'CIENCIA DA COMPUTACAO'
+  AND m.tipo_saida_grupo = 'FORMATURA'
+  AND m.ano_ingresso BETWEEN 2010 AND 2016
+GROUP BY 1 ORDER BY 1;
 ```
 
-### Plano de Execução Retornado pelo SGBD:
+**Antes** ([`antes_distribuicao_formatura_por_curso.txt`](../explain/antes_distribuicao_formatura_por_curso.txt)):
 
 ```text
-Index Scan using idx_mv_executivo_sk on mv_dashboard_executivo  (cost=0.14..2.36 rows=1 width=57) (actual time=0.012..0.013 rows=1 loops=1)
-  Index Cond: ((sk_curso = 77) AND (campus = 'DARCY RIBEIRO'::text))
-  Buffers: shared hit=2
-Planning:
-  Buffers: shared hit=24
-Planning Time: 0.804 ms
-Execution Time: 0.054 ms
+->  Hash Join  (actual time=0.086..35.215 rows=235)
+      Hash Cond: (m.id_estrutura = e.id_estrutura)
+      ->  Append  (actual rows=35046)
+            ->  Seq Scan on movimentacoes_p2000_2015 m_1   Rows Removed by Filter: 27921   Buffers: shared hit=848
+            ->  Seq Scan on movimentacoes_p2016_2020 m_2   Rows Removed by Filter: 55120   Buffers: shared hit=713
+Buffers: shared hit=1566     Execution Time: 35.593 ms
 ```
 
-### Interpretação das Métricas de SGBD:
+**Leitura do plano.** A poda de partições funcionou: só as duas partições que cobrem 2010 a 2016 entram no `Append`. Mas, dentro delas, as duas são lidas inteiras (1.561 páginas, cerca de 118 mil linhas), 83 mil linhas são descartadas pelo filtro e outras 34.811 pelo `Hash Join`, para sobrarem 235. O problema é a chave da junção: o curso canônico chega ao vínculo por `id_estrutura`, que não tinha índice. O índice existente, `idx_mov_curso_ano (id_curso, ano_ingresso)`, não é usado porque a consulta não filtra por `id_curso`.
 
-1. **Método de Acesso**: `Index Scan` na chave única `idx_mv_executivo_sk`. Nenhuma tupla fora do predicado foi lida.
-2. **I/O e Buffer Pool**: `shared hit=2`. Exatamente 2 blocos de 8 KB foram recuperados da memória cache (_Shared Buffers_), com **zero leituras de disco físico** no scan de dados.
-3. **Tempo de Execução**: **0.054 milissegundos** ($54 \mu s$).
+**Alternativas medidas.**
 
-### Tabela Comparativa de Abordagens de Engenharia
+| Alternativa | Plano | Buffers | Tempo |
+|:---|:---|---:|---:|
+| Sem mudança (antes) | Seq Scan nas 2 partições + Hash Join | 1.566 | 35,6 ms |
+| Reescrever a junção para casar também por `id_curso` (`ON m.id_estrutura = e.id_estrutura AND m.id_curso = e.id_curso`), usando o índice existente | Bitmap Heap Scan por `idx_mov_curso_ano` | 474 | 4,1 ms |
+| **Índice `(id_estrutura, tipo_saida_grupo, ano_ingresso) INCLUDE (semestres_permanencia_valida)`** | **Index Only Scan nas 2 partições** | **14** | **0,42 ms** |
 
-| Abordagem                       | Mecanismo                                  | Latência de Resposta | Sobrecarga de Rede / I/O                          | Garantia ACID |
-| :------------------------------ | :----------------------------------------- | :------------------- | :------------------------------------------------ | :-----------: |
-| **Legado (Pandas)**             | CSV carregado em RAM via Python            | ~1.200 ms            | Download de arquivos integrais dezenas de MB      |      Nao      |
-| **Relacional Bruto**            | JOIN on-the-fly (`silver` normalizada)     | ~45 ms               | Leitura de múltiplas páginas de tabelas e índices |      Sim      |
-| **Engenharia Star Schema + MV** | `gold.mv_dashboard_executivo` (Index Scan) | **0.054 ms**         | Apenas 2 buffers em cache (16 KB)                 |      Sim      |
+A reescrita funciona porque todo vínculo tem o mesmo `id_curso` da sua matriz (conferido: 0 de 152.680 divergem). Mas ela ainda lê as páginas de todos os vínculos do curso (601 + 112 linhas) para filtrar formatura na heap, e o planejador erra a estimativa (3 linhas previstas, 198 reais), porque não sabe que as duas condições da junção são redundantes. Ela também obriga cada consulta futura a lembrar da chave redundante. Por isso a escolha foi o índice.
 
-> **Conclusao de Performance**: A modelagem dimensional com view materializada indexada atingiu um ganho de eficiência de **~22.000x** em relação ao processamento ingênuo de CSVs em memória, operando com total previsibilidade sub-milissegundo.
+**Mudança** ([migração 0024](../../db/migrations/0024_indice_vinculos_por_estrutura.sql)): as colunas de igualdade (`id_estrutura`, `tipo_saida_grupo`) vêm antes da de intervalo (`ano_ingresso`), e a coluna agregada vai no `INCLUDE`. Assim o intervalo de coortes é uma faixa contígua do índice e a contagem não precisa da heap. Criado na tabela particionada, o índice nasce em cada partição, inclusive nas que a [migração 0019](../../db/migrations/0019_provisionar_particoes.sql) provisionar depois.
+
+**Depois** ([`depois_distribuicao_formatura_por_curso.txt`](../explain/depois_distribuicao_formatura_por_curso.txt)):
+
+```text
+->  Nested Loop  (actual time=0.067..0.219 rows=235)
+      ->  Seq Scan on estruturas_curriculares e   (rows=1)
+      ->  Append
+            ->  Index Only Scan using movimentacoes_p2000_2015_id_estrutura_tipo_saida_grupo_ano__idx   Heap Fetches: 0   Buffers: shared hit=5
+            ->  Index Only Scan using movimentacoes_p2016_2020_id_estrutura_tipo_saida_grupo_ano__idx   Heap Fetches: 0   Buffers: shared hit=4
+Buffers: shared hit=14     Execution Time: 0.418 ms
+```
+
+**Resultado.** De 1.566 para 14 buffers (112 vezes menos páginas) e de 35,6 ms para 0,42 ms (85 vezes mais rápido). O `Hash Join` vira `Nested Loop`: com uma estrutura só do lado externo, cada partição faz uma busca no índice que já devolve só as 235 linhas da resposta.
+
+**Custos e limites.**
+- **Espaço:** o índice ocupa 5,8 MB nas partições, contra 15 MB da tabela.
+- **Carga:** a recarga da Silver 3NF e do Star Schema (`povoar_dimensional.py`, que recria os vínculos) passou de 5,05 s para 5,39 s, média de 3 execuções. São +0,34 s por pipeline.
+- **Mapa de visibilidade:** o `Heap Fetches: 0` depende do mapa de visibilidade, que a recarga zera. Logo depois de uma carga, antes do autovacuum, o plano usa o mesmo índice por `Bitmap Heap Scan` e lê 202 buffers em 0,79 ms: o ganho continua, só menor até o autovacuum passar.
+- **Regressão:** `test_09_detalhamento_por_curso_usa_o_indice_da_estrutura` (em `tests/test_banco_3nf_star.py`) roda o `EXPLAIN` da consulta versionada e falha se alguma partição dos vínculos voltar a ser lida por `Seq Scan`.
+
+### 5.2 Linha de um curso na view materializada do painel
+
+**Consulta** ([`painel_curso_na_view_materializada.sql`](../explain/painel_curso_na_view_materializada.sql)): a linha de Ciência da Computação em `gold.mv_dashboard_executivo`, como a Visão Executiva lê.
+
+```text
+Seq Scan on mv_dashboard_executivo  (actual time=0.020..0.029 rows=1)
+  Filter: ((sk_curso = $0) AND (campus = 'DARCY RIBEIRO'::text))
+  Rows Removed by Filter: 93
+  Buffers: shared hit=5
+Execution Time: 0.065 ms
+```
+
+Com 94 linhas em poucas páginas, o PostgreSQL prefere ler a view inteira a passar pelo índice único: é o plano mais barato nesse tamanho. O índice `idx_mov_executivo_sk` continua necessário, mas para o `REFRESH MATERIALIZED VIEW CONCURRENTLY` (seção 4.3), e não para a leitura. A versão anterior desta seção mostrava um `Index Scan` (0,054 ms, 2 buffers) medido no PostgreSQL 17 do Supabase, sem plano versionado.
+
+### 5.3 Comparação entre as abordagens
+
+Só entram números com plano versionado em `docs/explain/`.
+
+| Abordagem | Onde a agregação acontece | Plano | Buffers | Tempo |
+|:---|:---|:---|---:|---:|
+| Silver 3NF, sem índice na estrutura | Na consulta, sobre os vínculos | Seq Scan nas partições + Hash Join | 1.566 | 35,6 ms |
+| Silver 3NF + índice da migração 0024 | Na consulta, sobre os vínculos | Index Only Scan | 14 | 0,42 ms |
+| View materializada da Gold | Na carga (`REFRESH`) | Seq Scan numa view de 94 linhas | 5 | 0,065 ms |
+
+A versão anterior desta tabela trazia uma linha "Legado (Pandas)", com cerca de 1.200 ms, e uma "Relacional bruto", com cerca de 45 ms, e concluía um ganho de cerca de 22.000 vezes. Nenhuma das duas tinha plano versionado, e o caminho por CSV saiu do projeto na E2. Por isso as duas linhas saíram da tabela.
+
+A view responde mais rápido porque a agregação já foi feita na carga, mas só responde o que foi pré-agregado: uma linha por curso. O detalhamento da seção 5.1 (a distribuição de semestres) não existe na view, e é para ele que o índice na Silver serve.

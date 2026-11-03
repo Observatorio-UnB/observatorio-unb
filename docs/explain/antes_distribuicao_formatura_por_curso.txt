@@ -1,0 +1,32 @@
+ GroupAggregate  (cost=3897.11..3899.57 rows=26 width=10) (actual time=35.388..35.437 rows=21 loops=1)
+   Group Key: m.semestres_permanencia_valida
+   Buffers: shared hit=1566
+   ->  Sort  (cost=3897.11..3897.84 rows=294 width=2) (actual time=35.344..35.365 rows=235 loops=1)
+         Sort Key: m.semestres_permanencia_valida
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=1566
+         ->  Hash Join  (cost=3.41..3885.05 rows=294 width=2) (actual time=0.086..35.215 rows=235 loops=1)
+               Hash Cond: (m.id_estrutura = e.id_estrutura)
+               Buffers: shared hit=1563
+               ->  Append  (cost=0.00..3792.01 rows=32898 width=6) (actual time=0.032..31.702 rows=35046 loops=1)
+                     Buffers: shared hit=1561
+                     ->  Seq Scan on movimentacoes_p2000_2015 m_1  (cost=0.00..1862.68 rows=29859 width=6) (actual time=0.030..17.900 rows=30061 loops=1)
+                           Filter: ((ano_ingresso >= 2010) AND (ano_ingresso <= 2016) AND (tipo_saida_grupo = 'FORMATURA'::text))
+                           Rows Removed by Filter: 27921
+                           Buffers: shared hit=848
+                     ->  Seq Scan on movimentacoes_p2016_2020 m_2  (cost=0.00..1764.84 rows=3039 width=6) (actual time=0.061..11.045 rows=4985 loops=1)
+                           Filter: ((ano_ingresso >= 2010) AND (ano_ingresso <= 2016) AND (tipo_saida_grupo = 'FORMATURA'::text))
+                           Rows Removed by Filter: 55120
+                           Buffers: shared hit=713
+               ->  Hash  (cost=3.40..3.40 rows=1 width=4) (actual time=0.031..0.032 rows=1 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     Buffers: shared hit=2
+                     ->  Seq Scan on estruturas_curriculares e  (cost=0.00..3.40 rows=1 width=4) (actual time=0.008..0.022 rows=1 loops=1)
+                           Filter: (nome_curso_canonico = 'CIENCIA DA COMPUTACAO'::text)
+                           Rows Removed by Filter: 111
+                           Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=546
+ Planning Time: 2.726 ms
+ Execution Time: 35.593 ms
+

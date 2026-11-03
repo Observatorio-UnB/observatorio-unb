@@ -329,6 +329,32 @@ class TestCarga3NFStar(unittest.TestCase):
                 raise Rollback()
         self.assertEqual(self.um("SELECT max(gerado_em) FROM gold.mv_dashboard_executivo"), gerada_antes)
 
+    def test_09_detalhamento_por_curso_usa_o_indice_da_estrutura(self):
+        """A consulta de docs/explain/ não volta a varrer as partições inteiras (migração 0024)."""
+        sql = "\n".join(linha for linha in CONSULTA_EXPLAIN.read_text(encoding="utf-8").splitlines()
+                        if not linha.startswith("--"))
+        sql = sql.replace("EXPLAIN (ANALYZE, BUFFERS)", "EXPLAIN (FORMAT JSON)")
+        self.conn.execute("ANALYZE silver.movimentacoes_vinculos")
+        nos = list(_nos_do_plano(self.um(sql)[0]["Plan"]))
+        vinculos = [n for n in nos if n.get("Relation Name", "").startswith("movimentacoes_p")]
+        self.assertTrue(vinculos, "o plano não lê silver.movimentacoes_vinculos")
+        for no in vinculos:
+            with self.subTest(particao=no["Relation Name"]):
+                self.assertNotEqual(no["Node Type"], "Seq Scan")
+                # Index (Only) Scan traz o índice no próprio nó; Bitmap Heap Scan, logo depois de
+                # uma recarga, no Bitmap Index Scan filho.
+                indices = [n.get("Index Name", "") for n in _nos_do_plano(no)]
+                self.assertTrue(any("id_estrutura" in i for i in indices), indices)
+
+
+CONSULTA_EXPLAIN = BASE_DIR / "docs" / "explain" / "distribuicao_formatura_por_curso.sql"
+
+
+def _nos_do_plano(no: dict):
+    yield no
+    for filho in no.get("Plans", []):
+        yield from _nos_do_plano(filho)
+
 
 if __name__ == "__main__":
     unittest.main()
