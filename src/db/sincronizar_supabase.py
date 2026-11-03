@@ -15,10 +15,11 @@ viajam com os atributos naturais (nome e início da vigência da versão do curs
 social) e são religados às dimensões do Supabase na chegada.
 
 O destino vem de SUPABASE_DATABASE_URL (ambiente ou .env). Sem ela, a etapa é pulada.
-As migrações pendentes são aplicadas no destino antes da cópia.
+As migrações pendentes são aplicadas no destino antes da cópia. Com --verificar, roda depois a
+auditoria de src/db/reconciliar_supabase.py e sai com erro se ela não aprovar.
 
 Uso:
-    python3 src/db/sincronizar_supabase.py [--somente-inserir]
+    python3 src/db/sincronizar_supabase.py [--somente-inserir] [--verificar]
 """
 
 import argparse
@@ -231,9 +232,10 @@ def main(argv: Optional[List[str]] = None):
                          "DATABASE_URL deve ser o banco local do pipeline.")
     sincronizar(url_destino, args.somente_inserir)
     if args.verificar:
-        from src.db.reconciliar_supabase import executar_auditoria_completa, formatar_relatorio_markdown
-        auditoria = executar_auditoria_completa(url_destino, database_url() if ler_variavel("DATABASE_URL") else None)
-        print(formatar_relatorio_markdown(auditoria))
+        # Importado aqui: reconciliar_supabase importa SINCRONIAS deste módulo.
+        from src.db.reconciliar_supabase import verificar
+        if not verificar(url_destino, database_url(), markdown=True):
+            raise SystemExit("Auditoria do Supabase reprovada (docs/disponibilizacao_online_supabase.md).")
 
 
 if __name__ == "__main__":
