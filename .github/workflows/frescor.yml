@@ -1,0 +1,36 @@
+name: Frescor do painel (SLA)
+
+# Confere todo dia se a view do painel no Supabase cumpre o SLA de frescor
+# (docs/frescor_sla.md) e se o portal publicou arquivo novo que o pipeline ainda não processou.
+# Falha quando o SLA é violado: o GitHub avisa por e-mail quem acompanha o repositório.
+
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frescor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: "SLA de frescor da view do painel (Supabase)"
+        env:
+          SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+        run: |
+          if [ -z "$SUPABASE_DATABASE_URL" ]; then
+            echo "::warning::SUPABASE_DATABASE_URL não configurada: verificação pulada."
+            exit 0
+          fi
+          python src/db/frescor.py --banco "$SUPABASE_DATABASE_URL" --fonte

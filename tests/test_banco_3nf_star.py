@@ -187,6 +187,37 @@ class TestRestricoes3NFStar(unittest.TestCase):
             self.assertEqual(self.particao_do_discente(id_discente), "silver.movimentacoes_p2035_2039")
             raise Rollback()
 
+    def test_09_curso_em_dois_campi_no_fato_de_retencao_e_rejeitado(self):
+        """O grão é o curso: uma segunda linha do mesmo curso em outro campus seria contada duas vezes."""
+        with self.conn.transaction():
+            sk_curso = self.conn.execute(
+                """
+                INSERT INTO gold.dim_curso (nome_curso, grau_academico, categoria_grau, area_conhecimento)
+                VALUES ('CURSO TESTE', 'BACHARELADO', 'BACHARELADO', 'TESTE') RETURNING sk_curso
+                """
+            ).fetchone()[0]
+            campi = [self.conn.execute(
+                "INSERT INTO gold.dim_campus (campus, regiao_admin) VALUES (%s, 'TESTE') RETURNING sk_campus",
+                (campus,)).fetchone()[0] for campus in ("CAMPUS TESTE 1", "CAMPUS TESTE 2")]
+            inserir = """
+                INSERT INTO gold.fato_retencao_curso (sk_curso, sk_campus, total_ingressantes, total_formados,
+                                                      total_evadidos)
+                VALUES (%s, %s, 10, 6, 3)
+            """
+            self.conn.execute(inserir, (sk_curso, campi[0]))
+            with self.assertRaises(errors.UniqueViolation), self.conn.transaction():
+                self.conn.execute(inserir, (sk_curso, campi[1]))
+            raise Rollback()
+
+    def test_10_cada_fato_declara_o_grao_no_catalogo(self):
+        """O grão fica no COMMENT ON TABLE, que o dicionário de dados publica (migração 0023)."""
+        for tabela in ("gold.fato_retencao_curso", "gold.fato_alunos_ativos", "gold.fato_pibic_perfil",
+                       "gold.mv_dashboard_executivo"):
+            with self.subTest(tabela=tabela):
+                comentario = self.conn.execute("SELECT obj_description(%s::regclass, 'pg_class')",
+                                               (tabela,)).fetchone()[0] or ""
+                self.assertTrue(comentario.startswith("Grão: "), comentario)
+
 
 class TestCarga3NFStar(unittest.TestCase):
 
@@ -297,6 +328,32 @@ class TestCarga3NFStar(unittest.TestCase):
                     atualizar_view_painel(self.conn)
                 raise Rollback()
         self.assertEqual(self.um("SELECT max(gerado_em) FROM gold.mv_dashboard_executivo"), gerada_antes)
+
+    def test_09_detalhamento_por_curso_usa_o_indice_da_estrutura(self):
+        """A consulta de docs/explain/ não volta a varrer as partições inteiras (migração 0024)."""
+        sql = "\n".join(linha for linha in CONSULTA_EXPLAIN.read_text(encoding="utf-8").splitlines()
+                        if not linha.startswith("--"))
+        sql = sql.replace("EXPLAIN (ANALYZE, BUFFERS)", "EXPLAIN (FORMAT JSON)")
+        self.conn.execute("ANALYZE silver.movimentacoes_vinculos")
+        nos = list(_nos_do_plano(self.um(sql)[0]["Plan"]))
+        vinculos = [n for n in nos if n.get("Relation Name", "").startswith("movimentacoes_p")]
+        self.assertTrue(vinculos, "o plano não lê silver.movimentacoes_vinculos")
+        for no in vinculos:
+            with self.subTest(particao=no["Relation Name"]):
+                self.assertNotEqual(no["Node Type"], "Seq Scan")
+                # Index (Only) Scan traz o índice no próprio nó; Bitmap Heap Scan, logo depois de
+                # uma recarga, no Bitmap Index Scan filho.
+                indices = [n.get("Index Name", "") for n in _nos_do_plano(no)]
+                self.assertTrue(any("id_estrutura" in i for i in indices), indices)
+
+
+CONSULTA_EXPLAIN = BASE_DIR / "docs" / "explain" / "distribuicao_formatura_por_curso.sql"
+
+
+def _nos_do_plano(no: dict):
+    yield no
+    for filho in no.get("Plans", []):
+        yield from _nos_do_plano(filho)
 
 
 if __name__ == "__main__":

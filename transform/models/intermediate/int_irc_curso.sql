@@ -1,6 +1,7 @@
 -- Índice de Retenção Crítica (ADR 0006): IRC = (0,3 x atraso + 0,7 x evasão) x 100, cada termo
 -- saturado nos percentis 5 e 95 e normalizado min-max entre os cursos; classificação pelos quartis.
--- percentile_cont interpola como o quantile do pandas (src/pipeline/build_gold.py).
+-- percentile_cont interpola como o quantile do pandas. A fórmula segue a de gold.atualizar_gold
+-- (migração 0022) na ordem das operações e no arredondamento (macro arredondar), para dar o mesmo IRC.
 with entradas as (
     select
         nome_curso,
@@ -29,9 +30,10 @@ saturados as (
 irc as (
     select
         nome_curso,
-        round(((0.3 * (s_atraso - min(s_atraso) over ()) / (max(s_atraso) over () - min(s_atraso) over () + 1e-6)
-              + 0.7 * (s_evasao - min(s_evasao) over ()) / (max(s_evasao) over () - min(s_evasao) over () + 1e-6))
-              * 100)::numeric, 1) as indice_retencao_critica
+        {{ arredondar(
+            "(0.3 * ((s_atraso - min(s_atraso) over ()) / (max(s_atraso) over () - min(s_atraso) over () + 1e-6))"
+            ~ " + 0.7 * ((s_evasao - min(s_evasao) over ()) / (max(s_evasao) over () - min(s_evasao) over () + 1e-6)))"
+            ~ " * 100", 1) }} as indice_retencao_critica
     from saturados
 ),
 

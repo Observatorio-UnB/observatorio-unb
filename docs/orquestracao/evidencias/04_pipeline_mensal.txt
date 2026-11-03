@@ -1,0 +1,42 @@
+# Job pipeline_mensal completo, do portal ao Supabase
+#
+#   dagster job execute -m orquestracao -j pipeline_mensal
+#
+# Banco local com o pipeline já carregado, VETORIZAR_TIPOS=curso,documentacao (como no CI) e sem
+# SUPABASE_DATABASE_URL (a sincronização é pulada). As etapas rodam uma por vez, na ordem do grafo:
+# cada uma só começa depois das que ela depende. Log do Dagster filtrado (eventos de etapa).
+
+2026-11-02 19:34:15 -0300 - RUN_START - Started execution of run for "pipeline_mensal".
+2026-11-02 19:34:15 -0300 - migracoes - STEP_START - Started execution of step "migracoes".
+2026-11-02 19:34:15 -0300 - migracoes - STEP_SUCCESS - Finished execution of step "migracoes" in 121ms.
+2026-11-02 19:34:15 -0300 - bronze_ckan - STEP_START - Started execution of step "bronze_ckan".
+2026-11-02 19:34:28 -0300 - bronze_ckan - STEP_SUCCESS - Finished execution of step "bronze_ckan" in 12.79s.
+2026-11-02 19:34:28 -0300 - bronze_cnpq - STEP_START - Started execution of step "bronze_cnpq".
+2026-11-02 19:34:28 -0300 - bronze_cnpq - STEP_SUCCESS - Finished execution of step "bronze_cnpq" in 250ms.
+2026-11-02 19:34:28 -0300 - bronze_inep - STEP_START - Started execution of step "bronze_inep".
+2026-11-02 19:34:39 -0300 - bronze_inep - STEP_SUCCESS - Finished execution of step "bronze_inep" in 11.57s.
+2026-11-02 19:34:39 -0300 - silver - STEP_START - Started execution of step "silver".
+2026-11-02 19:34:48 -0300 - silver - STEP_SUCCESS - Finished execution of step "silver" in 8.04s.
+2026-11-02 19:34:48 -0300 - auditoria_qualidade - STEP_START - Started execution of step "auditoria_qualidade".
+2026-11-02 19:34:51 -0300 - auditoria_qualidade - STEP_SUCCESS - Finished execution of step "auditoria_qualidade" in 3.87s.
+2026-11-02 19:34:51 -0300 - gold_tabular - STEP_START - Started execution of step "gold_tabular".
+2026-11-02 19:34:54 -0300 - gold_tabular - STEP_SUCCESS - Finished execution of step "gold_tabular" in 3.07s.
+2026-11-02 19:34:55 -0300 - privacidade - STEP_START - Started execution of step "privacidade".
+2026-11-02 19:34:55 -0300 - privacidade - STEP_SUCCESS - Finished execution of step "privacidade" in 655ms.
+2026-11-02 19:34:55 -0300 - vetorizacao - STEP_START - Started execution of step "vetorizacao".
+2026-11-02 19:35:04 -0300 - vetorizacao - STEP_SUCCESS - Finished execution of step "vetorizacao" in 8.88s.
+2026-11-02 19:35:04 -0300 - star_schema - STEP_START - Started execution of step "star_schema".
+2026-11-02 19:35:08 -0300 - star_schema - STEP_SUCCESS - Finished execution of step "star_schema" in 3.62s.
+2026-11-02 19:35:08 -0300 - camadas_dbt - STEP_START - Started execution of step "camadas_dbt".
+2026-11-02 19:35:13 -0300 - camadas_dbt - STEP_SUCCESS - Finished execution of step "camadas_dbt" in 5.68s.
+2026-11-02 19:35:13 -0300 - lago - STEP_START - Started execution of step "lago".
+2026-11-02 19:35:14 -0300 - lago - STEP_SUCCESS - Finished execution of step "lago" in 966ms.
+2026-11-02 19:35:14 -0300 - view_painel - STEP_START - Started execution of step "view_painel".
+2026-11-02 19:35:15 -0300 - view_painel - STEP_SUCCESS - Finished execution of step "view_painel" in 400ms.
+2026-11-02 19:35:15 -0300 - dicionario - STEP_START - Started execution of step "dicionario".
+2026-11-02 19:35:15 -0300 - dicionario - STEP_SUCCESS - Finished execution of step "dicionario" in 234ms.
+2026-11-02 19:35:15 -0300 - supabase - STEP_START - Started execution of step "supabase".
+2026-11-02 19:35:15 -0300 - supabase - STEP_SUCCESS - Finished execution of step "supabase" in 125ms.
+2026-11-02 19:35:15 -0300 - RUN_SUCCESS - Finished execution of run for "pipeline_mensal".
+
+Tempo total: 1 min 3 s (real), 15 etapas com sucesso.

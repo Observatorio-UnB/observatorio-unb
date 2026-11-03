@@ -3,7 +3,8 @@ version: 2
 sources:
   - name: silver
     description: Silver 3NF, carregada por src/db/povoar_silver_3nf.py a partir da silver tabular.
-    schema: silver
+    # Trocado só pelo teste de dado ruim (tests/test_dbt_dado_ruim.py), que lê uma cópia adulterada.
+    schema: "{{ var('esquema_silver', 'silver') }}"
     tables:
       - name: cursos
         description: Uma linha por oferta de curso do catálogo (id_curso).

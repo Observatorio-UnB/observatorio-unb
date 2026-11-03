@@ -144,6 +144,25 @@ O painel lê a gold do banco. Sem banco, lê `export/gold.json`, se existir
 (`python3 src/db/exportar_gold.py`), que é o que a versão do GitHub Pages usa. Com o
 banco no ar, a página **busca semântica** aparece no menu lateral.
 
+**Roteiro: a resposta à pergunta da E1.** A pergunta do DEG (`docs/challenge_canvas.md`) é *em
+quais cursos a retenção e o atraso na integralização são mais críticos, demandando intervenção
+prioritária?*
+
+1. Abra o painel. A página inicial, **📊 Visão Executiva (DEG)**, começa pela pergunta e pela resposta.
+2. A frase de resposta diz quantos cursos estão em **retenção crítica** (o quartil mais alto do
+   Índice de Retenção Crítica) e quais são os primeiros da fila de intervenção. Na carga de 10/2026,
+   são 23 cursos, e o primeiro é Física Computacional.
+3. A tabela logo abaixo é a fila: os 15 cursos de maior IRC, com a evasão, o atraso médio na
+   formatura e o percentual de formados no prazo ideal, que mostram por que cada curso está ali.
+4. A legenda diz de onde vem o ranking, `dbt_marts.painel_cursos_criticos` (a camada transformada
+   em dbt), e de quando são os dados. Se os dados passarem do SLA de frescor de 35 dias, aparece um aviso.
+5. Para o detalhe de um curso da fila, use **🔍 Detalhe por Curso** no menu lateral. A matriz de
+   atraso contra evasão, mais abaixo na Visão Executiva, mostra onde ele fica entre os demais.
+
+O ranking é o mesmo no painel local, que lê o banco, e no GitHub Pages, que lê o `export/gold.json`
+gerado pelo CI. Sem a camada dbt (banco ou export antigos), o painel calcula o mesmo ranking a
+partir de `gold.retencao_cursos_unb` e indica isso na legenda.
+
 ---
 
 ## 🗄️ Banco de Dados (PostgreSQL + pgvector)
@@ -198,7 +217,7 @@ camadas e três esquemas: `dbt_staging` (views que só renomeiam a silver, sem o
 
 ```bash
 pip install -r requirements-dbt.txt
-bash scripts/dbt.sh build --full-refresh     # modelos e 35 testes, do zero, na ordem do grafo
+bash scripts/dbt.sh build --full-refresh     # modelos e 61 testes de dados, do zero, na ordem do grafo
 bash scripts/dbt.sh docs generate --static   # documentação e linhagem: transform/target/static_index.html
 ```
 
@@ -206,6 +225,30 @@ O teste `reconcilia_fato_retencao_com_a_gold` exige que o fato do dbt seja igual
 ao `gold.fato_retencao_curso` do pipeline Python. O CI roda o `dbt build` a cada push e publica a
 documentação com a linhagem no GitHub Pages, em `/dbt/`. Escolha da ferramenta e opção nula
 avaliada: [ADR 0029](docs/adr/0029-transformacoes-em-dbt.md).
+
+Os testes cobrem esquema (contrato de tipos), volume, unicidade, integridade referencial,
+distribuição (salto de série entre coortes, desfechos por coorte, curso que some, mediana da evasão)
+e o que o domínio tem de sujo (permanência negativa, saída antes do ingresso).
+`tests/test_dbt_dado_ruim.py` prova que cada um falha ao injetar um dado ruim numa cópia da silver.
+As variáveis `esquema_silver` e `prefixo_esquema` do dbt existem só para essa prova; com os padrões, o
+pipeline não muda.
+Limites, origem de cada um e a tabela de injeções: [docs/testes_de_dados.md](docs/testes_de_dados.md).
+
+### Orquestração (Dagster)
+O pipeline também roda como um grafo do Dagster (`orquestracao/`, ADR 0030). Cada etapa chama o
+mesmo script deste roteiro, com dependências explícitas e retry por etapa (3 novas tentativas, com
+espera exponencial). Os 12 modelos do dbt entram um a um, depois do star schema. O `atualiza-dados.yml`
+dispara o job `pipeline_mensal` no dia 1 de cada mês, e o lago tem backfill por quinquênio de ingresso.
+
+```bash
+pip install -r requirements-orquestracao.txt
+dagster dev -m orquestracao                     # UI em http://localhost:3000
+dagster job execute -m orquestracao -j pipeline_mensal
+dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio --partition-range 2000...2025   # hoje; INTERVALO_BACKFILL dá o atual
+```
+
+Retry com o banco derrubado de propósito, falha definitiva, backfill de uma janela perdida e o job
+completo, com os logs: [docs/orquestracao.md](docs/orquestracao.md).
 
 ### Lago em formato aberto (Delta Lake)
 `src/db/exportar_lago.py` exporta a Silver 3NF (sem `silver.discentes`) e o Star Schema da
@@ -326,6 +369,18 @@ DELETE       0.64s   turno=NOTURNO ativo=False _deletado=True _commit_lsn=244843
 - **Mudança de esquema:** as colunas e a chave são lidas do catálogo só quando o consumidor sobe.
   Uma coluna nova na Silver é ignorada sem aviso. Alterou a Silver? Apague `data/lake/cdc/` e
   reprocesse com `python3 src/cdc/consumidor.py --do-inicio --ate-esvaziar`.
+
+### Frescor e SLA do painel
+A view do painel (`gold.mv_dashboard_executivo`) tem SLA de 35 dias: ser atualizada a cada 35
+dias e processar uma publicação nova do portal em até 35 dias. A idade do dado na origem não
+entra, porque não depende do pipeline. `src/db/frescor.py` mede as duas coisas e sai com erro
+quando o SLA é violado. Ele roda todo dia contra o Supabase (`.github/workflows/frescor.yml`) e a
+cada execução do Medalhão. O painel mostra a data da última atualização na barra lateral e avisa
+quando ela passa do SLA. Detalhes em [`docs/frescor_sla.md`](docs/frescor_sla.md).
+
+```bash
+python3 src/db/frescor.py --fonte                     # view local e publicações do portal
+```
 
 ### Dado atrasado e reprocessamento de janela
 Uma saída só entra no arquivo do portal quando é registrada (a formatura, com o registro do

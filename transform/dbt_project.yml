@@ -21,6 +21,13 @@ vars:
   # Mesmos parâmetros do pipeline: src/pipeline/build_gold.py (ANOS_MATURACAO_COORTE) e ADR 0005.
   anos_maturacao: 8
   k_minimo: 5
+  # Limites dos testes de distribuição (tests/distribuicao_*.sql), medidos na base de 10/2026. Revisar
+  # quando a base mudar de patamar: ver "Quando revisar os limites" em docs/testes_de_dados.md.
+  salto_maximo_entre_coortes: 0.30
+  evasao_por_coorte: [30, 60]
+  formatura_por_coorte: [35, 70]
+  mediana_evasao_por_curso: [30, 60]
+  ingressantes_curso_que_some: 80
 
 models:
   observatorio:
@@ -39,4 +46,4 @@ models:
         select: ["observatorio_leitura"]
 
 on-run-end:
-  - "GRANT USAGE ON SCHEMA dbt_marts TO observatorio_leitura"
+  - "GRANT USAGE ON SCHEMA {{ var('prefixo_esquema', '') }}dbt_marts TO observatorio_leitura"

@@ -47,7 +47,7 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - run: pip install -r requirements.txt -r requirements-dbt.txt
+      - run: pip install -r requirements.txt -r requirements-orquestracao.txt
 
       # Cada etapa lê a camada anterior do banco e grava a sua nele: não há CSV
       # intermediário, e bronze/silver (dado pessoal) nunca saem do runner.
@@ -94,6 +94,17 @@ jobs:
       - name: "Lago — Silver 3NF e Star Schema em Delta Lake"
         run: python src/db/exportar_lago.py
 
+      # O grafo do Dagster carrega (inclusive os modelos do dbt como assets), e o backfill das janelas
+      # do lago roda de verdade: todas as partições, numa execução, sobre o lago que acabou de ser gravado.
+      - name: "Orquestração — grafo do Dagster e backfill das janelas do lago"
+        env:
+          DAGSTER_HOME: ${{ runner.temp }}/dagster
+        run: |
+          mkdir -p "$DAGSTER_HOME"
+          dagster definitions validate -m orquestracao
+          INTERVALO=$(python -c 'from orquestracao.definicoes import INTERVALO_BACKFILL as i; print(i)')
+          dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio --partition-range "$INTERVALO"
+
       - name: "Cache do modelo de embedding"
         uses: actions/cache@v4
         with:
@@ -111,6 +122,11 @@ jobs:
 
       - name: "Verificação determinística (contratos da Gold)"
         run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      # A view acabou de ser atualizada: confere o caminho do check e que nenhuma publicação do
+      # portal mais nova que a carga ficou de fora (docs/frescor_sla.md).
+      - name: "Frescor — SLA da view do painel"
+        run: python src/db/frescor.py --fonte
 
       - name: "Supabase — sincronização incremental da gold"
         if: github.event_name != 'pull_request'
@@ -182,7 +198,7 @@ jobs:
         run: |
           mkdir -p _site/app/src/dashboard/assets _site/app/export _site/app/docs
           cp site/index.html _site/index.html
-          cp src/dashboard/app.py _site/app/src/dashboard/app.py
+          cp src/dashboard/app.py src/dashboard/resposta_e1.py _site/app/src/dashboard/
           cp -r src/dashboard/assets/* _site/app/src/dashboard/assets/ 2>/dev/null || true
           cp artifact/export/gold.json _site/app/export/gold.json
           cp artifact/docs/*.md _site/app/docs/

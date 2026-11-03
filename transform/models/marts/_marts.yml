@@ -1,8 +1,14 @@
 version: 2
 
+# A camada de consumo tem contrato de esquema (nomes e tipos das colunas) nas tabelas que o painel
+# lê, volume esperado e faixas de valor. Testes de distribuição e de domínio em tests/.
+
 models:
   - name: dim_curso
     description: Cursos canônicos, um por linha, com os atributos de classificação.
+    data_tests:
+      - volume_entre:
+          arguments: {minimo: 80, maximo: 200}
     columns:
       - name: sk_curso
         description: md5 do nome canônico.
@@ -28,8 +34,15 @@ models:
       Grão: um registro por curso canônico, agregando as coortes maduras (ingresso até o último ano
       da base menos 8). Mesmas regras de gold.fato_retencao_curso, com a qual é reconciliada
       (tests/reconcilia_fato_retencao_com_a_gold.sql).
+    config:
+      contract:
+        enforced: true
+    data_tests:
+      - volume_entre:
+          arguments: {minimo: 60, maximo: 150}
     columns:
       - name: sk_curso
+        data_type: text
         description: Chave do grão.
         data_tests:
           - unique
@@ -39,13 +52,50 @@ models:
                 to: ref('dim_curso')
                 field: sk_curso
       - name: sk_campus
+        data_type: text
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('dim_campus')
                 field: sk_campus
+      - name: total_ingressantes
+        data_type: bigint
+      - name: total_formados
+        data_type: bigint
+      - name: total_evadidos
+        data_type: bigint
+      - name: total_ainda_ativos
+        data_type: bigint
+      - name: taxa_formatura_pct
+        data_type: numeric
+        data_tests:
+          - entre:
+              arguments: {minimo: 0, maximo: 100}
+      - name: taxa_evasao_pct
+        data_type: numeric
+        data_tests:
+          - entre:
+              arguments: {minimo: 0, maximo: 100}
+      - name: formados_tempo_ideal_pct
+        data_type: numeric
+        data_tests:
+          - entre:
+              arguments: {minimo: 0, maximo: 100}
+      - name: atraso_medio_semestres
+        data_type: numeric
+        description: Pode ser negativo (formados antes do prazo ideal), mas não abaixo do prazo mínimo possível.
+        data_tests:
+          - entre:
+              arguments: {minimo: -6, maximo: 20}
+      - name: indice_retencao_critica
+        data_type: numeric
+        data_tests:
+          - not_null
+          - entre:
+              arguments: {minimo: 0, maximo: 100}
       - name: classificacao_retencao
+        data_type: text
         data_tests:
           - not_null
           - accepted_values:
@@ -56,9 +106,41 @@ models:
     description: >
       Tabela de consumo do painel: cursos terminais ordenados pelo Índice de Retenção Crítica,
       a resposta à pergunta de gestão da E1.
+    config:
+      contract:
+        enforced: true
+    data_tests:
+      - volume_entre:
+          arguments: {minimo: 60, maximo: 150}
     columns:
-      - name: nome_curso
-        data_tests: [unique, not_null]
       - name: posicao
+        data_type: bigint
         description: 1 é o curso mais crítico. Empates no IRC dividem a posição.
         data_tests: [not_null]
+      - name: nome_curso
+        data_type: text
+        data_tests: [unique, not_null]
+      - name: campus
+        data_type: text
+      - name: area_conhecimento
+        data_type: text
+      - name: categoria_grau
+        data_type: text
+      - name: classificacao_retencao
+        data_type: text
+      - name: indice_retencao_critica
+        data_type: numeric
+      - name: taxa_evasao_pct
+        data_type: numeric
+      - name: atraso_medio_semestres
+        data_type: numeric
+      - name: taxa_formatura_pct
+        data_type: numeric
+      - name: formados_tempo_ideal_pct
+        data_type: numeric
+      - name: total_ingressantes
+        data_type: bigint
+      - name: total_formados
+        data_type: bigint
+      - name: total_evadidos
+        data_type: bigint
