@@ -194,10 +194,10 @@ def load_frescor_da_view():
     """Atualização da view do painel e SLA (docs/frescor_sla.md), fora do cache da gold: uma
     sincronização sem dado novo atualiza a view, mas não muda a versão da gold."""
     try:
-        from src.db.conexao import conectar
+        from src.db.conexao import conexao_do_pool
         from src.db.frescor import resumo_para_o_painel
 
-        with conectar() as conn:
+        with conexao_do_pool() as conn:
             resumo = resumo_para_o_painel(conn)
         if resumo:
             return resumo

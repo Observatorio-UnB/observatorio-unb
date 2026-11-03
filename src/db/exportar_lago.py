@@ -42,7 +42,8 @@ from psycopg import sql
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
-from src.db.tabelas import _conectar_leitura, colunas_da_tabela  # noqa: E402
+from src.db.conexao import conexao_do_pool  # noqa: E402
+from src.db.tabelas import _cursor_de_leitura, colunas_da_tabela  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -129,7 +130,7 @@ def montar_tabela_arrow(colunas: List[tuple], linhas: List[tuple], particionada:
 
 def ler_do_banco(tabela: str, quinquenios: Optional[Iterable[int]] = None) -> tuple:
     """Colunas (nome, tipo) e linhas da tabela, opcionalmente só dos quinquênios pedidos."""
-    with _conectar_leitura() as conn:
+    with conexao_do_pool() as conn, _cursor_de_leitura(conn) as cur:
         colunas = [(c.nome, c.tipo) for c in colunas_da_tabela(conn, tabela)]
         esquema, nome = tabela.split(".")
         consulta = sql.SQL("SELECT {} FROM {}").format(
@@ -139,7 +140,7 @@ def ler_do_banco(tabela: str, quinquenios: Optional[Iterable[int]] = None) -> tu
         if quinquenios is not None:
             consulta += sql.SQL(" WHERE ano_ingresso - ano_ingresso %% 5 = ANY(%s)")
             params = (list(quinquenios),)
-        linhas = conn.execute(consulta, params).fetchall()
+        linhas = cur.execute(consulta, params).fetchall()
     return colunas, linhas
 
 
