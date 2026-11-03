@@ -28,7 +28,8 @@ st.title("🔎 Busca semântica")
 st.markdown(
     "Pesquise por **significado**, não por palavra exata: planos de iniciação científica pelo "
     "tema, a documentação do projeto pela dúvida e cursos pela descrição. "
-    "A consulta é vetorizada e comparada com os documentos em `busca.documentos` (pgvector)."
+    "A consulta é vetorizada e comparada com os documentos em `busca.documentos` (pgvector), e também "
+    "procurada pelos termos e pelo título, para achar sigla e nome exato (ex.: `ADR 0028`)."
 )
 st.caption(
     "A busca semântica capta tema, não número: para filtrar cursos por turno ou taxa de evasão, "
@@ -42,15 +43,49 @@ consulta = col_consulta.text_input(
 tipo = ROTULOS[col_tipo.selectbox("Onde procurar", list(ROTULOS))]
 k = col_k.number_input("Resultados", min_value=1, max_value=30, value=8)
 
-if consulta.strip():
-    try:
-        from src.busca.buscar import buscar
 
+@st.cache_resource(show_spinner="Carregando o modelo de linguagem (só na primeira busca; ~220 MB)...")
+def _carregar_modelo():
+    from src.busca.buscar import modelo
+
+    return modelo()
+
+
+def _documentos_vetorizados() -> int:
+    from src.db.conexao import conectar
+
+    with conectar() as conn:
+        return conn.execute("SELECT count(*) FROM busca.documentos").fetchone()[0]
+
+
+if consulta.strip():
+    # O modelo vem antes e à parte: a primeira busca não fica parada sem aviso enquanto ele baixa, e
+    # uma falha nele não aparece como banco fora do ar.
+    try:
+        _carregar_modelo()
+    except Exception as erro:
+        st.error(
+            "Não foi possível carregar o modelo de embedding. Na primeira vez ele é baixado (~220 MB) "
+            f"para `FASTEMBED_CACHE_PATH`; confira a conexão com a internet.\n\nDetalhe: `{erro}`"
+        )
+        st.stop()
+
+    import psycopg
+
+    from src.busca.buscar import buscar
+
+    try:
         with st.spinner("Buscando..."):
             inicio = time.perf_counter()
             resultados = buscar(consulta, int(k), tipo)
             latencia_ms = (time.perf_counter() - inicio) * 1000
-    except Exception as erro:  # banco fora do ar, tabela vazia, modelo não baixado
+    except (psycopg.errors.UndefinedTable, psycopg.errors.UndefinedColumn) as erro:
+        st.error(
+            "O banco não tem a busca semântica atualizada. Aplique as migrações e vetorize: "
+            f"`python3 src/db/migrar.py && python3 src/busca/vetorizar.py`.\n\nDetalhe: `{erro}`"
+        )
+        st.stop()
+    except psycopg.OperationalError as erro:
         st.error(
             "Não foi possível consultar o banco. Suba com `docker compose up -d db` e rode "
             f"`scripts/rodar_pipeline.sh`.\n\nDetalhe: `{erro}`"
@@ -58,9 +93,12 @@ if consulta.strip():
         st.stop()
 
     if not resultados:
-        st.info("Nenhum documento vetorizado. Rode `python3 src/busca/vetorizar.py`.")
+        if _documentos_vetorizados() == 0:
+            st.info("Nenhum documento vetorizado. Rode `python3 src/busca/vetorizar.py`.")
+        else:
+            st.info("Nenhum resultado relevante para essa consulta. Tente outras palavras ou um tema mais amplo.")
     else:
-        st.caption(f"{len(resultados)} resultado(s) em {latencia_ms:.0f} ms (vetorização da consulta + busca HNSW).")
+        st.caption(f"{len(resultados)} resultado(s) em {latencia_ms:.0f} ms (vetorização da consulta + busca híbrida).")
     for r in resultados:
         with st.container(border=True):
             st.markdown(
