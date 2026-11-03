@@ -4,6 +4,10 @@
 # -> auditoria -> privacidade -> Silver 3NF e Star Schema -> camadas dbt -> lago Delta -> vetorização
 # -> dicionário do banco.
 #
+# A ordem que vale é a do grafo do Dagster (orquestracao/definicoes.py), que roda no agendamento
+# mensal e no CI. Este roteiro fica para o Docker e para quem roda sem o Dagster; um teste
+# (tests/test_unit_orquestracao.py) acusa se os dois deixarem de chamar os mesmos scripts.
+#
 # Requer o banco no ar (docker compose up -d db) ou DATABASE_URL apontando para ele.
 # Uso: bash scripts/rodar_pipeline.sh
 set -euo pipefail

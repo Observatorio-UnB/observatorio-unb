@@ -1,0 +1,33 @@
+# Falha definitiva: retries esgotados e o resto do grafo para
+#
+# DATABASE_URL apontando para a porta 5499, onde não há banco:
+#   dagster asset materialize -m orquestracao --select '(group:gold and not key:gold_tabular) or key:view_painel'
+#
+# Esperado: star_schema falha nas 4 tentativas (espera de 10, 30 e 70 s), o run falha com código 1
+# e view_painel não roda, porque depende dele: a view do painel continua com a última versão boa.
+
+2026-11-02 19:31:26 -0300 - RUN_START - Started execution of run for "__ASSET_JOB".
+2026-11-02 19:31:26 -0300 - star_schema - STEP_START - Started execution of step "star_schema".
+2026-11-02 19:31:26 -0300 - star_schema - Rodando src/db/povoar_dimensional.py (tentativa 1)
+psycopg.OperationalError: connection failed: connection to server at "127.0.0.1", port 5499 failed: Connection refused
+2026-11-02 19:31:27 -0300 - star_schema - STEP_UP_FOR_RETRY - Execution of step "star_schema" failed and has requested a retry in 10 seconds.
+Failure: src/db/povoar_dimensional.py terminou com código 1
+2026-11-02 19:31:37 -0300 - star_schema - STEP_RESTARTED - Started re-execution (attempt # 2) of step "star_schema".
+2026-11-02 19:31:37 -0300 - star_schema - Rodando src/db/povoar_dimensional.py (tentativa 2)
+psycopg.OperationalError: connection failed: connection to server at "127.0.0.1", port 5499 failed: Connection refused
+2026-11-02 19:31:37 -0300 - star_schema - STEP_UP_FOR_RETRY - Execution of step "star_schema" failed and has requested a retry in 30 seconds.
+Failure: src/db/povoar_dimensional.py terminou com código 1
+2026-11-02 19:32:07 -0300 - star_schema - STEP_RESTARTED - Started re-execution (attempt # 3) of step "star_schema".
+2026-11-02 19:32:07 -0300 - star_schema - Rodando src/db/povoar_dimensional.py (tentativa 3)
+psycopg.OperationalError: connection failed: connection to server at "127.0.0.1", port 5499 failed: Connection refused
+2026-11-02 19:32:08 -0300 - star_schema - STEP_UP_FOR_RETRY - Execution of step "star_schema" failed and has requested a retry in 70 seconds.
+Failure: src/db/povoar_dimensional.py terminou com código 1
+2026-11-02 19:33:18 -0300 - star_schema - STEP_RESTARTED - Started re-execution (attempt # 4) of step "star_schema".
+2026-11-02 19:33:18 -0300 - star_schema - Rodando src/db/povoar_dimensional.py (tentativa 4)
+psycopg.OperationalError: connection failed: connection to server at "127.0.0.1", port 5499 failed: Connection refused
+2026-11-02 19:33:18 -0300 - star_schema - STEP_FAILURE - Execution of step "star_schema" failed.
+Failure: src/db/povoar_dimensional.py terminou com código 1
+2026-11-02 19:33:18 -0300 - view_painel - Dependencies for step view_painel failed: ['star_schema' (10 tabelas)]. Not executing.
+2026-11-02 19:33:18 -0300 - RUN_FAILURE - Execution of run for "__ASSET_JOB" failed. Steps failed: ['star_schema'].
+Failure: src/db/povoar_dimensional.py terminou com código 1
+dagster exit=1

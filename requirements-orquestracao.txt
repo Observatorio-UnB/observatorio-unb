@@ -1,0 +1,8 @@
+# Orquestração em Dagster (orquestracao/, ADR 0030). Inclui o dbt, que vira assets do grafo.
+-r requirements-dbt.txt
+dagster>=1.13,<1.14
+dagster-webserver>=1.13,<1.14
+dagster-dbt>=0.29,<0.30
+# O grpcio-health-checking mais novo exige protobuf 7, e o dbt-core exige protobuf abaixo de 7.
+protobuf>=6,<7
+grpcio-health-checking<1.80
