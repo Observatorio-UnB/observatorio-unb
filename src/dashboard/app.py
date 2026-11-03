@@ -7,6 +7,7 @@ Challenge de Dados Abertos da UnB - Metodologia CBL
 import base64
 import json
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -186,6 +187,28 @@ def load_resposta_e1(versao: str):
 
 
 painel_e1, carregado_em = load_resposta_e1(_versao_dos_dados())
+
+
+@st.cache_data(ttl=3600)
+def load_frescor_da_view():
+    """Atualização da view do painel e SLA (docs/frescor_sla.md), fora do cache da gold: uma
+    sincronização sem dado novo atualiza a view, mas não muda a versão da gold."""
+    try:
+        from src.db.conexao import conectar
+        from src.db.frescor import resumo_para_o_painel
+
+        with conectar() as conn:
+            resumo = resumo_para_o_painel(conn)
+        if resumo:
+            return resumo
+    except Exception:
+        pass  # sem psycopg (stlite) ou banco fora do ar
+    if EXPORT_PATH.exists():
+        return json.loads(EXPORT_PATH.read_text(encoding="utf-8")).get("frescor")
+    return None
+
+
+frescor_da_view = load_frescor_da_view()
 # Cursos-tronco (Engenharia, ABI de Educação Física): definidos em build_gold.py e publicados na Gold.
 EXCLUDED_GENERIC_COURSES = set((global_meta or {}).get("cursos_tronco", []))
 
@@ -201,6 +224,18 @@ taxa_join = join_meta.get('taxa_de_casamento_pct',
                           100.0) if join_meta else 100.0
 st.sidebar.markdown(
     f"**Taxa de Casamento**: `{taxa_join:.2f}% (Harmonização Ativa)`")
+# Frescor da view do painel contra o SLA (docs/frescor_sla.md). A idade é calculada aqui, fora do
+# cache, para a versão estática do GitHub Pages também mostrar quando o export envelheceu.
+if frescor_da_view:
+    atualizada_em = datetime.fromisoformat(frescor_da_view["atualizada_em"])
+    idade = datetime.now(timezone.utc) - atualizada_em
+    idade_dias = idade.days
+    texto_frescor = (f"Dados atualizados em {atualizada_em:%d/%m/%Y} (há {idade_dias} dia(s)). "
+                     f"SLA: até {frescor_da_view['sla_dias']} dias.")
+    if idade <= timedelta(days=frescor_da_view["sla_dias"]):
+        st.sidebar.caption(f"🟢 {texto_frescor}")
+    else:
+        st.sidebar.warning(f"Fora do SLA de frescor. {texto_frescor}")
 st.sidebar.markdown("---")
 
 tab_choice = st.sidebar.radio(

@@ -123,6 +123,11 @@ jobs:
       - name: "Verificação determinística (contratos da Gold)"
         run: python -m unittest discover -s tests -p "test_*.py" -v
 
+      # A view acabou de ser atualizada: confere o caminho do check e que nenhuma publicação do
+      # portal mais nova que a carga ficou de fora (docs/frescor_sla.md).
+      - name: "Frescor — SLA da view do painel"
+        run: python src/db/frescor.py --fonte
+
       - name: "Supabase — sincronização incremental da gold"
         if: github.event_name != 'pull_request'
         env:

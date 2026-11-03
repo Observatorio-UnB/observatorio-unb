@@ -367,6 +367,18 @@ DELETE       0.64s   turno=NOTURNO ativo=False _deletado=True _commit_lsn=244843
   Uma coluna nova na Silver é ignorada sem aviso. Alterou a Silver? Apague `data/lake/cdc/` e
   reprocesse com `python3 src/cdc/consumidor.py --do-inicio --ate-esvaziar`.
 
+### Frescor e SLA do painel
+A view do painel (`gold.mv_dashboard_executivo`) tem SLA de 35 dias: ser atualizada a cada 35
+dias e processar uma publicação nova do portal em até 35 dias. A idade do dado na origem não
+entra, porque não depende do pipeline. `src/db/frescor.py` mede as duas coisas e sai com erro
+quando o SLA é violado. Ele roda todo dia contra o Supabase (`.github/workflows/frescor.yml`) e a
+cada execução do Medalhão. O painel mostra a data da última atualização na barra lateral e avisa
+quando ela passa do SLA. Detalhes em [`docs/frescor_sla.md`](docs/frescor_sla.md).
+
+```bash
+python3 src/db/frescor.py --fonte                     # view local e publicações do portal
+```
+
 ### Dado atrasado e reprocessamento de janela
 Uma saída só entra no arquivo do portal quando é registrada (a formatura, com o registro do
 diploma), então um semestre continua recebendo vínculos depois de terminar. No SIGAA publicado
