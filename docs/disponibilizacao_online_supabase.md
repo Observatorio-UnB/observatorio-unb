@@ -13,11 +13,11 @@ Conforme formalizado na **[ADR 0031](adr/0031-escopo-disponibilizacao-online-sup
 * **Camadas Sincronizadas (Gold e Busca):**
   * `gold.*`: Fatos (`gold.fato_retencao_curso`, `gold.fato_alunos_ativos`, `gold.fato_pibic_perfil`), dimensões conformadas (`dim_curso` com SCD Tipo 2, `dim_tempo`, `dim_campus`, `dim_perfil_social`) e visões materializadas (`mv_dashboard_executivo`).
   * `busca.documentos`: Tabela de busca semântica enriquecida com embeddings vetoriais de alta dimensão gerados pela extensão `vector` (pgvector).
-  * **Regra de Privacidade:** Todas as agregações publicadas cumprem o critério de **$k$-anonimato ($k \ge 5$)** ([ADR 0005](adr/0005-privacidade-k-anonimato.md)). Nenhuma métrica identifica alunos isolados.
+  * **Regra de Privacidade:** As agregações publicadas seguem o critério de **$k$-anonimato ($k \ge 5$)** ([ADR 0005](adr/0005-privacidade-k-anonimato.md)). A auditoria confere, tabela a tabela, que nenhuma linha agregada tem menos de 5 pessoas ou planos.
 
 * **Camadas Restritas (Bronze e Silver):**
   * `bronze.*` e `silver.*`: Contêm dados brutos e normalizados em 3NF com quase-identificadores (curso, data de nascimento, sexo e raça/cor) que atingem **88,93% de unicidade absoluta no SIGRA e 65,63% no SIGAA**.
-  * **Isolamento Total:** As tabelas de microdados sensíveis possuem **0 linhas** no Supabase. O processamento dessas camadas é estritamente local (on-premise via Docker Compose).
+  * **Minimização por escopo:** bronze e silver não são sincronizadas. As tabelas existem no Supabase, vazias, porque as migrações são as mesmas; a auditoria confere a cada sincronização que todas elas, inclusive as criadas depois, continuam com 0 linhas. O processamento dessas camadas é local (Docker Compose ou runner do CI).
 
 ---
 
@@ -28,6 +28,7 @@ O Supabase aplica o princípio do privilégio mínimo via migração [`0006_cont
 1. **Papel `observatorio_leitura`:**
    * Concedido acesso de leitura (`USAGE` e `SELECT`) estritamente nos esquemas `gold` e `busca`.
    * Esquemas `bronze` e `silver` têm todos os privilégios revogados (`REVOKE ALL`).
+   * A auditoria confere que nem `observatorio_leitura`, nem os papéis da API do Supabase (`anon`, `authenticated`), nem `PUBLIC` têm `USAGE` em `bronze` e `silver` ou `SELECT` em alguma tabela deles.
 2. **Criptografia e Transporte Seguro:**
    * Conexões externas ao Supabase devem obrigatoriamente exigir TLS/SSL (`sslmode=require`).
    * As portas utilizadas são `5432` (conexão direta/pooler em modo sessão) e `6543` (pooler transacional via PgBouncer).
@@ -74,7 +75,8 @@ python3 src/db/sincronizar_supabase.py
 # Sincronização segura sem atualização de linhas existentes
 python3 src/db/sincronizar_supabase.py --somente-inserir
 
-# Sincronização com auditoria e relatório imediato
+# Sincronização seguida da auditoria (seção C); sai com erro se o veredito não for APROVADO.
+# É assim que o Medalhão, o job mensal do Dagster e o rodar_pipeline.sh chamam.
 python3 src/db/sincronizar_supabase.py --verificar
 ```
 
@@ -85,17 +87,20 @@ Para auditar a saúde, a reconciliação e a conformidade LGPD do Supabase:
 # Execução padrão (saída legível no terminal)
 python3 src/db/reconciliar_supabase.py
 
-# Emissão em formato Markdown e persistência das evidências
-python3 src/db/reconciliar_supabase.py --salvar-evidencia
+# Relatório completo em Markdown, salvo também em docs/disponibilizacao_online_supabase_evidencias.md
+python3 src/db/reconciliar_supabase.py --markdown --salvar-evidencia
 ```
 
 O script audita:
 1. Instalação da extensão `vector` (pgvector);
-2. Total de migrações aplicadas no banco remoto;
-3. Contagem de microdados na Bronze e Silver (alerta crítico caso haja > 0 linhas);
-4. Privilégios do papel `observatorio_leitura`;
-5. Reconciliação de contagens das 15 tabelas analíticas sincronizadas;
-6. Ocupação do banco frente à cota de 500 MB do plano gratuito.
+2. Migrações aplicadas no banco remoto contra `db/migrations/`;
+3. Linhas em todas as tabelas de bronze e silver do destino, listadas pelo catálogo, além de uma lista mínima fixa (falha crítica se houver alguma);
+4. Tamanho mínimo de célula ($k \ge 5$) nas seis tabelas agregadas da gold (falha crítica se houver linha abaixo);
+5. Privilégios de `observatorio_leitura`, `anon`, `authenticated` e `PUBLIC` em bronze e silver, e a leitura de `gold` e `busca` por `observatorio_leitura`;
+6. Reconciliação de contagens das 15 tabelas sincronizadas com o banco local (`DATABASE_URL`);
+7. Conexão por SSL e ocupação do banco frente à cota de 500 MB do plano gratuito.
+
+O veredito é `APROVADO` só se tudo passar, e o código de saída é 1 em qualquer outro caso. Como a sincronização não apaga linhas, o Supabase pode ter mais linhas que o local (`RECONCILIADO_COM_EXTRAS`, aceito); menos é `DIVERGENTE`. Sem banco local acessível, as tabelas ficam `NAO_VERIFICADO` e o veredito é `REQUER_ATENCAO`. Uma contagem que falha sai `INCONCLUSIVO`, nunca como conforme.
 
 ---
 
@@ -106,48 +111,51 @@ O script audita:
    * O workflow agendado executa diariamente às 12:00 UTC uma consulta na visão materializada analítica (`SELECT count(*) FROM gold.mv_dashboard_executivo;`), garantindo que a instância permaneça ativa.
 2. **Atualização Contínua de Frescor (Pipeline de Carga):**
    * A cada execução de `src/db/sincronizar_supabase.py`, o procedimento `CALL gold.atualizar_mv_dashboard_executivo()` é executado no Supabase, renovando os carimbos de `atualizado_em` e `gerado_em` da visão consumida pelo painel.
-   * A idade do dado e o cumprimento do SLA de 35 dias podem ser auditados diretamente via consulta SQL (`SELECT now() - max(gerado_em) FROM gold.mv_dashboard_executivo;`), mantendo a rastreabilidade temporal dos dados no consumo.
+   * A idade do dado e o cumprimento do SLA de 35 dias são conferidos por `src/db/frescor.py`, todo dia, contra o Supabase ([docs/frescor_sla.md](frescor_sla.md)).
 
 ---
 
 ## 6. Procedimento de Rollback e Reversão
 
-Caso seja necessário restaurar ou reverter o estado das tabelas analíticas no Supabase:
+Caso seja necessário refazer do zero as tabelas sincronizadas no Supabase:
 
-1. **Reversão de Carga Incorreta (Truncate Seguro nas Camadas de Consumo):**
-   Como as tabelas do Supabase não contêm fontes primárias nem dados brutos não recuperáveis, a camada Gold pode ser limpa sem perda de histórico (pois a origem reside no banco local e nos arquivos do Lago Delta):
+1. **Limpeza das tabelas sincronizadas.** São as 14 tabelas de `SINCRONIAS` em `src/db/sincronizar_supabase.py`, num único `TRUNCATE` por causa das chaves estrangeiras entre fatos e dimensões:
    ```sql
-   -- No Supabase (via psql ou dashboard SQL)
-   TRUNCATE TABLE 
+   -- No Supabase (via psql ou editor SQL)
+   TRUNCATE TABLE
      gold.fato_retencao_curso,
      gold.fato_alunos_ativos,
      gold.fato_pibic_perfil,
+     gold.dim_curso,
+     gold.dim_campus,
+     gold.dim_tempo,
+     gold.dim_perfil_social,
      gold.retencao_cursos_unb,
      gold.ativos_hoje_cursos_unb,
      gold.pibic_social_unb,
-     gold.inep_benchmark_cursos_unb;
+     gold.inep_benchmark_cursos_unb,
+     gold.regras_harmonizacao_canonicas,
+     gold.relatorios,
+     busca.documentos;
    ```
-2. **Repovoamento Limpo:**
-   Basta reexecutar a sincronização a partir do banco local íntegro:
+   A view `gold.mv_dashboard_executivo` continua com o conteúdo antigo até o passo 2, que a atualiza no fim.
+
+   **O que se perde:** o Supabase guarda o que a sincronização nunca apaga, e o banco local não necessariamente tem. Em especial, as versões fechadas da `gold.dim_curso` (SCD tipo 2, [ADR 0028](adr/0028-dim-curso-scd-tipo-2.md)) acumuladas no Supabase. O banco do CI é refeito do zero a cada execução, então só voltam as versões que o banco de origem tiver. Linhas que saíram da origem (curso extinto, relatório renomeado) também não voltam.
+2. **Repovoamento:** reexecutar a sincronização a partir do banco local íntegro. Ela aplica as migrações pendentes, copia as tabelas, atualiza a view e roda a auditoria:
    ```bash
    python3 src/db/sincronizar_supabase.py --verificar
    ```
 
 ---
 
-## 7. Evidência Atual de Execução e Reconciliação
+## 7. Evidência de Execução
 
-Resultado da auditoria executada em **02/11/2026**:
+A cada push na `main`, o Medalhão sincroniza, roda a auditoria contra o Supabase com o banco recém-carregado do runner como banco local e publica o relatório completo no resumo da execução (Actions → Medalhão + Pages → *Summary*). Se o veredito não for `APROVADO`, a etapa falha.
 
-| Métrica / Componente | Situação Auditada no Supabase | Status |
-| :--- | :---: | :---: |
-| **Extensão pgvector** | Versão `0.8.2` instalada | ✅ OK |
-| **Migrações Aplicadas** | `23 / 23` (todas as migrações contratuais até a `0025`) | ✅ OK |
-| **Microdados de Discentes (LGPD)** | `0` linhas em tabelas de Bronze e Silver | ✅ Conforme |
-| **Papel `observatorio_leitura`** | Acesso concedido a `gold` e `busca`; revogado em `bronze`/`silver` | ✅ Seguro |
-| **Ocupação em Disco** | `138 MB` consumidos de `500 MB` (27,58% da cota) | ✅ Saudável |
-| **Tabelas Analíticas Gold** | 95 cursos de retenção, 118 versões de cursos (SCD2), 12.978 docs com busca vetorial | ✅ Reconciliado |
+Para registrar a evidência no repositório, com os dois bancos acessíveis (`DATABASE_URL` e `SUPABASE_DATABASE_URL`):
 
-As evidências completas e detalhadas estão salvas em:
-📄 **[`docs/disponibilizacao_online_supabase_evidencias.md`](disponibilizacao_online_supabase_evidencias.md)**
+```bash
+python3 src/db/reconciliar_supabase.py --markdown --salvar-evidencia
+```
 
+O resultado fica em 📄 **[`docs/disponibilizacao_online_supabase_evidencias.md`](disponibilizacao_online_supabase_evidencias.md)**.

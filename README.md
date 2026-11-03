@@ -203,9 +203,11 @@ scripts usam o banco do `docker-compose.yml` em `localhost:5435`.
 Star Schema e `busca.documentos` do banco local para `SUPABASE_DATABASE_URL`. A comparação é
 pela chave natural: insere o que é novo, atualiza o que mudou (`--somente-inserir` desliga a
 atualização) e não apaga nada; rodar de novo sem mudança não escreve nenhuma linha. No CI a
-etapa usa o secret `SUPABASE_DATABASE_URL` e não roda em pull request. Para auditar a conformidade
-LGPD, verificar migrações e reconciliar contagens local x remoto, execute
-`python3 src/db/reconciliar_supabase.py` (detalhes no [guia de disponibilização online](docs/disponibilizacao_online_supabase.md)
+etapa usa o secret `SUPABASE_DATABASE_URL` e não roda em pull request. Depois da cópia, a etapa
+(`--verificar`) audita o Supabase com `src/db/reconciliar_supabase.py`: bronze e silver vazias, k ≥ 5
+na gold, nenhum papel público em bronze e silver, contagens iguais às do banco local e conexão por
+SSL. Se o veredito não for `APROVADO`, a etapa falha. Para rodar só a auditoria:
+`python3 src/db/reconciliar_supabase.py --markdown` (detalhes no [guia de disponibilização online](docs/disponibilizacao_online_supabase.md)
 e na [ADR 0031](docs/adr/0031-escopo-disponibilizacao-online-supabase-lgpd.md)).
 
 ### Transformações em dbt (staging, intermediate e marts)
