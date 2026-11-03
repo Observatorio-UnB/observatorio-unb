@@ -128,11 +128,16 @@ jobs:
       - name: "Frescor — SLA da view do painel"
         run: python src/db/frescor.py --fonte
 
-      - name: "Supabase — sincronização incremental da gold"
+      # Depois da cópia, audita o destino (bronze e silver vazias, k >= 5, acesso, reconciliação com o
+      # banco deste runner) e falha se o veredito não for APROVADO (ADR 0031).
+      - name: "Supabase — sincronização incremental da gold e auditoria"
         if: github.event_name != 'pull_request'
         env:
           SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
-        run: python src/db/sincronizar_supabase.py
+        # O relatório da auditoria vai para o resumo da execução; pipefail mantém a falha dela.
+        run: |
+          set -o pipefail
+          python src/db/sincronizar_supabase.py --verificar | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: "Resumo do medalhão"
         run: |
