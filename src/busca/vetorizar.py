@@ -7,7 +7,8 @@ e grava o embedding em busca.documentos:
 - curso:          uma linha de gold.retencao_cursos_unb, descrita em frase;
 - projeto_pibic:  cada plano de IC distinto de silver.pibic_bolsistas (título, ano,
                   curso, linha de pesquisa), sem nome, matrícula ou orientador;
-- documentacao:   cada seção dos .md de docs/ (metodologia, qualidade, LGPD...).
+- documentacao:   cada seção dos .md de docs/, inclusive as subpastas (ADRs, arquitetura,
+                  diário), e do README.md da raiz.
 
 É incremental: o embedding só é recalculado quando o texto ou o modelo mudam
 (hash_conteudo), e documentos que deixaram de existir na fonte são apagados.
@@ -31,19 +32,16 @@ from typing import Dict, Iterable, List
 
 import numpy as np
 import psycopg
+from pgvector.psycopg import register_vector
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conectar  # noqa: E402
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%H:%M:%S",
-)
 logger = logging.getLogger("vetorizar")
 
 DOCS_DIR = BASE_DIR / "docs"
+README = BASE_DIR / "README.md"
 
 # Multilíngue (entende português), 384 dimensões, ~220 MB, roda em CPU via ONNX.
 # A dimensão está fixada em busca.documentos.embedding (db/migrations/0005).
@@ -54,6 +52,12 @@ DIMENSAO = 384
 # o modelo foi treinado com entradas de até 128 tokens (~500 caracteres em português),
 # e texto além disso pesa pouco ou nada no vetor.
 TAMANHO_MAX_TRECHO = 500
+# Um bloco maior que o trecho é cortado em espaço, e cada pedaço repete o fim do anterior: uma frase
+# que cairia no corte continua inteira em algum trecho.
+SOBREPOSICAO_TRECHO = 80
+# Trecho com menos desta fração de letras é desenho (diagrama em ASCII, tabela de símbolos): não tem
+# texto para buscar, e o vetor dele fica perto de qualquer consulta sem sentido.
+FRACAO_MINIMA_DE_LETRAS = 0.4
 
 
 @dataclass
@@ -89,6 +93,7 @@ def gerar_embeddings(modelo, textos: List[str]) -> np.ndarray:
 
 
 def vetor_literal(vetor: Iterable[float]) -> str:
+    """Texto de um vetor no formato do pgvector, para psql e para quem não registrou o adaptador."""
     return "[" + ",".join(f"{x:.6f}" for x in vetor) + "]"
 
 
@@ -192,16 +197,32 @@ def documentos_de_projetos_pibic(conn: psycopg.Connection) -> List[Documento]:
     return docs
 
 
-def _trechos(texto: str, limite: int = TAMANHO_MAX_TRECHO) -> List[str]:
+def _cortar_bloco(bloco: str, limite: int, sobreposicao: int) -> List[str]:
+    """Corta um bloco maior que `limite` no último espaço antes dele; cada pedaço seguinte recomeça
+    `sobreposicao` caracteres antes do corte, também num espaço."""
+    pedacos = []
+    while len(bloco) > limite:
+        corte = bloco.rfind(" ", limite // 2, limite)
+        corte = corte if corte > 0 else limite  # palavra maior que meio trecho: corta seco
+        pedacos.append(bloco[:corte].strip())
+        inicio = bloco.find(" ", max(corte - sobreposicao, 0), corte)
+        bloco = bloco[(inicio if inicio > 0 else corte):].strip()
+    return pedacos + [bloco]
+
+
+def _trechos(texto: str, limite: int = TAMANHO_MAX_TRECHO, sobreposicao: int = SOBREPOSICAO_TRECHO) -> List[str]:
     """Quebra um texto em pedaços de até `limite` caracteres, respeitando parágrafos e linhas."""
     pedacos, atual = [], ""
     for bloco in re.split(r"\n\s*\n|\n(?=\|)", texto):
         bloco = bloco.strip()
         if not bloco:
             continue
-        while len(bloco) > limite:
-            pedacos.append(bloco[:limite])
-            bloco = bloco[limite:]
+        if len(bloco) > limite:
+            *inteiros, bloco = _cortar_bloco(bloco, limite, sobreposicao)
+            if atual:
+                pedacos.append(atual)
+                atual = ""
+            pedacos.extend(inteiros)
         if atual and len(atual) + len(bloco) + 1 > limite:
             pedacos.append(atual)
             atual = bloco
@@ -212,9 +233,21 @@ def _trechos(texto: str, limite: int = TAMANHO_MAX_TRECHO) -> List[str]:
     return pedacos
 
 
-def documentos_da_documentacao(docs_dir: Path = DOCS_DIR) -> List[Documento]:
+def arquivos_da_documentacao(docs_dir: Path = DOCS_DIR, readme: Path = README) -> List[tuple]:
+    """(arquivo, caminho relativo à raiz do repositório) de cada .md de docs/, subpastas incluídas,
+    e do README da raiz."""
+    arquivos = [(a, f"docs/{a.relative_to(docs_dir).as_posix()}") for a in sorted(docs_dir.rglob("*.md"))]
+    if readme.exists():
+        arquivos.append((readme, readme.name))
+    return arquivos
+
+
+def documentos_da_documentacao(docs_dir: Path = DOCS_DIR, readme: Path = README) -> List[Documento]:
     docs = []
-    for arquivo in sorted(docs_dir.glob("*.md")):
+    for arquivo, caminho in arquivos_da_documentacao(docs_dir, readme):
+        # A chave dos arquivos da raiz de docs/ continua o nome, como antes das subpastas: o que não
+        # mudou não é vetorizado de novo.
+        nome = caminho.removeprefix("docs/")
         texto = arquivo.read_text(encoding="utf-8")
         # Uma seção por título de nível 1 a 3; o que vem antes do primeiro título é a introdução.
         partes = re.split(r"^(#{1,3} .+)$", texto, flags=re.MULTILINE)
@@ -230,12 +263,14 @@ def documentos_da_documentacao(docs_dir: Path = DOCS_DIR) -> List[Documento]:
 
         for i, (titulo_secao, corpo) in enumerate(secoes):
             for j, trecho in enumerate(_trechos(corpo)):
+                if sum(c.isalpha() for c in trecho) < FRACAO_MINIMA_DE_LETRAS * len(trecho):
+                    continue
                 docs.append(Documento(
                     tipo="documentacao",
-                    chave=f"{arquivo.name}#{i}.{j}",
-                    titulo=f"{arquivo.name} › {titulo_secao}",
+                    chave=f"{nome}#{i}.{j}",
+                    titulo=f"{nome} › {titulo_secao}",
                     conteudo=f"{titulo_secao}\n{trecho}",
-                    metadados={"arquivo": f"docs/{arquivo.name}", "secao": titulo_secao},
+                    metadados={"arquivo": caminho, "secao": titulo_secao},
                 ))
     return docs
 
@@ -261,6 +296,7 @@ def vetorizar() -> Dict[str, int]:
     modelo = None
     resumo = {}
     with conectar(autocommit=True) as conn:
+        register_vector(conn)  # embedding vai em binário, sem passar por texto
         geradores = {
             "curso": lambda: documentos_de_cursos(conn),
             "projeto_pibic": lambda: documentos_de_projetos_pibic(conn),
@@ -287,7 +323,7 @@ def vetorizar() -> Dict[str, int]:
                         """
                         INSERT INTO busca.documentos
                           (tipo, chave, titulo, conteudo, metadados, hash_conteudo, modelo, embedding)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s::vector)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (tipo, chave) DO UPDATE SET
                           titulo = EXCLUDED.titulo, conteudo = EXCLUDED.conteudo,
                           metadados = EXCLUDED.metadados, hash_conteudo = EXCLUDED.hash_conteudo,
@@ -295,7 +331,7 @@ def vetorizar() -> Dict[str, int]:
                         """,
                         [
                             (d.tipo, d.chave, d.titulo, d.conteudo, json.dumps(d.metadados, ensure_ascii=False),
-                             _hash(nome, d.conteudo), nome, vetor_literal(v))
+                             _hash(nome, d.conteudo), nome, v)
                             for d, v in zip(novos, vetores)
                         ],
                     )
@@ -314,4 +350,6 @@ def vetorizar() -> Dict[str, int]:
 
 
 if __name__ == "__main__":
+    # Aqui, e não na importação: o painel importa este módulo (via buscar.py) e tem o seu próprio log.
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
     vetorizar()
