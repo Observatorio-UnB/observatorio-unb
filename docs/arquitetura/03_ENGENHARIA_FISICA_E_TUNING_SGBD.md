@@ -9,25 +9,30 @@
 
 ## 1. Introdução e Racional de Projeto Físico
 
-O projeto físico de um banco de dados relacional visa mapear o esquema lógico para estruturas de armazenamento em disco que minimizem o custo de entrada/saída ($I/O$) e maximizem a vazão de transações e consultas analíticas. 
+O projeto físico de um banco de dados relacional visa mapear o esquema lógico para estruturas de armazenamento em disco que minimizem o custo de entrada/saída ($I/O$) e maximizem a vazão de transações e consultas analíticas.
 
 Em versões legadas deste projeto universitário, as agregações e filtros eram executados em memória através da biblioteca Pandas em scripts Python. Essa abordagem viola os princípios fundamentais de engenharia de banco de dados por:
-1. Transferir volumes maciços de dados brutos pela rede (*High Network Overhead*);
+
+1. Transferir volumes maciços de dados brutos pela rede (_High Network Overhead_);
 2. Desperdiçar as capacidades de paralelismo e poda de partições nativas do SGBD;
-3. Impedir o reuso de páginas do *Buffer Pool* do motor relacional.
+3. Impedir o reuso de páginas do _Buffer Pool_ do motor relacional.
+
+As agregações da Gold que ainda restavam em Pandas (retenção, ativos, benchmark INEP e PIBIC) migraram para procedures SQL na migração `0022_gold_agregacoes_sql.sql` (ADR 0027); o Python só dispara `CALL gold.atualizar_gold(...)`.
 
 A reengenharia física implementada nas migrações do Observatório (`0011_silver_3nf.sql`, `0012_gold_star_schema.sql`, `0013_views_materializadas.sql`, `0014_carga_3nf_star.sql` e `0015_fato_pibic_perfil.sql`) transfere a responsabilidade computacional para o PostgreSQL, utilizando **particionamento horizontal declarativo**, **métodos de acesso especializados (B-Tree, GIN, HNSW)** e **materialização assíncrona concorrente**.
 
 ---
 
-## 2. Particionamento Declarativo por Intervalo (*Range Partitioning*)
+## 2. Particionamento Declarativo por Intervalo (_Range Partitioning_)
 
 ### 2.1 Justificativa de Engenharia
+
 A relação `silver.movimentacoes_vinculos` representa a série temporal de histórico acadêmico dos discentes desde os anos 2000. Em escala real, esta tabela acumula dezenas de milhares de tuplas operacionais.
 
-Consultas do DEG/DAA e relatórios institucionais frequentemente restringem o escopo de análise a recortes temporais (ex: coortes maduras para cálculo de retenção ou coortes recentes para acompanhamento de evasão inicial). A varredura sequencial (*Sequential Scan*) em uma tabela monotrilho exigiria leitura integral de páginas de dados.
+Consultas do DEG/DAA e relatórios institucionais frequentemente restringem o escopo de análise a recortes temporais (ex: coortes maduras para cálculo de retenção ou coortes recentes para acompanhamento de evasão inicial). A varredura sequencial (_Sequential Scan_) em uma tabela monotrilho exigiria leitura integral de páginas de dados.
 
 ### 2.2 Estrutura DDL Implementada
+
 A tabela foi criada utilizando o particionamento declarativo nativo do PostgreSQL:
 
 ```sql
@@ -55,24 +60,25 @@ As partições físicas declarativas cobrem períodos históricos, coortes madur
 
 ```sql
 -- Partição 1: Histórico de 2000 a 2015
-CREATE TABLE silver.movimentacoes_p2000_2015 
+CREATE TABLE silver.movimentacoes_p2000_2015
     PARTITION OF silver.movimentacoes_vinculos FOR VALUES FROM (2000) TO (2016);
 
 -- Partição 2: Coortes maduras de 2016 a 2020
-CREATE TABLE silver.movimentacoes_p2016_2020 
+CREATE TABLE silver.movimentacoes_p2016_2020
     PARTITION OF silver.movimentacoes_vinculos FOR VALUES FROM (2016) TO (2021);
 
 -- Partição 3: Coortes recentes e vigentes (2021 a 2035)
-CREATE TABLE silver.movimentacoes_p2021_atual 
+CREATE TABLE silver.movimentacoes_p2021_atual
     PARTITION OF silver.movimentacoes_vinculos FOR VALUES FROM (2021) TO (2035);
 
 -- Partição 4: Salvaguarda para anos fora dos intervalos mapeados
-CREATE TABLE silver.movimentacoes_p_default 
+CREATE TABLE silver.movimentacoes_p_default
     PARTITION OF silver.movimentacoes_vinculos DEFAULT;
 ```
 
-### 2.3 Poda de Partições (*Partition Pruning*)
-O planejador de consultas (*Query Planner*) avalia os predicados da cláusula `WHERE` e elimina imediatamente as partições irrelevantes antes do acesso ao disco:
+### 2.3 Poda de Partições (_Partition Pruning_)
+
+O planejador de consultas (_Query Planner_) avalia os predicados da cláusula `WHERE` e elimina imediatamente as partições irrelevantes antes do acesso ao disco:
 
 ```
 [ Consulta Recebida ] ---> WHERE ano_ingresso = 2023
@@ -86,9 +92,10 @@ O planejador de consultas (*Query Planner*) avalia os predicados da cláusula `W
           +---> [ silver.movimentacoes_p2021_atual ] --> [ SCAN EXECUTADO ]
 ```
 
-Essa eliminação em tempo de planejamento reduz drasticamente o número de páginas lidas (*buffers read*), eliminando I/O espúrio de anos anteriores.
+Essa eliminação em tempo de planejamento reduz drasticamente o número de páginas lidas (_buffers read_), eliminando I/O espúrio de anos anteriores.
 
 ### 2.4 Provisionamento Automático de Partições Futuras
+
 A função `silver.provisionar_particoes_movimentacoes(ano_referencia, anos_a_frente)` (migração 0019) cria partições por quinquênio a partir do maior limite existente (`movimentacoes_p2035_2039`, `movimentacoes_p2040_2044`, ...) até `ano_referencia + anos_a_frente` (padrão: ano corrente + 5). Ela é chamada por `src/db/povoar_silver_3nf.py` antes de cada carga, de modo que um ano letivo novo já encontra sua partição dedicada.
 
 ```sql
@@ -96,15 +103,16 @@ SELECT silver.provisionar_particoes_movimentacoes();      -- ano corrente + 5
 SELECT silver.provisionar_particoes_movimentacoes(2040);  -- simula a chegada de 2040
 ```
 
-* **Idempotência**: o ponto de partida é lido do catálogo (`pg_inherits`); uma segunda chamada não cria nada.
-* **Linhas já na default**: se ingressos de um quinquênio novo já tiverem caído na `movimentacoes_p_default`, elas são movidas para a partição criada na mesma transação.
+- **Idempotência**: o ponto de partida é lido do catálogo (`pg_inherits`); uma segunda chamada não cria nada.
+- **Linhas já na default**: se ingressos de um quinquênio novo já tiverem caído na `movimentacoes_p_default`, elas são movidas para a partição criada na mesma transação.
 
 ### 2.5 Política de Ciclo de Vida das Partições Legadas
+
 A Silver 3NF é recriada a cada execução do pipeline (`TRUNCATE` + carga a partir da bronze), e o `gold.fato_retencao_curso` usa **todas** as coortes maduras (ingresso até o último ano menos `ANOS_MATURACAO_COORTE` = 8). Por isso:
 
 1. **Nenhuma partição é removida ou desanexada enquanto suas coortes alimentam a gold.** Hoje isso vale para todas (2000 em diante).
-2. **Partições fechadas** (todas as coortes com saída registrada, sem vínculo `ATIVO`) são candidatas a `VACUUM (FREEZE, ANALYZE)` após a carga, evitando reescrita futura por *wraparound*.
-3. **Compressão**: o PostgreSQL não comprime o *heap*; as colunas textuais longas podem usar `ALTER TABLE ... ALTER COLUMN ... SET COMPRESSION lz4` (TOAST). O ganho é pequeno no volume atual (~150 mil vínculos) e não justifica a mudança agora.
+2. **Partições fechadas** (todas as coortes com saída registrada, sem vínculo `ATIVO`) são candidatas a `VACUUM (FREEZE, ANALYZE)` após a carga, evitando reescrita futura por _wraparound_.
+3. **Compressão**: o PostgreSQL não comprime o _heap_; as colunas textuais longas podem usar `ALTER TABLE ... ALTER COLUMN ... SET COMPRESSION lz4` (TOAST). O ganho é pequeno no volume atual (~150 mil vínculos) e não justifica a mudança agora.
 4. **Arquivamento**: se um período sair do escopo analítico da gold, a partição é desanexada sem bloquear leituras (`ALTER TABLE silver.movimentacoes_vinculos DETACH PARTITION ... CONCURRENTLY`), exportada com `pg_dump -Fc` (formato comprimido) e só então removida. Como a Silver contém dado pessoal pseudonimizado, o arquivo segue as mesmas regras de acesso do banco (LGPD) e nunca vai para o repositório.
 5. **Partição default**: deve ficar vazia para anos a partir de 2000. Linhas nela indicam ano de ingresso fora do intervalo mapeado (ex.: anterior a 2000) e devem ser investigadas.
 
@@ -127,6 +135,7 @@ O catálogo físico do banco de dados conta com métodos de acesso adaptados à 
 ```
 
 ### 3.1 B-Tree e Índices em Chaves Estrangeiras
+
 No PostgreSQL, a criação de uma constraint `FOREIGN KEY` **não cria automaticamente** um índice B-Tree na tabela referenciadora. Índices devem ser construídos explicitamente onde há padrões frequentes de filtragem ou junção.
 
 No Observatório UnB, além das árvores B-Tree automáticas em todas as `PRIMARY KEY` e `UNIQUE`, foram construídos índices compostos e parciais sob medida:
@@ -136,7 +145,7 @@ No Observatório UnB, além das árvores B-Tree automáticas em todas as `PRIMAR
 CREATE INDEX idx_mov_curso_ano ON silver.movimentacoes_vinculos (id_curso, ano_ingresso);
 
 -- Índice parcial direcionado para análise imediata de evasão:
-CREATE INDEX idx_mov_evasao ON silver.movimentacoes_vinculos (id_curso) 
+CREATE INDEX idx_mov_evasao ON silver.movimentacoes_vinculos (id_curso)
     WHERE tipo_saida_grupo = 'EVASAO';
 ```
 
@@ -151,52 +160,58 @@ CREATE INDEX idx_mov_estrutura_saida_ano ON silver.movimentacoes_vinculos
 ```
 
 ### 3.2 GIN com `pg_trgm` (Generalized Inverted Index para Trigrama)
+
 A busca por cursos universitários frequentemente envolve erros de digitação, acentuação ausente ou termos parciais (ex: "Engenharia Mecatrônica" digitado como "mecatronica" ou "eng mecat").
 
-O operador padrão `ILIKE '%termo%'` com índice B-Tree não pode utilizar o índice devido ao caractere curinga inicial `%`, forçando um *Sequential Scan*.
+O operador padrão `ILIKE '%termo%'` com índice B-Tree não pode utilizar o índice devido ao caractere curinga inicial `%`, forçando um _Sequential Scan_.
 
 **Solução Implementada**:
+
 ```sql
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-CREATE INDEX IF NOT EXISTS idx_cursos_nome_trgm 
-ON silver.cursos 
+CREATE INDEX IF NOT EXISTS idx_cursos_nome_trgm
+ON silver.cursos
 USING gin (nome_curso_norm gin_trgm_ops);
 ```
 
-* **Mecanismo Físico**: O algoritmo decompõe cada cadeia de caracteres em fatias de 3 letras (*trigramas*). O índice GIN mapeia cada trigrama para a lista de tuplas que o contém.
-* **Complexidade**: Reduz o custo de busca textual de $O(N \cdot L)$ para $O(K \cdot \log N)$, viabilizando buscas por similaridade fonética e ortográfica instantâneas.
+- **Mecanismo Físico**: O algoritmo decompõe cada cadeia de caracteres em fatias de 3 letras (_trigramas_). O índice GIN mapeia cada trigrama para a lista de tuplas que o contém.
+- **Complexidade**: Reduz o custo de busca textual de $O(N \cdot L)$ para $O(K \cdot \log N)$, viabilizando buscas por similaridade fonética e ortográfica instantâneas.
 
 ### 3.3 HNSW com `pgvector` (Hierarchical Navigable Small World)
-Para a busca semântica em linguagem natural (ex: *"quero cursos que envolvam inteligência artificial e matemática discreta"*), o banco armazena vetores de embeddings em `busca.documentos` gerados pelo modelo multilíngue `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (384 dimensões).
+
+Para a busca semântica em linguagem natural (ex: _"quero cursos que envolvam inteligência artificial e matemática discreta"_), o banco armazena vetores de embeddings em `busca.documentos` gerados pelo modelo multilíngue `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (384 dimensões).
 
 **Solução Implementada**:
+
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
 
-CREATE INDEX documentos_embedding_hnsw 
-ON busca.documentos 
+CREATE INDEX documentos_embedding_hnsw
+ON busca.documentos
 USING hnsw (embedding vector_cosine_ops);
 ```
 
-* **Estrutura Física**: O algoritmo HNSW constrói um grafo de múltiplas camadas onde as camadas superiores realizam saltos longos (análogo a uma *Skip List*) e a camada base contém as conexões locais de alta densidade.
-* **Operador de Distância**: `vector_cosine_ops` calcula a distância de cosseno:
+- **Estrutura Física**: O algoritmo HNSW constrói um grafo de múltiplas camadas onde as camadas superiores realizam saltos longos (análogo a uma _Skip List_) e a camada base contém as conexões locais de alta densidade.
+- **Operador de Distância**: `vector_cosine_ops` calcula a distância de cosseno:
   $$D_{\mathrm{cos}}(u, v) = 1 - \frac{u \cdot v}{\|u\|_2 \|v\|_2}$$
-* **Vantagem sobre IVFFlat**: O HNSW não degrada com o aumento do volume de dados e não requer reconstrução (*retrain*) ao inserir novas matrizes ou documentos. A busca dos vizinhos mais próximos executa em complexidade logarítmica $O(\log N)$.
+- **Vantagem sobre IVFFlat**: O HNSW não degrada com o aumento do volume de dados e não requer reconstrução (_retrain_) ao inserir novas matrizes ou documentos. A busca dos vizinhos mais próximos executa em complexidade logarítmica $O(\log N)$.
 
 ---
 
-## 4. Materialização e Atualização Concorrente (*Concurrent Refresh*)
+## 4. Materialização e Atualização Concorrente (_Concurrent Refresh_)
 
 ### 4.1 O Problema da Agregação em Tempo de Consulta
+
 Consultas analíticas executivas que consolidam taxas de retenção, evasão, diplomação no tempo ideal e discentes ativos envolvem junções entre tabelas dimensionais (`fato_retencao_curso`, `dim_curso`, `dim_campus`, `fato_alunos_ativos`). Executar esses joins a cada requisição do painel geraria gargalos de CPU e I/O desnecessários.
 
 ### 4.2 Definição da View Materializada
+
 A relação consolidada foi materializada na view `gold.mv_dashboard_executivo`:
 
 ```sql
 CREATE MATERIALIZED VIEW gold.mv_dashboard_executivo AS
-SELECT 
+SELECT
     c.sk_curso,
     c.id_curso_origem,
     c.nome_curso,
@@ -225,20 +240,21 @@ WHERE c.is_tronco_abi = false;
 ```
 
 ### 4.3 Índice Único e Atualização Não-Bloqueante
+
 A instrução padrão `REFRESH MATERIALIZED VIEW` adquire um lock exclusivo `AccessExclusiveLock`, bloqueando consultas simultâneas (`SELECT`) durante toda a atualização.
 
 Para permitir disponibilidade contínua sem travamento de leitores, criamos um índice exclusivo na chave composta `(sk_curso, campus)` e executamos a atualização via `CONCURRENTLY`:
 
 ```sql
 -- Índice exclusivo (requisito mandatório do PostgreSQL para REFRESH CONCURRENTLY)
-CREATE UNIQUE INDEX idx_mv_executivo_sk 
+CREATE UNIQUE INDEX idx_mv_executivo_sk
 ON gold.mv_dashboard_executivo (sk_curso, campus);
 
 -- Atualização assíncrona concorrente (sem bloqueio de leituras)
 REFRESH MATERIALIZED VIEW CONCURRENTLY gold.mv_dashboard_executivo;
 ```
 
-* **Mecanismo de Concorrência**: O motor do PostgreSQL gera uma tabela temporária de trabalho, computa o diff das alterações contra o índice exclusivo `idx_mv_executivo_sk` e aplica as mudanças através de operações pontuais mantendo as páginas servidas sem interrupção.
+- **Mecanismo de Concorrência**: O motor do PostgreSQL gera uma tabela temporária de trabalho, computa o diff das alterações contra o índice exclusivo `idx_mv_executivo_sk` e aplica as mudanças através de operações pontuais mantendo as páginas servidas sem interrupção.
 
 ---
 

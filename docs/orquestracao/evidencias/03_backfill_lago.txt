@@ -1,0 +1,46 @@
+# Backfill das janelas de vínculos no lago Delta
+#
+# Numa cópia do lago (LAGO_DIR), a janela do quinquênio 2015 foi apagada para simular uma janela
+# perdida. O backfill regrava todas as partições, de 2000 a 2025, numa execução só, e roda duas
+# vezes para mostrar que reprocessar não duplica:
+#   dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio --partition-range 2000...2025
+
+## Lago antes (janela 2015 apagada)
+  versão do Delta: 16, arquivos ativos: 2
+  quinquênio 2010: 48.201 vínculos
+  quinquênio 2020: 47.879 vínculos
+  total: 96.080 vínculos
+
+## Backfill, execução 1
+2026-11-02 19:33:47 -0300 - RUN_START - Started execution of run for "__ASSET_JOB".
+2026-11-02 19:33:47 -0300 - lago_vinculos_por_quinquenio - STEP_START - Started execution of step "lago_vinculos_por_quinquenio".
+2026-11-02 19:33:47 -0300 - lago_vinculos_por_quinquenio - Rodando src/db/exportar_lago.py --quinquenio 2000 --quinquenio 2005 --quinquenio 2010 --quinquenio 2015 --quinquenio 2020 --quinquenio 2025 (tentativa 1)
+2026-11-02 19:33:47 -0300 - lago_vinculos_por_quinquenio - 19:33:47 [INFO] silver.movimentacoes_vinculos: 152,680 linhas -> silver/movimentacoes_vinculos (quinquênios [2000, 2005, 2010, 2015, 2020, 2025]) (versão 19, 3 arquivo(s) ativos)
+2026-11-02 19:33:48 -0300 - lago_vinculos_por_quinquenio - STEP_SUCCESS - Finished execution of step "lago_vinculos_por_quinquenio" in 956ms.
+2026-11-02 19:33:48 -0300 - RUN_SUCCESS - Finished execution of run for "__ASSET_JOB".
+dagster exit=0
+partições materializadas: 6
+
+## Lago depois da execução 1
+  versão do Delta: 19, arquivos ativos: 3
+  quinquênio 2010: 48.201 vínculos
+  quinquênio 2015: 56.600 vínculos
+  quinquênio 2020: 47.879 vínculos
+  total: 152.680 vínculos
+
+## Backfill, execução 2
+2026-11-02 19:33:50 -0300 - RUN_START - Started execution of run for "__ASSET_JOB".
+2026-11-02 19:33:50 -0300 - lago_vinculos_por_quinquenio - STEP_START - Started execution of step "lago_vinculos_por_quinquenio".
+2026-11-02 19:33:50 -0300 - lago_vinculos_por_quinquenio - Rodando src/db/exportar_lago.py --quinquenio 2000 --quinquenio 2005 --quinquenio 2010 --quinquenio 2015 --quinquenio 2020 --quinquenio 2025 (tentativa 1)
+2026-11-02 19:33:51 -0300 - lago_vinculos_por_quinquenio - 19:33:51 [INFO] silver.movimentacoes_vinculos: 152,680 linhas -> silver/movimentacoes_vinculos (quinquênios [2000, 2005, 2010, 2015, 2020, 2025]) (versão 22, 3 arquivo(s) ativos)
+2026-11-02 19:33:51 -0300 - lago_vinculos_por_quinquenio - STEP_SUCCESS - Finished execution of step "lago_vinculos_por_quinquenio" in 877ms.
+2026-11-02 19:33:51 -0300 - RUN_SUCCESS - Finished execution of run for "__ASSET_JOB".
+dagster exit=0
+partições materializadas: 6
+
+## Lago depois da execução 2
+  versão do Delta: 22, arquivos ativos: 3
+  quinquênio 2010: 48.201 vínculos
+  quinquênio 2015: 56.600 vínculos
+  quinquênio 2020: 47.879 vínculos
+  total: 152.680 vínculos

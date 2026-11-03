@@ -47,7 +47,7 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements.txt -r requirements-orquestracao.txt
 
       # Cada etapa lê a camada anterior do banco e grava a sua nele: não há CSV
       # intermediário, e bronze/silver (dado pessoal) nunca saem do runner.
@@ -82,9 +82,28 @@ jobs:
       - name: "Gold — REFRESH CONCURRENTLY da view do painel"
         run: python src/db/atualizar_view_painel.py
 
+      # Reconstrói do zero, a partir da Silver 3NF, as camadas staging, intermediate e marts
+      # (transform/, ADR 0029) e roda os testes de cada uma, inclusive a reconciliação com a gold.
+      - name: "Transformações dbt — staging, intermediate e marts"
+        run: bash scripts/dbt.sh build --full-refresh
+
+      - name: "dbt — documentação e linhagem"
+        run: bash scripts/dbt.sh docs generate --static
+
       # O lago fica no runner, como bronze e silver: prova o export, não publica dado.
       - name: "Lago — Silver 3NF e Star Schema em Delta Lake"
         run: python src/db/exportar_lago.py
+
+      # O grafo do Dagster carrega (inclusive os modelos do dbt como assets), e o backfill das janelas
+      # do lago roda de verdade: todas as partições, numa execução, sobre o lago que acabou de ser gravado.
+      - name: "Orquestração — grafo do Dagster e backfill das janelas do lago"
+        env:
+          DAGSTER_HOME: ${{ runner.temp }}/dagster
+        run: |
+          mkdir -p "$DAGSTER_HOME"
+          dagster definitions validate -m orquestracao
+          INTERVALO=$(python -c 'from orquestracao.definicoes import INTERVALO_BACKFILL as i; print(i)')
+          dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio --partition-range "$INTERVALO"
 
       - name: "Cache do modelo de embedding"
         uses: actions/cache@v4
@@ -153,6 +172,7 @@ jobs:
             docs/datasheet_gold.md
             docs/dicionario_dados_gold.md
             docs/analise_social_pibic.md
+            transform/target/static_index.html
 
   deploy:
     needs: pipeline
@@ -173,10 +193,12 @@ jobs:
         run: |
           mkdir -p _site/app/src/dashboard/assets _site/app/export _site/app/docs
           cp site/index.html _site/index.html
-          cp src/dashboard/app.py _site/app/src/dashboard/app.py
+          cp src/dashboard/app.py src/dashboard/resposta_e1.py _site/app/src/dashboard/
           cp -r src/dashboard/assets/* _site/app/src/dashboard/assets/ 2>/dev/null || true
           cp artifact/export/gold.json _site/app/export/gold.json
           cp artifact/docs/*.md _site/app/docs/
+          mkdir -p _site/dbt
+          cp artifact/transform/target/static_index.html _site/dbt/index.html
 
       - uses: actions/configure-pages@v5
 

@@ -37,6 +37,8 @@ TABELAS = (
     "gold.pibic_social_unb",
     "gold.regras_harmonizacao_canonicas",
     "gold.inep_benchmark_cursos_unb",
+    # Tabela de consumo da camada transformada (dbt), que responde à pergunta da E1 no painel.
+    "dbt_marts.painel_cursos_criticos",
 )
 
 
@@ -53,10 +55,17 @@ def montar_snapshot() -> Dict:
         relatorios = dict(consultar("SELECT nome, conteudo FROM gold.relatorios ORDER BY nome").values.tolist())
     except Exception:
         relatorios = {}
+    # Quando a gold foi gravada pela última vez, para o painel mostrar a idade dos dados.
+    try:
+        carregado_em = consultar("SELECT max(_carregado_em) AS carregado_em FROM gold.relatorios").iloc[0]["carregado_em"]
+        carregado_em = carregado_em.isoformat(timespec="seconds") if carregado_em is not None else None
+    except Exception:
+        carregado_em = None
     return {
         "gerado_em": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "tabelas": tabelas,
         "relatorios": relatorios,
+        "carregado_em": carregado_em,
     }
 
 

@@ -18,7 +18,6 @@ sys.path.insert(0, str(BASE_DIR))
 from src.db import povoar_dimensional as dimensional  # noqa: E402
 from src.db import povoar_silver_3nf as silver  # noqa: E402
 from src.db.sincronizar_supabase import SINCRONIAS, Sincronia, montar_insercao  # noqa: E402
-from src.pipeline.build_gold import ANOS_MATURACAO_COORTE  # noqa: E402
 
 
 class ConexaoFalsa:
@@ -68,22 +67,26 @@ class TestPovoamento(unittest.TestCase):
         self.assertEqual(truncates, [f"TRUNCATE {', '.join(dimensional.FATOS)} RESTART IDENTITY"])
         for dim in dimensional.DIMENSOES:
             self.assertNotIn(dim, truncates[0])
-        # Dimensões antes do TRUNCATE (upsert), fatos depois.
+        # Dimensões antes do TRUNCATE (upsert, ou versões da SCD da dim_curso), fatos depois.
         corte = sqls.index(truncates[0])
         alvos = [re.search(r"INSERT INTO (\S+)", s).group(1) for s in sqls if "INSERT INTO" in s]
         self.assertEqual(alvos, list(dimensional.TABELAS_GOLD))
-        self.assertTrue(all("ON CONFLICT" in s for s in sqls[:corte]))
+        scd = [" ".join(s.split()) for s in dimensional.SQL_DIM_CURSO]
+        self.assertTrue(all("ON CONFLICT" in s for s in sqls[:corte] if s not in scd))
+        # A SCD fecha as versões antes de abrir as novas.
+        self.assertEqual([s for s in sqls[:corte] if s in scd], scd)
         self.assertFalse(any("ON CONFLICT" in s for s in sqls[corte:]))
         self.assertEqual(set(contagens), set(dimensional.TABELAS_GOLD))
 
-    def test_fato_retencao_usa_o_corte_de_maturacao_do_pipeline(self):
+    def test_fato_retencao_le_a_gold_calculada_no_banco(self):
+        """A regra de retenção não se repete no Star Schema: o fato copia gold.retencao_cursos_unb."""
         conn = ConexaoFalsa()
         dimensional.povoar_gold_dimensional(conn)
-        params = [p for s, p in conn.executados if s.startswith("WITH corte")]
-        self.assertEqual(params, [{"anos_maturacao": ANOS_MATURACAO_COORTE}])
+        params = [p for s, p in conn.executados if "INTO gold.fato_retencao_curso" in s]
+        self.assertEqual(params, [None])
+        self.assertIn("FROM gold.retencao_cursos_unb", dimensional.SQL_FATO_RETENCAO)
 
-    def test_fatos_so_aceitam_grupos_com_5_ou_mais(self):
-        self.assertIn("HAVING count(*) >= 5", dimensional.SQL_FATO_RETENCAO)
+    def test_fato_pibic_so_aceita_grupos_com_5_ou_mais(self):
         self.assertIn("HAVING count(*) >= 5", dimensional.SQL_FATO_PIBIC_PERFIL)
 
 

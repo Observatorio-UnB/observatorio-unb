@@ -327,7 +327,7 @@ def render_gold_svg(tables, fks, output_path):
 
         # Coluna 3: Dimensão Central e Visão Materializada
         "dim_curso":              {"x": 870, "y": 120, "w": 360, "header": "#1e293b", "border": "#334155", "title": "#38bdf8"},
-        "mv_dashboard_executivo": {"x": 870, "y": 380, "w": 360, "header": "#065f46", "border": "#10b981", "title": "#d1fae5"},
+        "mv_dashboard_executivo": {"x": 870, "y": 450, "w": 360, "header": "#065f46", "border": "#10b981", "title": "#d1fae5"},
 
         # Coluna 4: Tabelas Analíticas e Retenção
         "retencao_cursos_unb":   {"x": 1290, "y": 120, "w": 330, "header": "#334155", "border": "#475569", "title": "#cbd5e1"},
