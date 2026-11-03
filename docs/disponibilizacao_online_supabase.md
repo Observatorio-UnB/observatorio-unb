@@ -13,7 +13,7 @@ Conforme formalizado na **[ADR 0031](adr/0031-escopo-disponibilizacao-online-sup
 * **Camadas Sincronizadas (Gold e Busca):**
   * `gold.*`: Fatos (`gold.fato_retencao_curso`, `gold.fato_alunos_ativos`, `gold.fato_pibic_perfil`), dimensões conformadas (`dim_curso` com SCD Tipo 2, `dim_tempo`, `dim_campus`, `dim_perfil_social`) e visões materializadas (`mv_dashboard_executivo`).
   * `busca.documentos`: Tabela de busca semântica enriquecida com embeddings vetoriais de alta dimensão gerados pela extensão `vector` (pgvector).
-  * **Regra de Privacidade:** Todas as agregações publicadas cumprem o critério de **$k$-anonimato ($k \ge 5$)** (ADR 0005). Nenhuma métrica identifica alunos isolados.
+  * **Regra de Privacidade:** Todas as agregações publicadas cumprem o critério de **$k$-anonimato ($k \ge 5$)** ([ADR 0005](adr/0005-privacidade-k-anonimato.md)). Nenhuma métrica identifica alunos isolados.
 
 * **Camadas Restritas (Bronze e Silver):**
   * `bronze.*` e `silver.*`: Contêm dados brutos e normalizados em 3NF com quase-identificadores (curso, data de nascimento, sexo e raça/cor) que atingem **88,93% de unicidade absoluta no SIGRA e 65,63% no SIGAA**.
@@ -23,7 +23,7 @@ Conforme formalizado na **[ADR 0031](adr/0031-escopo-disponibilizacao-online-sup
 
 ## 2. Controle de Acesso e Segurança
 
-O Supabase aplica o princípio do privilégio mínimo via migração `0006_controle_de_acesso.sql`:
+O Supabase aplica o princípio do privilégio mínimo via migração [`0006_controle_de_acesso.sql`](../db/migrations/0006_controle_de_acesso.sql):
 
 1. **Papel `observatorio_leitura`:**
    * Concedido acesso de leitura (`USAGE` e `SELECT`) estritamente nos esquemas `gold` e `busca`.
@@ -103,10 +103,10 @@ O script audita:
 
 1. **Keep-Alive Diário (`.github/workflows/supabase-keepalive.yml`):**
    * O plano gratuito do Supabase suspende projetos inativos após 7 dias.
-   * O workflow agendado executa diariamente às 12:00 UTC uma consulta leve na visão materializada analítica (`SELECT count(*) FROM gold.mv_dashboard_executivo;`), garantindo que a instância permaneça ativa.
-2. **Monitoramento de Frescor e SLA (`.github/workflows/frescor.yml`):**
-   * Avalia diariamente se a visão materializada respeita o SLA de 35 dias (`src/db/frescor.py --banco "$SUPABASE_DATABASE_URL"`).
-   * Caso o SLA seja violado, acusa erro e sinaliza a necessidade de reexecução do pipeline mensal.
+   * O workflow agendado executa diariamente às 12:00 UTC uma consulta na visão materializada analítica (`SELECT count(*) FROM gold.mv_dashboard_executivo;`), garantindo que a instância permaneça ativa.
+2. **Atualização Contínua de Frescor (Pipeline de Carga):**
+   * A cada execução de `src/db/sincronizar_supabase.py`, o procedimento `CALL gold.atualizar_mv_dashboard_executivo()` é executado no Supabase, renovando os carimbos de `atualizado_em` e `gerado_em` da visão consumida pelo painel.
+   * A idade do dado e o cumprimento do SLA de 35 dias podem ser auditados diretamente via consulta SQL (`SELECT now() - max(gerado_em) FROM gold.mv_dashboard_executivo;`), mantendo a rastreabilidade temporal dos dados no consumo.
 
 ---
 
@@ -150,3 +150,4 @@ Resultado da auditoria executada em **02/11/2026**:
 
 As evidências completas e detalhadas estão salvas em:
 📄 **[`docs/disponibilizacao_online_supabase_evidencias.md`](disponibilizacao_online_supabase_evidencias.md)**
+
