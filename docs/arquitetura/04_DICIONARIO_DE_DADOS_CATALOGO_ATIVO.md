@@ -215,14 +215,14 @@ O PostgreSQL gerencia tabelas particionadas criando relações físicas filhas n
 
 ### 4.5 Tabela Fato `gold.fato_retencao_curso`
 * **Tipo**: Fato de *Snapshot de Coortes Maduras*.
-* **Grão Físico**: Um registro por par `(sk_curso, sk_campus)`.
+* **Grão Físico**: Um registro por curso canônico, sobre as coortes maduras. O campus (`sk_campus`) é atributo do curso (MULTICAMPUS quando o nome é oferecido em mais de um campus) e não entra no grão (migração 0023).
 * **Privacidade e LGPD**: Constraint declarativa de $k$-anonimato estrito (`CHECK (total_ingressantes >= 5)`).
 
 | Coluna | Tipo Físico | Nulo? | Padrão / Restrição | Descrição Semântica |
 |:---|:---|:---:|:---:|:---|
 | `id_fato` | `BIGINT` | **NÃO** | **PK** (`GENERATED ALWAYS AS IDENTITY`) | Identificador primário do registro de fato. |
 | `sk_curso` | `INTEGER` | **NÃO** | **FK** $\rightarrow$ `gold.dim_curso` | Chave substituta para o curso em análise. |
-| `sk_campus` | `INTEGER` | **NÃO** | **FK** $\rightarrow$ `gold.dim_campus` | Chave substituta para o campus universitário. |
+| `sk_campus` | `INTEGER` | **NÃO** | **FK** $\rightarrow$ `gold.dim_campus` | Campus de oferta do curso. Atributo do curso, e não parte do grão. |
 | `total_ingressantes` | `INTEGER` | **NÃO** | `CHECK (total_ingressantes >= 5)` | **Métrica Aditiva**: Total de discentes ingressantes na coorte madura ($k \ge 5$). |
 | `total_formados` | `INTEGER` | **NÃO** | `CHECK (total_formados >= 0)` | **Métrica Aditiva**: Total de discentes diplomados. |
 | `total_evadidos` | `INTEGER` | **NÃO** | `CHECK (total_evadidos >= 0)` | **Métrica Aditiva**: Total de discentes evadidos/desligados sem diploma. |
@@ -235,7 +235,7 @@ O PostgreSQL gerencia tabelas particionadas criando relações físicas filhas n
 | `classificacao_retencao`| `TEXT` | SIM | `CHECK IN ('RETENÇÃO CRÍTICA', 'RETENÇÃO ALTA', 'RETENÇÃO MÉDIA', 'RETENÇÃO BAIXA')` | Classificação institucional oficial de severidade de retenção. |
 | `atualizado_em` | `TIMESTAMPTZ`| **NÃO** | `DEFAULT now()` | Carimbo de atualização da carga ELT in-database. |
 
-* **Restrição de Unicidade**: `CONSTRAINT uk_fato_curso UNIQUE (sk_curso, sk_campus)`.
+* **Restrição de Unicidade**: `CONSTRAINT uk_fato_retencao_grao UNIQUE (sk_curso)`. Até a migração 0023 era `UNIQUE (sk_curso, sk_campus)`, que aceitava o mesmo curso em dois campi.
 
 ---
 
@@ -247,7 +247,7 @@ O PostgreSQL gerencia tabelas particionadas criando relações físicas filhas n
 |:---|:---|:---:|:---:|:---|
 | `id_fato_ativo` | `BIGINT` | **NÃO** | **PK** (`GENERATED ALWAYS AS IDENTITY`) | Identificador unívoco do snapshot de matrícula. |
 | `sk_curso` | `INTEGER` | **NÃO** | **UK / FK** $\rightarrow$ `gold.dim_curso` | Curso analisado (cada curso tem no máximo 1 linha no snapshot). |
-| `sk_tempo_referencia`| `INTEGER`| **NÃO** | **FK** $\rightarrow$ `gold.dim_tempo` | Semestre letivo do snapshot (ex: 20241). |
+| `sk_tempo_referencia`| `INTEGER`| **NÃO** | **FK** $\rightarrow$ `gold.dim_tempo` | Semestre letivo do snapshot, o da lista de ativos mais recente (ex: 20251). |
 | `total_ativos` | `INTEGER` | **NÃO** | `CHECK (total_ativos >= 5)` | **Métrica Semi-Aditiva**: Total de discentes com matrícula regular ativa. |
 | `ativos_acima_prazo_ideal`| `INTEGER`| **NÃO** | `CHECK (ativos_acima_prazo_ideal >= 0)` | **Métrica Semi-Aditiva**: Alunos cursando além do prazo previsto. |
 | `ativos_acima_prazo_maximo`| `INTEGER`| **NÃO** | `CHECK (ativos_acima_prazo_maximo >= 0)`| **Métrica Semi-Aditiva**: Alunos sob risco iminente de jubilamento regulamentar. |
