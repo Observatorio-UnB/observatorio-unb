@@ -194,6 +194,17 @@ O banco guarda o medalhão inteiro, um esquema por camada:
 Conexão: variável `DATABASE_URL` (ou arquivo `.env`, ver `.env.example`). Sem ela, os
 scripts usam o banco do `docker-compose.yml` em `localhost:5435`.
 
+**Pool de conexões:** as leituras do painel, da busca semântica e de `consultar`/`ler`
+(`src/db/tabelas.py`) pegam conexão de um pool (`psycopg_pool`, `conexao_do_pool()` em
+`src/db/conexao.py`), um por URL, compartilhado pelas sessões do Streamlit e fechado na saída do
+processo. Padrão: 1 a 10 conexões, 10 s de espera por uma conexão livre, conexão ociosa fechada
+depois de 5 min e renovada depois de 30 min; mude com `POOL_MINIMO`, `POOL_MAXIMO`,
+`POOL_ESPERA_S`, `POOL_OCIOSA_S` e `POOL_VIDA_MAXIMA_S`. As conexões aparecem em
+`pg_stat_activity` como `observatorio_pool` e não usam prepared statements, que o pooler
+transacional do Supabase (porta 6543) não aceita. Sem banco no ar, a primeira leitura falha na
+hora e o painel cai no export estático. `tests/test_banco_pool.py` dispara 20 requisições em
+paralelo num pool de 5 e confere que o banco nunca vê mais de 5 conexões.
+
 > ⚠️ **Banco remoto (ex.: Supabase):** o pipeline grava as três camadas em
 > `DATABASE_URL`, e bronze e silver têm registro individual de discente. Rode o
 > pipeline num banco local ou restrito; o que é público (painel no GitHub Pages) só

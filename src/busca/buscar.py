@@ -18,7 +18,7 @@ from typing import Dict, List, Optional
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.busca.vetorizar import TIPOS, carregar_modelo, gerar_embeddings, nome_do_modelo, vetor_literal  # noqa: E402
-from src.db.conexao import conectar  # noqa: E402
+from src.db.conexao import conexao_do_pool  # noqa: E402
 
 
 @lru_cache(maxsize=1)
@@ -31,7 +31,7 @@ def buscar(consulta: str, k: int = 5, tipo: Optional[str] = None) -> List[Dict]:
     if tipo is not None and tipo not in TIPOS:
         raise ValueError(f"tipo deve ser um de {TIPOS}")
     vetor = vetor_literal(gerar_embeddings(_modelo(), [consulta])[0])
-    with conectar() as conn:
+    with conexao_do_pool() as conn:
         with conn.transaction():
             # Com filtro por tipo, o índice HNSW sozinho devolveria os vizinhos de todos
             # os tipos e o WHERE descartaria a maioria (ex.: 88 cursos entre 13 mil
