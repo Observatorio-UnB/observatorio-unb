@@ -237,6 +237,18 @@ class TestVeredito(unittest.TestCase):
                 mock.patch("builtins.print"):
             self.assertTrue(rs.verificar("postgresql://supabase", None))
 
+    def test_conexoes_sem_prepared_statement(self):
+        """O pooler transacional do Supabase não mantém prepared statement entre transações."""
+        conexoes = []
+
+        def conectar(url, **kwargs):
+            conexoes.append(kwargs)
+            raise rs.psycopg.OperationalError("parar aqui")
+
+        with mock.patch.object(rs.psycopg, "connect", side_effect=conectar), self.assertRaises(rs.psycopg.OperationalError):
+            rs.executar_auditoria_completa("postgresql://supabase", "postgresql://local")
+        self.assertIsNone(conexoes[0]["prepare_threshold"])
+
     def test_main_sai_com_erro_quando_nao_aprova(self):
         with mock.patch.object(rs, "ler_variavel", return_value="postgresql://supabase"), \
                 mock.patch.object(rs, "verificar", return_value=False), \

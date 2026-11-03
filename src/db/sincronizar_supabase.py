@@ -204,7 +204,9 @@ def montar_insercao(s: Sincronia, colunas: List[str], inserir: str, somente_inse
 def sincronizar(url_destino: str, somente_inserir: bool = False) -> Dict[str, Tuple[int, int]]:
     aplicar_migracoes(url_destino)
     resumo = {}
-    with conectar() as origem, conectar(url_destino, autocommit=True) as destino:
+    # Sem prepared statement no destino: o pooler transacional do Supabase não os mantém entre
+    # transações (ver reconciliar_supabase.py).
+    with conectar() as origem, conectar(url_destino, autocommit=True, prepare_threshold=None) as destino:
         with destino.transaction():
             for s in SINCRONIAS:
                 resumo[s.tabela] = sincronizar_tabela(origem, destino, s, somente_inserir)
