@@ -5,21 +5,36 @@ version: 2
 
 models:
   - name: dim_curso
-    description: Cursos canônicos, um por linha, com os atributos de classificação.
+    description: >
+      Dimensão de variação lenta (SCD tipo 2, ADR 0028). Grão: uma linha por versão dos atributos
+      de classificação de um curso canônico. A versão atual tem is_atual. Histórico em
+      snap_atributos_curso; vigência e integridade testadas em tests/scd_dim_curso_*.sql.
     data_tests:
+      # Conta só as versões atuais: as fechadas crescem com o histórico e não indicam carga ruim.
       - volume_entre:
           arguments: {minimo: 80, maximo: 200}
+          config:
+            where: "is_atual"
     columns:
       - name: sk_curso
-        description: md5 do nome canônico.
+        description: md5 do nome canônico com o início da vigência. Uma por versão.
         data_tests: [unique, not_null]
       - name: nome_curso
-        data_tests: [unique, not_null]
+        description: Chave natural. Repete entre versões; a versão é (nome_curso, vigente_de).
+        data_tests: [not_null]
       - name: categoria_grau
         data_tests:
           - accepted_values:
               arguments:
                 values: ["BACHARELADO", "LICENCIATURA", "MISTO"]
+      - name: vigente_de
+        description: Início da versão. A primeira de cada curso vale desde 21/04/1962 (fundação da UnB).
+        data_tests: [not_null]
+      - name: vigente_ate
+        description: Fim da versão, a execução que observou a mudança. Nulo na versão atual.
+      - name: is_atual
+        description: Versão vigente hoje. Os fatos apontam para ela.
+        data_tests: [not_null]
 
   - name: dim_campus
     description: Campi da UnB e MULTICAMPUS.
