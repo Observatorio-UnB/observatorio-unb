@@ -28,6 +28,8 @@ A `gold.dim_curso` era atualizada por sobrescrita (`ON CONFLICT (nome_curso) DO 
 
 ## Consequências
 
+- **A mesma regra vale na camada do dbt.** A `dim_curso` de `transform/` lê o snapshot `snap_atributos_curso` (estratégia `check` nos mesmos cinco atributos, com `vigente_de` e `vigente_ate`). A primeira versão também vale desde 21/04/1962, e o `id_curso_origem` também é tipo 1. Os testes `scd_dim_curso_*` e `scd_fato_aponta_versao_atual` (em `transform/tests/`) conferem uma versão atual por curso, vigências encadeadas sem buraco e o fato na versão atual. `tests/test_dbt_scd2.py` reclassifica um curso numa cópia da silver e confere que a versão anterior continua lá.
+
 - Uma reclassificação preserva a versão anterior e gera uma `sk_curso` nova. A consulta que quer o curso atual precisa filtrar `is_atual`. Os fatos e a view do painel já fazem isso.
 - O histórico só existe a partir desta migração. As mudanças anteriores se perderam com a sobrescrita, e toda primeira versão vale desde 1962.
 - A renomeação da fonte não abre versão. O nome que importa é o canônico, produzido pela harmonização (ADR 0003): "COMUNICAÇÃO SOCIAL - JORNALISMO" e "JORNALISMO" já chegam como JORNALISMO. Uma mudança do próprio nome canônico vira um curso novo, e o antigo fica com a última versão.

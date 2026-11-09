@@ -1,0 +1,29 @@
+version: 2
+
+# Histórico dos atributos de classificação de cada curso canônico (SCD tipo 2, ADR 0028).
+#
+# A cada `dbt build`, o snapshot compara os atributos atuais (int_atributos_curso) com a versão
+# vigente de cada curso. Se algum atributo rastreado mudou, fecha a versão vigente (vigente_ate) e
+# abre uma nova (vigente_de), no instante da execução. Nada é sobrescrito, e o `--full-refresh` não
+# apaga o snapshot: o histórico sobrevive às reconstruções dos marts.
+#
+#   - tipo 2 (abre versão): grau_academico, categoria_grau, area_conhecimento, departamento,
+#     is_tronco_abi. Os mesmos da gold.dim_curso (migração 0025).
+#   - tipo 1: id_curso_origem, ponteiro técnico para a matriz. Não abre versão; a dim_curso lê o
+#     valor atual dele.
+#
+# Curso que some da origem continua com a última versão vigente (hard_deletes: ignore), como na
+# gold: a dimensão não apaga curso.
+snapshots:
+  - name: snap_atributos_curso
+    relation: ref('int_atributos_curso')
+    description: Uma linha por versão dos atributos de classificação de um curso canônico.
+    config:
+      schema: dbt_snapshots
+      unique_key: nome_curso
+      strategy: check
+      check_cols: [grau_academico, categoria_grau, area_conhecimento, departamento, is_tronco_abi]
+      hard_deletes: ignore
+      snapshot_meta_column_names:
+        dbt_valid_from: vigente_de
+        dbt_valid_to: vigente_ate

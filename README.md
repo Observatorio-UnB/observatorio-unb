@@ -210,7 +210,8 @@ O projeto `transform/` reconstrói a camada de consumo a partir da Silver 3NF, c
 camadas e três esquemas: `dbt_staging` (views que só renomeiam a silver, sem o `id_discente`),
 `dbt_intermediate` (atributos do curso, coortes maduras, métricas com k ≥ 5 e IRC) e `dbt_marts`
 (`dim_curso`, `dim_campus`, `fct_retencao_curso` e `painel_cursos_criticos`, o ranking que responde
-à pergunta da E1). Só os marts são legíveis pelo papel `observatorio_leitura`.
+à pergunta da E1). A `dim_curso` guarda histórico (SCD tipo 2) a partir do snapshot
+`snap_atributos_curso`, no esquema `dbt_snapshots`. Só os marts são legíveis pelo papel `observatorio_leitura`.
 
 ```bash
 pip install -r requirements-dbt.txt
@@ -234,7 +235,7 @@ Limites, origem de cada um e a tabela de injeções: [docs/testes_de_dados.md](d
 ### Orquestração (Dagster)
 O pipeline também roda como um grafo do Dagster (`orquestracao/`, ADR 0030). Cada etapa chama o
 mesmo script deste roteiro, com dependências explícitas e retry por etapa (3 novas tentativas, com
-espera exponencial). Os 12 modelos do dbt entram um a um, depois do star schema. O `atualiza-dados.yml`
+espera exponencial). Os 12 modelos e o snapshot do dbt entram um a um, depois do star schema. O `atualiza-dados.yml`
 dispara o job `pipeline_mensal` no dia 1 de cada mês, e o lago tem backfill por quinquênio de ingresso.
 
 ```bash

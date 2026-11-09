@@ -5,6 +5,9 @@
 #   intermediate  (dbt_intermediate, views)  regras de negócio: atributos do curso, coortes, IRC
 #   marts         (dbt_marts, tabelas)       star schema e a tabela do painel, agregadas (k >= 5)
 #
+# E o snapshot (dbt_snapshots) com o histórico dos atributos do curso, de onde a dim_curso tira as
+# versões (SCD tipo 2, ADR 0028). O --full-refresh reconstrói os marts, mas não apaga o snapshot.
+#
 # Rodar: bash scripts/dbt.sh build   (usa o DATABASE_URL do projeto)
 name: observatorio
 version: "1.0.0"
@@ -12,6 +15,7 @@ config-version: 2
 profile: observatorio
 
 model-paths: ["models"]
+snapshot-paths: ["snapshots"]
 test-paths: ["tests"]
 macro-paths: ["macros"]
 target-path: target

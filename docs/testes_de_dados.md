@@ -7,11 +7,12 @@ Os testes ficam no projeto dbt (`transform/`) e rodam a cada `dbt build`: no CI 
 | Tipo | Testes | O que pega |
 |---|---|---|
 | **Esquema** | Contrato de nomes e tipos (`contract: enforced`) em `stg_vinculos`, `fct_retencao_curso` e `painel_cursos_criticos`; `accepted_values` em categoria, desfecho, fonte e classificação | Coluna renomeada ou com outro tipo na silver; categoria nova que ninguém mapeou |
-| **Volume** | `volume_entre` em `stg_cursos` (100 a 300), `stg_estruturas_curriculares` (80 a 200), `stg_vinculos` (100 mil a 300 mil), `dim_curso` (80 a 200), `fct_retencao_curso` e `painel_cursos_criticos` (60 a 150) | Carga parcial, arquivo truncado, duplicação em massa |
+| **Volume** | `volume_entre` em `stg_cursos` (100 a 300), `stg_estruturas_curriculares` (80 a 200), `stg_vinculos` (100 mil a 300 mil), `dim_curso` (80 a 200 versões atuais), `fct_retencao_curso` e `painel_cursos_criticos` (60 a 150) | Carga parcial, arquivo truncado, duplicação em massa |
 | **Unicidade** | `unique` nas chaves de todos os modelos e no nome canônico | Vínculo ou curso duplicado, que conta duas vezes no fato |
 | **Integridade referencial** | `relationships` do vínculo para a matriz, da matriz para o curso, e do fato para as duas dimensões | Vínculo sem matriz, fato apontando para curso que não está na dimensão |
 | **Distribuição** | `distribuicao_salto_de_serie_entre_coortes`, `distribuicao_desfechos_por_coorte`, `distribuicao_curso_que_some`, `distribuicao_mediana_evasao_por_curso` | O erro silencioso: todos os valores válidos, e o resultado errado |
 | **Domínio (o que o dado tem de sujo)** | Permanência entre 1 e 35 semestres; prazo ideal entre 4 e 16; ano de ingresso plausível; saída antes do ingresso; desfechos que somam mais que os ingressantes; taxas e IRC entre 0 e 100; k ≥ 5 no fato | Valor negativo onde não cabe, saída antes de entrar, contagem dupla na junção |
+| **Histórico (SCD tipo 2)** | `scd_dim_curso_uma_versao_atual`, `scd_dim_curso_vigencias_encadeadas`, `scd_fato_aponta_versao_atual` | Dimensão sobrescrita ou versão apagada, que reescreve a série para trás; curso duplicado no fato; painel com a classificação antiga |
 | **Reconciliação** | `reconcilia_fato_retencao_com_a_gold` | O fato do dbt diverge, em qualquer curso ou medida, do fato do pipeline Python |
 
 ## Distribuição: os limites e de onde vêm

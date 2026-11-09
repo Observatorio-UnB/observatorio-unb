@@ -117,10 +117,14 @@ class TestDadoRuim(unittest.TestCase):
         if not silver_carregada(cls.conn):
             cls.conn.close()
             raise unittest.SkipTest("Silver não carregada: rode scripts/rodar_pipeline.sh.")
+        # O snapshot da dim_curso sobrevive ao --full-refresh: um resto de execução anterior começaria
+        # o histórico com versões de outra cópia.
+        cls.conn.execute(f"DROP SCHEMA IF EXISTS {PREFIXO}dbt_snapshots CASCADE")
 
     @classmethod
     def tearDownClass(cls):
-        for esquema in (ESQUEMA, f"{PREFIXO}dbt_staging", f"{PREFIXO}dbt_intermediate", f"{PREFIXO}dbt_marts"):
+        for esquema in (ESQUEMA, f"{PREFIXO}dbt_staging", f"{PREFIXO}dbt_intermediate", f"{PREFIXO}dbt_marts",
+                        f"{PREFIXO}dbt_snapshots"):
             cls.conn.execute(f"DROP SCHEMA IF EXISTS {esquema} CASCADE")
         cls.conn.close()
         shutil.rmtree(BASE_DIR / "transform" / TARGET, ignore_errors=True)
