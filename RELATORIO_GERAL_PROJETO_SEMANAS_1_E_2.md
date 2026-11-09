@@ -1,5 +1,5 @@
 # 🎓 Relatório Geral de Projeto: Retenção, Formatura e Evasão na UnB
-### Conexão Completa com o Challenge de Dados Abertos (Semanas 1 e 2 - CBL)
+### Conexão Completa com o Challenge de Dados Abertos (Semanas 1 a 14 - CBL)
 
 > **Documento Síntese da Disciplina de Banco de Dados 2 (UnB)**  
 > **Tema**: Discrepância entre o tempo regulamentar e o tempo real de conclusão nos cursos de graduação da UnB, retenção crítica e taxas de evasão.  
@@ -7,10 +7,12 @@
 > **Portal Auditado**: [dados.unb.br](https://dados.unb.br) (API aberta CKAN 2.11).
 
 > [!NOTE]
-> Este relatório registra a primeira versão do projeto (só SIGRA, camadas em CSV). Os números foram
-> revistos depois da união com o SIGAA e da carga no PostgreSQL: os valores atuais estão em
-> [`docs/caderno_analise.md`](docs/caderno_analise.md) (ex.: evasão média de 50,90% nos cursos noturnos
-> contra 40,85% nos diurnos, e 100% dos 152.680 vínculos casados com a estrutura curricular).
+> As seções 1 a 6 registram a primeira versão do projeto, das semanas 1 e 2 (só SIGRA, camadas em
+> CSV), e os números delas são daquela época. As seções 7 a 12 seguem o projeto de 2 em 2 semanas,
+> até a semana 14: PostgreSQL, SIGAA, 3NF e Star Schema, lago Delta com CDC (E2) e a camada analítica
+> em dbt orquestrada pelo Dagster (E3). Os valores atuais estão em [`docs/caderno_analise.md`](docs/caderno_analise.md)
+> e no [README](README.md#-3-principais-resultados-e-achados); o processo semana a semana, com as
+> medições, está no [diário de bordo](docs/diario/diario_de_bordo.md).
 
 ---
 
@@ -141,6 +143,8 @@ A proposta inicial do grupo era avaliar a dificuldade puramente pela porcentagem
 Criamos um indicador composto normalizado (0 a 100) que equilibra:
 $$\text{IRC} = 50\% \times \text{Normalizado}(\text{Atraso Médio na Formatura}) + 50\% \times \text{Normalizado}(\text{Taxa de Evasão})$$
 
+> Esta é a versão das semanas 1 e 2. Em 09/2026 os pesos passaram a 0,3 para o atraso e 0,7 para a evasão, com cada termo saturado nos percentis 5 e 95 antes da normalização ([ADR 0006](docs/adr/0006-indice-retencao-critica.md)): perder o aluno pesa mais que ele se formar devagar.
+
 Esse índice classifica a criticidade dos cursos em 4 faixas:
 * **Retenção Crítica (Top 25% mais retentores)**: Cursos que combinam **alto atraso** e **alta evasão** (ex: *Engenharia Geral*, *Física Computacional*, *Ciência da Computação*, *Computação Licenciatura*).
 * **Retenção Alta / Média / Baixa**: Cursos com alto índice de conclusão no prazo e baixa evasão (ex: *Direito*, *Gestão do Agronegócio*, *Engenharia de Redes*, *Medicina Veterinária*).
@@ -187,19 +191,131 @@ O produto final não é apenas um relatório estático; é um **painel interativ
 
 ---
 
-## 7. Como Executar os Artefatos do Projeto
+## 7. Semanas 3 e 4 — Iniciação Científica, CI/CD, Benchmark INEP e PostgreSQL
+
+**O que foi feito**
+- **PIBIC no painel:** os projetos de iniciação científica mapeados por curso e ano (12.793 na carga de 03/11/2026), com o valor das bolsas estimado pela tabela de vigências do CNPq ([ADR 0023](docs/adr/0023-valor-bolsa-ic-pela-tabela-do-cnpq.md)). A base pública não traz a matrícula do bolsista, então a junção é por curso, sem cruzar com discentes.
+- **Simulador What-If:** o DEG simula a evasão evitada e vê o retorno econômico pelo custo médio do discente.
+- **CI/CD:** o workflow `medalhao.yml` roda o medalhão do zero e publica o painel no GitHub Pages com `stlite`, sem servidor ([ADR 0007](docs/adr/0007-painel-streamlit-stlite-pages.md)).
+- **Benchmark nacional:** o Censo da Educação Superior do INEP compara a evasão e a conclusão da UnB com as outras federais ([ADR 0008](docs/adr/0008-benchmark-inep-censo-2019.md)). Como o servidor do INEP cai com frequência, o CI segue com o benchmark anterior quando ele falha.
+- **PostgreSQL:** o esquema passa a ser versionado em migrações SQL com checksum, e `gravar()` recusa coluna que a tabela não tem ([ADR 0009](docs/adr/0009-postgres-migracoes-contrato.md)). O pipeline inteiro sobe com `docker compose up --build`.
+
+**Para o DEG:** o painel passa a mostrar o perfil social da iniciação científica e a posição de cada curso contra a média nacional.
+
+---
+
+## 8. Semanas 5 e 6 — SIGAA, Busca Semântica, 3NF e Star Schema
+
+**O que foi feito**
+- **União do SIGAA com o SIGRA:** a base passou de 60.695 discentes (só SIGRA) para **152.680 vínculos**, 100% casados com a estrutura curricular ([ADR 0012](docs/adr/0012-sigaa-uniao-com-sigra.md)). Isso exigiu regras novas:
+  - evasão é toda saída sem diploma registrado ([ADR 0013](docs/adr/0013-evasao-saida-sem-diploma.md));
+  - só entram coortes com 8 anos de acompanhamento, de 2010 a 2016 ([ADR 0014](docs/adr/0014-janela-maturacao-8-anos.md));
+  - no SIGAA, o semestre de saída é estimado pela data de registro do diploma ([ADR 0015](docs/adr/0015-semestre-de-saida-estimado.md));
+  - arquivos com nome de discente ficam fora da ingestão ([ADR 0017](docs/adr/0017-arquivos-nominais-fora.md)).
+- **Alunos ativos hoje:** quem ainda está matriculado e já passou do prazo ideal ou do máximo ([ADR 0019](docs/adr/0019-ativos-hoje.md), [ADR 0020](docs/adr/0020-lista-de-ativos-com-minimizacao.md)).
+- **Busca semântica com pgvector:** cursos, planos de IC e documentação vetorizados com um modelo multilíngue local ([ADR 0011](docs/adr/0011-busca-semantica-pgvector.md)).
+- **Silver em 3NF e Gold em Star Schema**, com a prova da normalização em [`docs/arquitetura/`](docs/arquitetura/) e os vínculos particionados por ano de ingresso.
+- **Fim dos CSVs:** todas as camadas passam a ser gravadas direto no banco, e os CSVs saem do repositório.
+- **Atualização mensal automática:** o GitHub Actions baixa as fontes no dia 1 de cada mês e, nesta fase, versionava a gold na `main` ([ADR 0018](docs/adr/0018-atualizacao-mensal-commit-na-main.md)). Desde que a gold passou a viver só no banco, o bot versiona apenas a série do valor da bolsa e os relatórios gerados, e o painel é republicado a partir de um novo export. O catálogo de cursos guarda todas as versões publicadas ([ADR 0021](docs/adr/0021-catalogo-todas-as-versoes.md)), e os cursos-tronco saem dos rankings por curso ([ADR 0022](docs/adr/0022-cursos-tronco.md)).
+
+**Para o DEG:** os números passam a cobrir os dois sistemas acadêmicos, e o painel ganha a página de alunos ativos acima do prazo.
+
+---
+
+## 9. Semanas 7 e 8 — Pipeline Direto no Banco e Lago em Formato Aberto
+
+**O que foi feito**
+- **Carga da Silver 3NF e do Star Schema em SQL:** 152.680 vínculos, 158 cursos e 112 matrizes, em cerca de 46 s, sem arquivo intermediário. As restrições `CHECK` recusaram dado real na primeira carga (semestre de verão, mínimos zerados, turnos fora do domínio) e foram ajustadas ao domínio da fonte.
+- **Linhas descartadas registradas:** `bronze.ingestoes.linhas_descartadas` guarda quantas linhas malformadas cada leitura pulou.
+- **Sincronização com o Supabase:** a gold e o Star Schema vão para o banco remoto pela chave natural, sem apagar nada.
+- **View do painel** atualizada com `REFRESH CONCURRENTLY`, numa etapa própria do pipeline.
+- **Censo do INEP lido em blocos de 50 mil linhas**, com staging e troca numa transação única.
+- **Partições futuras** dos vínculos criadas automaticamente por quinquênio.
+- **Lago Delta Lake sobre Parquet com ZSTD nível 3**, particionado por quinquênio de ingresso ([ADR 0024](docs/adr/0024-lago-delta-parquet-zstd.md)). O ZSTD empatou com o GZIP no tamanho (~1,4 MB) e escreveu 20 vezes mais rápido (173 ms contra 3.527 ms).
+
+**Para o DEG:** os dados ficam num formato aberto, que DuckDB, Spark ou pandas leem sem o banco.
+
+---
+
+## 10. Semanas 9 e 10 — Captura de Mudanças e Dado Atrasado (Entrega E2)
+
+**O que foi feito**
+- **CDC com Debezium e Kafka:** mudanças na Silver 3NF saem do WAL do PostgreSQL e chegam ao lago Delta em 0,25 s a 0,87 s.
+- **Semântica de entrega:** pelo menos uma vez no transporte, com o offset confirmado só depois da gravação, e exatamente uma vez no efeito, com `MERGE` idempotente pela posição no WAL. Os reprocessamentos forçados não mudaram nenhuma linha do lago.
+- **Exclusão lógica:** um DELETE vira marca (`_deletado`), para que um INSERT reprocessado não ressuscite a linha. O `TRUNCATE` da recarga também é tratado.
+- **Recarga em lote como mecanismo principal e CDC como opcional**, com latência e custo medidos ([ADR 0025](docs/adr/0025-mecanismo-de-ingestao-recarga-e-cdc.md)).
+- **Dado atrasado:** o registro de diploma chega até 105 dias depois do fim do semestre (p99). A marca d'água com 4 meses de tolerância cobre 99,2% das conclusões. Cada carga é classificada em `NO_PRAZO`, `ATRASADA` ou `SEM_PERIODO`, nada é descartado, e o lago regrava só as janelas que mudaram ([ADR 0026](docs/adr/0026-dado-atrasado-marca-dagua.md)).
+- **Supabase:** um workflow diário evita que o banco remoto pause por inatividade.
+
+**Entrega E2:** tabela de aceite no [README](README.md) e [diário de bordo](docs/diario/diario_de_bordo.md) das semanas 1 a 10.
+
+---
+
+## 11. Semanas 11 e 12 — Fechamento da E2
+
+**O que foi feito**
+- **Prova do exatamente uma vez:** `src/cdc/demonstrar_reprocessamento.py` derruba o consumidor antes de confirmar o offset, relê os tópicos desde o início e exclui os sentinelas. A impressão digital do lago não muda em nenhum dos reprocessamentos.
+- **Revisão da E2:**
+  - tabela de aceite da E2 no README;
+  - testes unitários (`test_unit_*`) rodando no CI, sem banco nem Kafka;
+  - checagem do tamanho máximo dos arquivos versionados;
+  - portas do Compose só no `127.0.0.1`.
+- **Diário de bordo** das semanas 1 a 10 publicado, com os números sem fonte corrigidos.
+- **DER sincronizado:** um teste confere que o diagrama da gold bate com o catálogo do banco.
+- **Ajuste do keep-alive do Supabase.**
+
+---
+
+## 12. Semanas 13 e 14 — Camada Analítica em dbt, Testada e Orquestrada (Entrega E3)
+
+**O que foi feito**
+- **Consulta otimizada pelo plano de execução:** o detalhamento de um curso na Silver 3NF caiu de 1.566 para 14 buffers e de 35,6 ms para 0,42 ms com um índice de cobertura. Os planos `EXPLAIN (ANALYZE, BUFFERS)` de antes e de depois estão em [`docs/explain/`](docs/explain/).
+- **Grão do fato declarado e medido:** o fato de retenção tem "um registro por curso canônico", imposto por chave única. Quatro grãos foram medidos:
+  - o grão do curso (101 linhas) responde à E1 sem perder vínculo;
+  - o grão por semestre de saída perderia 28% dos vínculos para o k-anonimato.
+- **Dimensão de variação lenta:** a `dim_curso` virou SCD tipo 2. Uma reclassificação abre uma versão nova sem apagar a anterior, na gold ([ADR 0028](docs/adr/0028-dim-curso-scd-tipo-2.md)) e, desde a semana 14, também no dbt, por snapshot.
+- **Transformações em dbt** ([ADR 0029](docs/adr/0029-transformacoes-em-dbt.md)):
+  - três camadas: staging, intermediate e marts;
+  - 65 testes de dados: esquema, volume, unicidade, integridade referencial, distribuição e domínio;
+  - `tests/test_dbt_dado_ruim.py` prova que cada tipo de teste falha com dado injetado;
+  - o fato do dbt é reconciliado, curso a curso, com a gold.
+- **Agregações da gold em SQL nativo**, no banco ([ADR 0027](docs/adr/0027-agregacoes-gold-em-sql-nativo.md)).
+- **Orquestração em Dagster** ([ADR 0030](docs/adr/0030-modelagem-analitica-e-ferramentas.md)): o pipeline virou um grafo de assets com retry por etapa e backfill por quinquênio. A execução mensal é disparada pelo GitHub Actions. As demonstrações estão em [`docs/orquestracao/evidencias/`](docs/orquestracao/evidencias/):
+  - com o banco derrubado de propósito, a etapa foi repetida e passou quando ele voltou;
+  - com a falha definitiva, as etapas dependentes não rodaram;
+  - o backfill recuperou uma janela apagada do lago sem duplicar.
+- **Frescor e SLA:** a view do painel tem SLA de 35 dias, conferido todo dia ([`docs/frescor_sla.md`](docs/frescor_sla.md)).
+- **Resposta à pergunta da E1 no painel:** a Visão Executiva abre com a pergunta e com o ranking de cursos críticos lido do mart do dbt. Na carga de 03/11/2026, **23 cursos** estão em retenção crítica, e os primeiros da fila são Física Computacional, Computação e Ciência da Computação.
+- **Busca híbrida:** combina o embedding com a busca em texto completo e indexa toda a documentação. Ela é medida com 20 consultas de referência e recall@5 de ao menos 0,8.
+
+**Entrega E3:** tabela de aceite no [README](README.md).
+
+---
+
+## 13. Como Executar os Artefatos do Projeto
+
+O passo a passo completo está no [README](README.md#-2-como-reproduzir-o-projeto-do-zero). O caminho curto:
 
 ```bash
-# 1. Rodar a suíte de testes de validação (4 testes automatizados)
+# 1. Banco, pipeline inteiro e painel, com um comando (http://localhost:8501)
+docker compose up --build
+
+# 2. Suíte de testes: test_unit_* sem banco; os demais com o banco no ar
 python3 -m unittest discover -s tests -p "test_*.py"
 
-# 2. Inicializar o Dashboard Interativo
+# 3. Só o painel, lendo o banco (ou export/gold.json, sem banco)
 streamlit run src/dashboard/app.py
 ```
 
-O dashboard abrirá no navegador permitindo navegar por:
-- **Visão Executiva (DEG)** com KPIs globais e matriz de dispersão;
-- **Raio-X por Curso** com busca interativa e gráficos de distribuição;
-- **Comparativo de Turnos (Noturno vs. Diurno)**;
-- **Auditoria de Qualidade** com os 8 achados reais do portal;
-- **Seção "O Que Este Dado NÃO Responde"** (transparência de limites metodológicos).
+O painel publicado fica em **https://observatorio-unb.github.io/observatorio-unb/**, com estas páginas:
+- **Visão Executiva (DEG)**: abre com a pergunta da E1 e a resposta, o ranking de cursos críticos pelo IRC lido de `dbt_marts.painel_cursos_criticos`, seguidos dos KPIs e da matriz de dispersão;
+- **Detalhe por Curso**, com busca e gráficos de distribuição;
+- **Alunos Ativos** (quem está hoje acima do prazo ideal e do máximo);
+- **Noturno vs. Diurno & Turnos**;
+- **PIBIC & Inclusão Social na Ciência**;
+- **Benchmark Nacional (INEP)**;
+- **Simulador What-If & Custo da Retenção**;
+- **Auditoria & Qualidade de Dados**, com os 12 achados do portal;
+- **O Que Este Dado NÃO Responde**, com os limites metodológicos.
+
+No painel local, com o banco no ar, aparece também a página de **busca semântica**. Ela não existe no GitHub Pages, que roda sem banco.
