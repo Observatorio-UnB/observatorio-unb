@@ -189,6 +189,25 @@ def load_resposta_e1(versao: str):
 painel_e1, carregado_em = load_resposta_e1(_versao_dos_dados())
 
 
+def correlacao_pibic_evasao(df):
+    """(cursos, r de Pearson) entre projetos de IC por 100 alunos e taxa de evasão, nos cursos com
+    algum projeto de IC. É o recorte do gráfico da aba PIBIC: os textos citam o número calculado
+    sobre os dados carregados, e não um valor fixo que envelhece com a carga."""
+    if df is None or df.empty:
+        return 0, None
+    d = df[df["pibic_total_projetos"] > 0].dropna(
+        subset=["pibic_projetos_por_100_alunos", "taxa_evasao_pct"])
+    if len(d) < 3:
+        return len(d), None
+    r = float(np.corrcoef(d["pibic_projetos_por_100_alunos"].astype(float),
+                          d["taxa_evasao_pct"].astype(float))[0, 1])
+    return len(d), r
+
+
+n_pibic_evasao, r_pibic_evasao = correlacao_pibic_evasao(df_gold)
+r_pibic_evasao_txt = "indisponível" if r_pibic_evasao is None else f"{r_pibic_evasao:.2f}".replace(".", ",")
+
+
 @st.cache_data(ttl=3600)
 def load_frescor_da_view():
     """Atualização da view do painel e SLA (docs/frescor_sla.md), fora do cache da gold: uma
@@ -809,8 +828,11 @@ if df_gold is not None:
             st.markdown(
                 "##### 🎯 Cruzamento Estratégico: O PIBIC Protege Contra a Evasão?")
             st.markdown(
-                "Cruzamento entre o Observatório de Retenção e a base de Iniciação Científica (73 cursos casados). "
-                "**Correlação encontrada: -0.51** (cursos com mais bolsas de IC por 100 alunos têm expressivamente menor evasão)."
+                "Cruzamento entre o Observatório de Retenção e a base de Iniciação Científica "
+                f"({n_pibic_evasao} cursos com ao menos um projeto de IC). "
+                f"**Correlação encontrada: r = {r_pibic_evasao_txt}**"
+                + (" (cursos com mais projetos de IC por 100 alunos tendem a ter menor evasão)."
+                   if r_pibic_evasao is not None and r_pibic_evasao < 0 else ".")
             )
 
             df_scatter = df_gold[df_gold["pibic_total_projetos"] > 0].dropna(
@@ -849,7 +871,7 @@ if df_gold is not None:
                         x=x_line,
                         y=y_line,
                         mode="lines",
-                        name="Tendência Linear (r = -0.51)",
+                        name=f"Tendência Linear (r = {r_pibic_evasao_txt})",
                         line=dict(color="#DC2626", dash="dash", width=2),
                     )
                 )
@@ -1174,7 +1196,12 @@ if df_gold is not None:
                 max_value=100,
                 value=25,
                 step=5,
-                help="Com base na elasticidade empírica calculada (r = -0.51), bolsas acadêmicas reduzem a probabilidade de evasão.",
+                help=(f"Nos dados, a correlação entre projetos de IC por 100 alunos e evasão é r = {r_pibic_evasao_txt} "
+                      f"({n_pibic_evasao} cursos)"
+                      + (": mais IC acompanha menos evasão" if r_pibic_evasao is not None and r_pibic_evasao < 0 else "")
+                      + ". Correlação não prova causa "
+                      "(ver a aba PIBIC). O simulador supõe que cada 10% a mais de bolsas reduz a taxa de evasão do "
+                      "curso em 2,5% do seu valor (fator fixo de 0,25)."),
             )
         with col_ctrl3:
             st.markdown("##### 💰 3. Custo Público por Aluno")
@@ -1194,7 +1221,8 @@ if df_gold is not None:
         semestres_poupados_totais = total_formados * reducao_semestres
         economia_retencao_reais = semestres_poupados_totais * custo_semestral
 
-        # 2. Redução de evasão projetada (fórmula com amortecimento empírico baseado em r = -0.51)
+        # 2. Redução de evasão projetada: fator fixo de 0,25, uma hipótese do simulador. A correlação
+        # observada (r_pibic_evasao) só indica o sentido da relação, não a magnitude do efeito.
         fator_reducao_evasao = (aumento_pibic_pct / 100.0) * 0.25
         taxa_evasao_projetada = max(
             5.0, taxa_evasao_atual * (1.0 - fator_reducao_evasao))
