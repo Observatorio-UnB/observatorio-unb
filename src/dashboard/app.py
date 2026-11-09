@@ -281,7 +281,7 @@ if df_gold is not None:
                 "O IRC combina a evasão (peso 0,7) e o atraso na formatura (peso 0,3), medidos nas "
                 "coortes que já tiveram 8 anos para se formar."
             )
-            st.dataframe(ranking_e1.head(15).rename(columns=COLUNAS_E1), use_container_width=True, hide_index=True)
+            st.dataframe(ranking_e1.head(15).rename(columns=COLUNAS_E1), width="stretch", hide_index=True)
             legenda = f"Ranking completo: {len(ranking_e1)} cursos. Fonte: `{fonte_e1}`."
             dados_frescor = frescor(carregado_em)
             if dados_frescor:
@@ -362,7 +362,7 @@ if df_gold is not None:
         fig_scatter.add_vline(x=0, line_dash="dash", line_color="#9CA3AF")
         fig_scatter.add_hline(y=df_gold["taxa_evasao_pct"].median(
         ), line_dash="dash", line_color="#9CA3AF")
-        st.plotly_chart(fig_scatter, use_container_width=True)
+        st.plotly_chart(fig_scatter, width="stretch")
 
         # Ranking dos Cursos
         col_left, col_right = st.columns(2)
@@ -380,7 +380,7 @@ if df_gold is not None:
                     "indice_retencao_critica": "Score IRC",
                 }
             )
-            st.dataframe(top_retencao, use_container_width=True,
+            st.dataframe(top_retencao, width="stretch",
                          hide_index=True)
 
         with col_right:
@@ -396,7 +396,7 @@ if df_gold is not None:
                     "taxa_formatura_pct": "Taxa Formatura (%)",
                 }
             )
-            st.dataframe(top_pontuais, use_container_width=True,
+            st.dataframe(top_pontuais, width="stretch",
                          hide_index=True)
 
     elif tab_choice == "🔍 Detalhe por Curso":
@@ -454,7 +454,7 @@ if df_gold is not None:
                 text_auto=".1f",
                 height=350,
             )
-            st.plotly_chart(fig_bar, use_container_width=True)
+            st.plotly_chart(fig_bar, width="stretch")
 
         with c_chart2:
             st.markdown("##### 🚪 Desfecho das Movimentações Acadêmicas")
@@ -481,7 +481,7 @@ if df_gold is not None:
                 },
                 height=350,
             )
-            st.plotly_chart(fig_pie, use_container_width=True)
+            st.plotly_chart(fig_pie, width="stretch")
 
     elif tab_choice == "🎒 Alunos Ativos":
         ref = global_meta.get("ativos_hoje_referencia", "")
@@ -538,7 +538,7 @@ if df_gold is not None:
                 title="Cursos com maior parcela de ativos atrasados",
             )
             fig_at.update_layout(height=600)
-            st.plotly_chart(fig_at, use_container_width=True)
+            st.plotly_chart(fig_at, width="stretch")
             st.dataframe(df_at.rename(columns={
                 "curso": "Curso",
                 "periodo_referencia": "Semestre de referência",
@@ -548,7 +548,7 @@ if df_gold is not None:
                 "ativos_acima_prazo_ideal": "Acima do prazo ideal",
                 "ativos_acima_prazo_maximo": "Acima do prazo máximo",
                 "pct_acima_prazo_ideal": "% acima do prazo ideal",
-            }), use_container_width=True, hide_index=True)
+            }), width="stretch", hide_index=True)
 
     elif tab_choice == "⚖️ Noturno vs. Diurno & Turnos":
         st.subheader("⚖️ Comparativo de Formatura e Evasão por Turno (GQ 4)")
@@ -578,7 +578,7 @@ if df_gold is not None:
                 text_auto=".1f",
                 height=380,
             )
-            st.plotly_chart(fig_turno_evas, use_container_width=True)
+            st.plotly_chart(fig_turno_evas, width="stretch")
 
         with c2:
             df_turno_tempo = df_turno.rename(columns={
@@ -597,7 +597,7 @@ if df_gold is not None:
             fig_turno_tempo.update_layout(legend_title_text="")
             fig_turno_tempo.update_traces(
                 hovertemplate="<b>%{fullData.name}</b>: %{y:.1f} sem.<extra></extra>")
-            st.plotly_chart(fig_turno_tempo, use_container_width=True)
+            st.plotly_chart(fig_turno_tempo, width="stretch")
 
         st.markdown("---")
         st.subheader("🎓 Comparativo de Formatura e Evasão por Grau Acadêmico")
@@ -628,7 +628,7 @@ if df_gold is not None:
                 text_auto=".1f",
                 height=380,
             )
-            st.plotly_chart(fig_grau_evas, use_container_width=True)
+            st.plotly_chart(fig_grau_evas, width="stretch")
 
         with c4:
             df_grau_tempo = df_grau.rename(columns={
@@ -647,7 +647,7 @@ if df_gold is not None:
             fig_grau_tempo.update_layout(legend_title_text="")
             fig_grau_tempo.update_traces(
                 hovertemplate="<b>%{fullData.name}</b>: %{y:.1f} sem.<extra></extra>")
-            st.plotly_chart(fig_grau_tempo, use_container_width=True)
+            st.plotly_chart(fig_grau_tempo, width="stretch")
 
         st.markdown("---")
         st.subheader("🏫 Comparativo de Formatura e Evasão por Campus")
@@ -683,7 +683,7 @@ if df_gold is not None:
                 height=420,
             )
             fig_campus_evas.update_layout(showlegend=False)
-            st.plotly_chart(fig_campus_evas, use_container_width=True)
+            st.plotly_chart(fig_campus_evas, width="stretch")
 
         with c6:
             fig_campus_alunos = px.bar(
@@ -697,7 +697,7 @@ if df_gold is not None:
                 height=420,
             )
             fig_campus_alunos.update_layout(showlegend=False)
-            st.plotly_chart(fig_campus_alunos, use_container_width=True)
+            st.plotly_chart(fig_campus_alunos, width="stretch")
 
     elif tab_choice == "🔬 PIBIC & Inclusão Social na Ciência":
         st.subheader(
@@ -767,7 +767,7 @@ if df_gold is not None:
                     height=380,
                 )
                 fig_area.update_layout(showlegend=False, yaxis_range=[0, 60])
-                st.plotly_chart(fig_area, use_container_width=True)
+                st.plotly_chart(fig_area, width="stretch")
 
             with col_g2:
                 st.markdown(
@@ -782,7 +782,7 @@ if df_gold is not None:
                     height=380,
                     color_discrete_sequence=px.colors.qualitative.Safe,
                 )
-                st.plotly_chart(fig_campi, use_container_width=True)
+                st.plotly_chart(fig_campi, width="stretch")
 
             # "% Cotistas" acima mede a composição interna do programa de IC (quem, entre os
             # bolsistas, é cotista); esta segunda métrica mede penetração real na área (quantos
@@ -802,7 +802,7 @@ if df_gold is not None:
                 height=380,
             )
             fig_participacao.update_layout(showlegend=False)
-            st.plotly_chart(fig_participacao, use_container_width=True)
+            st.plotly_chart(fig_participacao, width="stretch")
 
             # Linha 2: O Fator "PIBIC vs. Evasão" (A Dinâmica da 'Correlação Suspeita')
             st.markdown("---")
@@ -854,7 +854,7 @@ if df_gold is not None:
                     )
                 )
 
-            st.plotly_chart(fig_pibic_evas, use_container_width=True)
+            st.plotly_chart(fig_pibic_evas, width="stretch")
 
             st.warning(
                 "🔎 **Dinâmica 'A Correlação Suspeita' (Provocação do CBL):** "
@@ -898,7 +898,7 @@ if df_gold is not None:
                     "taxa_voluntario_pct": "% Voluntários",
                     "valor_total_investido_formatado": "Total Investido (R$)",
                 }),
-                use_container_width=True,
+                width="stretch",
                 height=350,
             )
         else:
@@ -1003,7 +1003,7 @@ if df_gold is not None:
             )
             fig_gap.add_vline(x=0, line_color="#374151", line_width=2)
             fig_gap.update_layout(legend_title_text="")
-            st.plotly_chart(fig_gap, use_container_width=True)
+            st.plotly_chart(fig_gap, width="stretch")
             st.caption(
                 "Passe o mouse sobre a barra para ver **quantas vezes o padrão nacional** aquele curso "
                 "representa. A barra mede a diferença em pontos percentuais, que não distingue gravidade "
@@ -1074,7 +1074,7 @@ if df_gold is not None:
                     line=dict(color="#DC2626", dash="dash", width=2),
                 )
             )
-            st.plotly_chart(fig_conc, use_container_width=True)
+            st.plotly_chart(fig_conc, width="stretch")
 
             with st.expander("📄 Ver todos os cursos comparados"):
                 st.dataframe(
@@ -1091,7 +1091,7 @@ if df_gold is not None:
                         "mediana_trancamento_federais_pct": "Trancamento Federais (%)",
                         "n_ies_comparadas": "Federais comparadas",
                     }),
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     height=400,
                 )
@@ -1284,7 +1284,7 @@ if df_gold is not None:
                 color_discrete_map={
                     "Cenário Atual": "#94A3B8", "Cenário Projetado": UNB_GREEN},
             )
-            st.plotly_chart(fig_comp, use_container_width=True)
+            st.plotly_chart(fig_comp, width="stretch")
 
         with col_v2:
             st.markdown("##### 💵 Balanço Custo-Benefício da Intervenção (R$)")
@@ -1313,7 +1313,7 @@ if df_gold is not None:
                 title="Balanço Orçamentário e Retorno Social",
             )
             fig_waterfall.update_layout(coloraxis_showscale=False)
-            st.plotly_chart(fig_waterfall, use_container_width=True)
+            st.plotly_chart(fig_waterfall, width="stretch")
 
         # Caixa de Exportação de Dossiê Executivo para o Colegiado
         st.markdown("---")
@@ -1406,7 +1406,7 @@ if df_gold is not None:
                         "discentes_impactados": "Discentes Conciliados",
                         "justificativa": "Justificativa Metodológica / Pedagógica",
                     }),
-                    use_container_width=True,
+                    width="stretch",
                     height=320,
                 )
 
