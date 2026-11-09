@@ -233,7 +233,7 @@ SIGRA (sigra.csv, pacote dados-referente-aos-alunos-de-graduacao-pos-graduacao-l
 
 Uma linha por carga de silver.movimentacoes_vinculos, com a marca d'água usada para classificar o que chegou.
 
-**Linhas na última carga:** 7
+**Linhas na última carga:** 1
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -254,7 +254,7 @@ Uma linha por carga de silver.movimentacoes_vinculos, com a marca d'água usada 
 
 Vínculos de cada carga por ano de ingresso, desfecho e período de saída. Só contagens: nenhuma linha identifica um discente.
 
-**Linhas na última carga:** 3.843
+**Linhas na última carga:** 549
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -1120,6 +1120,7 @@ Um documento de texto por entidade pesquisável: cada curso da gold, cada plano 
 | `modelo` | `text` | não | Modelo de embedding usado. |
 | `embedding` | `vector(384)` | não | Vetor normalizado de 384 dimensões. Similaridade = 1 - (embedding <=> consulta). |
 | `atualizado_em` | `timestamp with time zone` | não | Última vez em que o embedding foi recalculado. |
+| `texto_busca` | `tsvector` | sim | Título e conteúdo em texto completo (português), gerado. Uma das listas da busca híbrida de src/busca/buscar.py. |
 
 **Restrições:**
 
