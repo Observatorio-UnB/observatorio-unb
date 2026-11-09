@@ -25,7 +25,7 @@ Entre 2018 e 2023, a Universidade de Brasília registrou **12.793 planos de trab
 | **2019** | 2.516 | 1.816 | 700 | 1.073 | R$ 8.716.800,00 |
 | **2020** | 2.623 | 1.839 | 782 | 1.140 | R$ 8.827.200,00 |
 | **2021** | 2.374 | 1.746 | 627 | 965 | R$ 8.380.800,00 |
-| **2022** | 1.896 | 862 | 259 | 539 | R$ 4.137.600,00 |
+| **2022** | 1.896 | 862 | 259 | 539 | R$ 5.400.900,00 |
 | **2023** | 359 | 309 | 50 | 154 | R$ 2.595.600,00 |
 
 ---
@@ -37,17 +37,17 @@ Entre 2018 e 2023, a Universidade de Brasília registrou **12.793 planos de trab
 * **Evidência Empírica**:
   * No cômputo global, **38,9% dos bolsistas (4.976 discentes)** ingressaram por cotas sociais ou raciais (Escola Pública Baixa Renda, PPI - Pretos, Pardos e Indígenas, Negros, Indígenas e PCD).
   * **Disparidade por Grande Área** (classificação oficial CNPq/MEC do curso de origem, não a linha de pesquisa autodeclarada do projeto — ver nota metodológica ao final desta seção):
-    * *Ciências Humanas*: **45,89%** de cotistas;
-    * *Ciências da Saúde*: **44,15%** de cotistas;
-    * *Ciências Sociais Aplicadas*: **41,84%** de cotistas;
+    * *Ciências Humanas*: **45,56%** de cotistas;
+    * *Ciências da Saúde*: **44,13%** de cotistas;
+    * *Ciências Sociais Aplicadas*: **40,87%** de cotistas;
     * *Ciências Agrárias*: **40,34%** de cotistas;
-    * *Linguística, Letras e Artes*: **35,71%** de cotistas;
-    * *Ciências Biológicas*: **35,06%** de cotistas;
-    * *Engenharias*: **31,12%** de cotistas;
-    * *Ciências Exatas e da Terra*: apenas **29,07%** de cotistas.
+    * *Linguística, Letras e Artes*: **37,09%** de cotistas;
+    * *Ciências Biológicas*: **35,02%** de cotistas;
+    * *Engenharias*: **30,81%** de cotistas;
+    * *Ciências Exatas e da Terra*: apenas **29,38%** de cotistas.
 * **Veredito**: **Refutada Parcialmente**. Existe expressiva adesão de cotistas em Humanas, Saúde e Sociais Aplicadas, mas as áreas de Ciência, Tecnologia, Engenharia e Matemática (STEM — Exatas e Engenharias) ainda apresentam uma barreira de entrada para estudantes de ações afirmativas.
 
-> **Nota metodológica**: a base bruta de bolsistas classifica cada projeto em apenas 3 "linhas de pesquisa" autodeclaradas (Artes e Humanidade, Saúde e Vida, Exatas e Tecnológicas), que não correspondem ao curso do discente — por exemplo, projetos de Farmácia (Ciências da Saúde) apareciam sob "Artes e Humanidade". A tabela Gold do PIBIC (`pibic_social_unb.csv`) usa em vez disso a Grande Área oficial (CNPq/MEC) do curso de graduação do discente, já presente no catálogo de cursos da UnB.
+> **Nota metodológica**: a base bruta de bolsistas classifica cada projeto em apenas 3 "linhas de pesquisa" autodeclaradas (Artes e Humanidade, Saúde e Vida, Exatas e Tecnológicas), que não correspondem ao curso do discente — por exemplo, projetos de Farmácia (Ciências da Saúde) apareciam sob "Artes e Humanidade". A tabela Gold do PIBIC (`gold.pibic_social_unb`) usa em vez disso a Grande Área oficial (CNPq/MEC) do curso de graduação do discente, já presente no catálogo de cursos da UnB.
 
 ---
 
@@ -55,7 +55,7 @@ Entre 2018 e 2023, a Universidade de Brasília registrou **12.793 planos de trab
 * **Hipótese**: A iniciação científica voluntária (PIVIC) é uma opção pedagógica neutra em relação à renda do discente.
 * **Evidência Empírica**:
   * **25,59% (mais de 3.200 alunos)** realizam pesquisa na UnB sem qualquer remuneração.
-  * Cursos como **Direito (44,9% de voluntários)** e **Medicina (30,3% de voluntários)** apresentam altíssima proporção de pesquisadores não remunerados.
+  * Cursos como **Direito (45,4% de voluntários)** e **Medicina (29,8% de voluntários)** apresentam altíssima proporção de pesquisadores não remunerados.
   * Estudantes de baixa renda ($\le 1,5$ salário mínimo) dependem da bolsa para garantir transporte e alimentação no campus, tendo menor liberdade para assumir 20h semanais de dedicação voluntária.
 * **Veredito**: **Confirmada**. A escassez de bolsas e a expansão do PIVIC funcionam como um filtro socioeconômico excludente: quem tem suporte familiar pode pesquisar "de graça" para enriquecer o currículo; quem precisa se sustentar é forçado a abandonar a pesquisa acadêmica.
 
@@ -64,7 +64,7 @@ Entre 2018 e 2023, a Universidade de Brasília registrou **12.793 planos de trab
 ### 📍 Dimensão 3: Descentralização Territorial entre Campi
 * **Hipótese**: A interiorização da UnB (Campi Ceilândia, Gama e Planaltina) é acompanhada de distribuição equilibrada do fomento de pesquisa.
 * **Evidência Empírica**:
-  * **Campus Darcy Ribeiro (Plano Piloto)**: concentra **83,24% dos projetos** (10.649) e R$ 35,85 milhões do fomento.
+  * **Campus Darcy Ribeiro (Plano Piloto)**: concentra **83,24% dos projetos** (10.649) e R$ 36,88 milhões do fomento.
   * **Faculdade de Ceilândia (FCE)**: **10,79%** (1.380 projetos) — destaque para Fisioterapia, Enfermagem e Farmácia.
   * **Faculdade do Gama (FGA)**: **4,21%** (539 projetos) — engenharias automotiva, software, aeroespacial e energia.
   * **Faculdade de Planaltina (FUP)**: **1,76%** (225 projetos) — ciências naturais e agrárias.
@@ -77,9 +77,9 @@ Entre 2018 e 2023, a Universidade de Brasília registrou **12.793 planos de trab
 > **Exigência do CBL (Semana 2 · Dia 2)**: *Cada grupo apresenta uma correlação encontrada nos dados e é obrigado a argumentar por que ela pode ser espúria. Confundidores clássicos: tamanho da unidade, ano, turno, mudança de sistema de registro e cobertura entre campi.*
 
 ### O Achado Empírico
-Ao cruzar a base de Iniciação Científica com o Observatório de Retenção e Formatura (73 cursos com casamento direto), calculamos a taxa de **Projetos de IC por 100 alunos registrados** contra a **Taxa de Evasão / Desligamento (%)**.
+Ao cruzar a base de Iniciação Científica com o Observatório de Retenção e Formatura (90 cursos com ao menos um projeto de IC), calculamos a taxa de **Projetos de IC por 100 alunos registrados** contra a **Taxa de Evasão / Desligamento (%)**.
 
-$$\text{Correlação de Pearson: } r = -0,514 \quad (\text{Forte correlação negativa})$$
+$$\text{Correlação de Pearson: } r = -0,390 \quad (\text{correlação negativa moderada})$$
 
 À primeira vista, a interpretação simplista sugeriria: *"Aumentar bolsas de PIBIC em qualquer curso reduzirá a evasão pela metade."*
 
@@ -102,6 +102,6 @@ Conforme apontado no Catálogo de Armadilhas do Guia da Disciplina (página 7 e 
 > *"bolsistas-de-iniciacao-cientifica traz nome completo e matrícula juntos em claro no portal."*
 
 ### Salvaguardas Implementadas no Pipeline:
-1. **Camada Bronze**: O arquivo bruto é armazenado de forma imutável e restrito ao ambiente local de processamento.
-2. **Camada Silver**: O nome completo (`discente`) é descartado e a `matricula` é mascarada (`***.***.***`), mantendo apenas os atributos contextuais necessários à pesquisa.
+1. **Camada Bronze**: a ingestão lê o arquivo em memória e grava só ano, título, tipo de bolsa, linha de pesquisa, cota, vigência, unidade e situação. Nome e matrícula do discente e nome do orientador nunca chegam ao disco, ao banco nem ao CI ([ADR 0020](adr/0020-lista-de-ativos-com-minimizacao.md)).
+2. **Camada Silver**: `silver.pibic_bolsistas` guarda só os atributos contextuais da pesquisa (ano, curso, campus, tipo de bolsa, perfil de cota e renda, título). Não há matrícula, nem mascarada.
 3. **Camada Gold**: Não há registros individualizados. Todos os dados são agregados por curso, grande área e campus, aplicando supressão ética para grupos com $k < 5$ discentes.

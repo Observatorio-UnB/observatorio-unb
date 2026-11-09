@@ -252,19 +252,23 @@ A camada analítica reestrutura os dados em torno de processos de negócio com d
 |                  gold.fato_retencao_curso                   |       |                gold.dim_curso               |
 +-------------------------------------------------------------+       +---------------------------------------------+
 | PK  id_fato                 BIGINT GENERATED ALWAYS         |       | PK  sk_curso        INTEGER NOT NULL        |
-| FK  sk_curso                INTEGER NOT NULL ---------------+------>| UK  nome_curso      TEXT NOT NULL           |
+| FK  sk_curso  (UK, grão)    INTEGER NOT NULL ---------------+------>|     nome_curso      TEXT NOT NULL           |
 | FK  sk_campus               INTEGER NOT NULL                |  (1)  |     id_curso_origem INTEGER                 |
 |     total_ingressantes      INTEGER NOT NULL (CHECK >= 5)   |       |     grau_academico  TEXT NOT NULL           |
 |     total_formados          INTEGER NOT NULL                |       |     categoria_grau  TEXT NOT NULL           |
 |     total_evadidos          INTEGER NOT NULL                |       |     area_conhecimento TEXT NOT NULL         |
 |     total_ainda_ativos      INTEGER NOT NULL DEFAULT 0      |       |     departamento    TEXT                    |
 |     taxa_formatura_pct      NUMERIC(5,2)                    |       |     is_tronco_abi   BOOLEAN DEFAULT false   |
-|     taxa_evasao_pct         NUMERIC(5,2)                    |       +----------------------+----------------------+
-|     formados_tempo_ideal_pct NUMERIC(5,2)                   |                              ||
-|     atraso_medio_semestres  NUMERIC(5,2)                    |                              || (1)
-|     indice_retencao_critica NUMERIC(4,1)                    |                              ||
-|     classificacao_retencao  TEXT                            |                              || (0..1)
-|     atualizado_em           TIMESTAMPTZ DEFAULT now()       |                              |
+|     taxa_evasao_pct         NUMERIC(5,2)                    |       |     vigente_de      TIMESTAMPTZ NOT NULL    |
+|     formados_tempo_ideal_pct NUMERIC(5,2)                   |       |     vigente_ate     TIMESTAMPTZ             |
+|     atraso_medio_semestres  NUMERIC(5,2)                    |       |     is_atual        BOOLEAN NOT NULL        |
+|     indice_retencao_critica NUMERIC(4,1)                    |       | UK  (nome_curso, vigente_de)  [SCD tipo 2]  |
+|     classificacao_retencao  TEXT                            |       +----------------------+----------------------+
+|     atualizado_em           TIMESTAMPTZ DEFAULT now()       |                              ||
+|                                                             |                              || (1)
+|                                                             |                              ||
+|                                                             |                              || (0..1)
+|                                                             |                              |
 +-------------------------------------------------------------+       +----------------------v----------------------+
                                                                       |            gold.fato_alunos_ativos          |
                                                                       +---------------------------------------------+

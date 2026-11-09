@@ -281,7 +281,7 @@ O PostgreSQL gerencia tabelas particionadas criando relações físicas filhas n
 * **Tipo**: *Indexed Materialized View* pré-computada para o Streamlit/DEG.
 * **Índice Único**: `CREATE UNIQUE INDEX idx_mv_executivo_sk ON gold.mv_dashboard_executivo (sk_curso, campus);`
 * **Estratégia de Atualização**: `REFRESH MATERIALIZED VIEW CONCURRENTLY` (garante zero bloqueio de consultas de leitura).
-* **Tempo de Execução Medido**: **0.054 ms** via `Index Scan` com leitura em cache (*Shared Buffers*).
+* **Tempo de Execução Medido**: **0,065 ms** via `Seq Scan` (5 buffers): com 94 linhas, ler a view inteira é mais barato que usar o índice, que serve ao `REFRESH CONCURRENTLY`. Plano versionado em `docs/explain/painel_curso_na_view_materializada.txt` (seção 5.2 do [documento 03](03_ENGENHARIA_FISICA_E_TUNING_SGBD.md)).
 
 ---
 

@@ -128,7 +128,9 @@ Não podem ser somadas sob nenhuma hipótese. O SGBD ou a camada de apresentaç�
 * **Percentual de Alunos Ativos em Atraso**:
   $$\text{Pct Acima do Ideal} = \frac{\sum \text{Ativos Acima do Prazo Ideal}}{\sum \text{Total de Ativos}} \times 100$$
 * **Índice de Retenção Crítica (IRC)**:
-  $$\mathrm{IRC} = 50\% \times \left( \frac{\text{Atraso} - \text{Atraso}_{\min}}{\text{Atraso}_{\max} - \text{Atraso}_{\min}} \right) + 50\% \times \left( \frac{\text{Evasão} - \text{Evasão}_{\min}}{\text{Evasão}_{\max} - \text{Evasão}_{\min}} \right)$$
+  $$\mathrm{IRC} = \left[ 0{,}3 \times \left( \frac{\text{Atraso} - \text{Atraso}_{\min}}{\text{Atraso}_{\max} - \text{Atraso}_{\min}} \right) + 0{,}7 \times \left( \frac{\text{Evasão} - \text{Evasão}_{\min}}{\text{Evasão}_{\max} - \text{Evasão}_{\min}} \right) \right] \times 100$$
+
+  Antes da normalização, cada termo é saturado nos percentis 5 e 95, para um curso extremo não achatar os demais, e o atraso negativo conta como zero ([ADR 0006](../adr/0006-indice-retencao-critica.md); `gold.atualizar_gold` na migração 0022 e `int_irc_curso` no dbt).
 
 ---
 
@@ -184,4 +186,4 @@ O grão de decisão foi comparado com dois mais finos, sobre os mesmos vínculos
 | 2015 | 89 | 110 | 43,2% | 5,5% |
 | 2016 | 92 | 113 | 39,7% | 9,3% |
 
-**Decisão:** o fato de retenção fica no grão do curso, que é o grão da pergunta da E1 ("quais cursos apresentam os maiores índices de retenção?", `docs/challenge_canvas.md`). Uma linha por curso responde o ranking do IRC sem dupla agregação. O grão curso × coorte fica registrado como candidato a um segundo fato, para tendência entre coortes, e não para o ranking. A escolha da modelagem entra no ADR da E3 (issue #43).
+**Decisão:** o fato de retenção fica no grão do curso, que é o grão da pergunta da E1 ("quais cursos apresentam os maiores índices de retenção?", `docs/challenge_canvas.md`). Uma linha por curso responde o ranking do IRC sem dupla agregação. O grão curso × coorte fica registrado como candidato a um segundo fato, para tendência entre coortes, e não para o ranking. A escolha da modelagem está no [ADR 0030](../adr/0030-modelagem-analitica-e-ferramentas.md), que mede quatro grãos.

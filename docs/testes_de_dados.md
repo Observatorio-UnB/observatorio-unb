@@ -1,6 +1,6 @@
 # Testes de dados da camada transformada
 
-Os testes ficam no projeto dbt (`transform/`) e rodam a cada `dbt build`: no CI (`medalhao.yml`), no `rodar_pipeline.sh` e no Docker. Teste que falha interrompe o build, e o dbt pula os modelos que dependem do dado reprovado. São 61 testes. Um deles (`dominio_saida_estimada_antes_do_ingresso`) avisa sem falhar, porque cobre uma anomalia conhecida da fonte.
+Os testes ficam no projeto dbt (`transform/`) e rodam a cada `dbt build`: no CI (`medalhao.yml`), no job mensal do Dagster (onde viram checagens dos assets), no `rodar_pipeline.sh` e no Docker. Teste que falha interrompe o build, e o dbt pula os modelos que dependem do dado reprovado. São 65 testes. Um deles (`dominio_saida_estimada_antes_do_ingresso`) avisa sem falhar, porque cobre uma anomalia conhecida da fonte.
 
 ## Por tipo
 
@@ -62,6 +62,6 @@ Ficam de fora da injeção dois testes que o dado da silver não consegue violar
 
 ```bash
 pip install -r requirements-dbt.txt
-bash scripts/dbt.sh build --full-refresh               # os 61 testes sobre o dado real
+bash scripts/dbt.sh build --full-refresh               # os 65 testes sobre o dado real
 python3 -m unittest tests/test_dbt_dado_ruim.py         # a prova com dado estragado (~50 s)
 ```

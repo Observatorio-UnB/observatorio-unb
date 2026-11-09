@@ -3,7 +3,7 @@
 **Projeto**: Retenção, Tempo Real de Formatura e Evasão nos Cursos de Graduação da UnB  
 **Stakeholder**: Decanato de Ensino de Graduação (DEG/DAA)  
 **Base Analítica**: Camada Gold (`gold.retencao_cursos_unb`, no PostgreSQL)  
-**Recorte**: vínculos de graduação do SIGRA (encerrados até 2020/1) e do SIGAA (extrato de 07/2024), coortes de ingresso 2010-2016 — as que têm pelo menos 8 anos de acompanhamento. Números da versão da Gold de 09/2026; a atualização mensal do portal pode alterá-los.  
+**Recorte**: vínculos de graduação do SIGRA (encerrados até 2020/1) e do SIGAA (extrato de 07/2024), coortes de ingresso 2010-2016 — as que têm pelo menos 8 anos de acompanhamento. Números da Gold de 11/2026 (carga de 03/11/2026, conferidos de novo numa carga do zero em 09/11/2026); a atualização mensal do portal pode alterá-los.  
 
 ---
 
@@ -16,7 +16,7 @@
   - A versão anterior, só com o SIGRA, mostrava 62.05% no prazo: ela enxergava apenas quem saiu até 2020, isto é, os que se formaram mais rápido. Os formados depois da migração, que só aparecem no SIGAA, são justamente os mais demorados.
 - **Disparidade Extrema entre Cursos**:
   - Cursos com maior taxa de formatura no tempo ideal: *Medicina* (83.72%) e *Direito* (82.75%).
-  - Cursos com menor taxa de formatura no tempo ideal (alta retenção): *Engenharia Aeroespacial* (3.3%), *Letras - Tradução - Inglês* (4.35%) e *Línguas Estrangeiras Aplicadas - MSI* (5.8%).
+  - Cursos com menor taxa de formatura no tempo ideal (alta retenção): *Engenharia Aeroespacial* (3.3%), *Letras - Tradução - Inglês* (4.35%) e *Línguas Estrangeiras Aplicadas - MSI* (5.8%). *Música - Piano* tem 0%, mas com só 9 formados o percentual não é comparável aos demais.
 
 ---
 
@@ -25,7 +25,7 @@
   - O tempo médio real de formatura na UnB é de **11.77 semestres** (~5.9 anos).
   - O desvio médio global em relação ao tempo ideal é de **+0.82 semestre** quando ponderado por todos os formados, mas varia drasticamente por área.
 - **Áreas com Maior Atraso Real** (média entre cursos):
-  - *Linguística, Letras e Artes* (**+2.06**), *Engenharias* (**+1.82**) e *Ciências Exatas e da Terra* (**+1.46 semestre**) além do tempo ideal (ex: Ciência da Computação tem tempo médio real de 13.25 semestres para uma matriz ideal de 9 semestres, desvio de **+4.25 semestres**).
+  - *Linguística, Letras e Artes* (**+2.06**), *Engenharias* (**+1.69**) e *Ciências Exatas e da Terra* (**+1.62 semestre**) além do tempo ideal (ex: Ciência da Computação tem tempo médio real de 13.25 semestres para uma matriz ideal de 9 semestres, desvio de **+4.25 semestres**).
 
 ---
 
@@ -53,7 +53,7 @@
 ---
 
 ### **GQ 5: Existe correlação entre a carga horária total da matriz e o atraso na formatura?**
-- **Coeficiente de Correlação de Pearson** (carga horária mínima × desvio médio, 95 cursos): $r = -0.160$ ($t \approx -1.56$, não significativa a 5%).
+- **Coeficiente de Correlação de Pearson** (carga horária mínima × desvio médio, 95 cursos): $r = -0.163$ ($t \approx -1.60$, não significativa a 5%).
 - **Interpretação**:
   - O atraso na formatura não decorre simplesmente da quantidade absoluta de horas do curso, pois cursos com altíssima carga horária (como Medicina e Engenharias) já possuem maior número de semestres regulamentares atribuídos.
   - O atraso está associado à **estrutura de pré-requisitos encadeados**, disciplinas com alta taxa de reprovação e oferta insuficiente de turmas.
@@ -75,4 +75,4 @@
 1. **Margem Temporal de $\pm 1$ Semestre**: Decorrente da ausência do semestre de ingresso nos arquivos brutos do SIGRA e do SIGAA (`ano_ingresso` de 4 dígitos).
 2. **Semestre de Conclusão Estimado no SIGAA**: o SIGAA não publica o período de saída. Para os formados depois da migração ele é estimado pela data de registro do diploma (regra que acerta 94.6% no SIGRA), com possível erro de 1 semestre no calendário deslocado da pandemia (coluna `periodo_saida_estimado` na Silver).
 3. **Mudanças de Habilitação**: Discentes que migraram entre habilitações (ex: Licenciatura para Bacharelado) herdam tempo acumulado da habilitação anterior.
-4. **Casamento de 100%**: todos os 152.680 vínculos de graduação (SIGRA + SIGAA) foram correlacionados a estruturas curriculares ativas via harmonização canônica de nomes de curso (ver `regras_harmonizacao_canonicas.json`).
+4. **Casamento de 100%**: todos os 152.680 vínculos de graduação (SIGRA + SIGAA) foram correlacionados a estruturas curriculares ativas via harmonização canônica de nomes de curso (ver a tabela `gold.regras_harmonizacao_canonicas`).
