@@ -48,3 +48,13 @@ A E3 pede transformações declarativas e versionadas, em camadas.
 - A gold tabular em pandas (`build_gold.py`) não foi portada. Ela tem regras que não estão no star schema, como os joins com o INEP e o PIBIC.
 - O agendamento e o retry continuam no GitHub Actions. A escolha do orquestrador é tema de outro ADR (issue #40).
 - Nova dependência de CI e da imagem Docker: o dbt e o adaptador do Postgres. O painel não depende dele: o `requirements.txt` do Streamlit não muda.
+
+## Atualização (09/11/2026)
+
+Três consequências acima já se resolveram:
+
+- **O painel lê a camada transformada** (issue #44): a resposta à pergunta da E1 vem de `dbt_marts.painel_cursos_criticos` (`src/dashboard/resposta_e1.py`). O `povoar_dimensional.py` não saiu: o star schema da gold continua, alimenta a view do painel e o Supabase, e o teste `reconcilia_fato_retencao_com_a_gold` mantém os dois iguais.
+- **A gold tabular não está mais em pandas:** as agregações viraram SQL nativo no banco ([ADR 0027](0027-agregacoes-gold-em-sql-nativo.md)).
+- **O orquestrador foi escolhido:** Dagster, com retry por etapa e backfill por partição ([ADR 0030](0030-modelagem-analitica-e-ferramentas.md), issue #40). O GitHub Actions continua como agendador.
+
+A `dim_curso` do dbt também passou a guardar histórico, por snapshot ([ADR 0028](0028-dim-curso-scd-tipo-2.md)).

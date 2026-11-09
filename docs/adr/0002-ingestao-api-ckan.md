@@ -14,3 +14,7 @@ O dados.unb.br roda CKAN 2.11. Um mesmo pacote tem vários arquivos (por exemplo
 ## Consequências
 
 Uma versão nova com o mesmo padrão de nome (ex.: `sigaa_2025_2.csv`) entra sozinha; um arquivo de outra natureza no pacote não é pego por engano. Os `metadata_*.json` servem de detector de mudança no portal (ver [ADR 0018](0018-atualizacao-mensal-commit-na-main.md)).
+
+## Atualização (09/11/2026)
+
+Os metadados de cada pacote não vão mais para `data/bronze/metadata_*.json`. Desde a migração 0016, a resposta do `package_show` fica em `bronze.ingestoes.metadados`, junto com o hash, o tamanho e o encoding de cada download (`src/ingestion/procedencia.py`). A data de publicação de cada arquivo processado sai desse registro: é ela que define a marca d'água do dado atrasado (`src/db/dado_atrasado.py`) e a carga que a verificação de frescor compara com o portal. A consulta ao portal em tempo real, para saber se saiu arquivo novo, é do `src/db/frescor.py --fonte` ([`docs/frescor_sla.md`](../frescor_sla.md)).
