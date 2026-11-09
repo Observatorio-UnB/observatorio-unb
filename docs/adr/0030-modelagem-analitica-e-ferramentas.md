@@ -102,12 +102,12 @@ Para medir os grãos, calculei cada nível sobre as coortes maduras da base atua
 - **A opção nula falha num ponto concreto.** Para ter grafo no GitHub Actions, cada etapa precisaria ser um job com `needs:`. Mas cada job tem o seu próprio container de Postgres, então as etapas não compartilham o banco. O pipeline teria de ficar num job só, com as etapas em fila. O retry viraria laço de shell e o backfill, parâmetro escrito à mão.
 - **Airflow foi descartado pela infraestrutura.** Ele precisa de três serviços sempre no ar para um lote mensal, e o projeto não tem servidor: roda no runner do CI e no Supabase.
 
-**Decisão:** Dagster. O grafo de assets inclui os modelos dbt, com retry por asset e backfill por partição. Ele roda como biblioteca dentro do job do GitHub Actions, que segue como o agendador (cron mensal do `atualiza-dados.yml`). Localmente, `dagster dev` mostra o grafo e os backfills na UI. A implementação, a falha forçada para exercitar o retry e o backfill demonstrado ficam na issue #40.
+**Decisão:** Dagster. O grafo de assets inclui os modelos dbt, com retry por asset e backfill por partição. Ele roda como biblioteca dentro do job do GitHub Actions, que segue como o agendador (cron mensal do `atualiza-dados.yml`). Localmente, `dagster dev` mostra o grafo e os backfills na UI. A implementação está em `orquestracao/definicoes.py` (issue #40), descrita em `docs/orquestracao.md`. A falha forçada que exercita o retry e o backfill executado estão registrados em `docs/orquestracao/evidencias/`.
 
 ## Consequências
 
-- O modelo não muda de forma: a estrela da E2 continua. O que muda é o grão declarado no catálogo (PR #48), o histórico na `dim_curso` (ADR 0028) e o lugar da transformação (dbt, ADR 0029).
-- O painel deve ler o mart do dbt, `painel_cursos_criticos`, que é a OBT de consumo (issue #44).
+- O modelo não muda de forma: a estrela da E2 continua. O que muda é o grão declarado no catálogo (PR #48), o histórico na `dim_curso` (ADR 0028) e o lugar da transformação (dbt, ADR 0029). No dbt, o histórico vem do snapshot `snap_atributos_curso` (PR #64).
+- O painel lê o mart do dbt, `painel_cursos_criticos`, que é a OBT de consumo (issue #44, `src/dashboard/resposta_e1.py`). O export do GitHub Pages leva essa tabela, e o painel só volta para a `gold.retencao_cursos_unb` quando o mart falta ou não bate com a carga da gold.
 - O fato curso × coorte fica medido e documentado como próximo passo. Ele entra quando a pergunta de tendência for feita e houver mais coortes maduras.
-- Novas dependências quando a #40 for feita: `dagster` e `dagster-dbt`. O agendamento continua no GitHub Actions, sem servidor novo.
+- Novas dependências: `dagster` e `dagster-dbt`, em `requirements-orquestracao.txt`. O agendamento continua no GitHub Actions, sem servidor novo.
 - As medições de grão foram feitas sobre a base de 10/10/2026 (silver local). Com uma carga nova, os números mudam, mas a ordem de grandeza da supressão não.
