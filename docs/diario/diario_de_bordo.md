@@ -1,6 +1,6 @@
 # Diário de bordo — Squad Observatório UnB
 
-Registro semanal de processo, medições e decisões de engenharia da Squad (Semanas 01 a 10).
+Registro semanal de processo, medições e decisões de engenharia da Squad (Semanas 01 a 14).
 
 ---
 
@@ -63,8 +63,8 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 
 **O que foi medido**
 
-- Volume PIBIC: 5.420 planos de trabalho de iniciação científica mapeados por curso e ano.
-- Modelo CBA (*Cost-Benefit Analysis*) no simulador: cálculo do retorno econômico da evasão evitada com base no custo médio do discente na UnB (R$ 41.200/ano).
+- Volume PIBIC: 12.793 planos de trabalho de iniciação científica aprovados entre 2018 e 2023, mapeados por curso e ano ([`docs/analise_social_pibic.md`](../analise_social_pibic.md)).
+- Modelo CBA (*Cost-Benefit Analysis*) no simulador: cálculo do retorno econômico da evasão evitada com base no custo médio do discente na UnB (R$ 38.500/ano, referência do TCU e do Relatório de Gestão da UnB, ajustável no painel).
 - Tempo de build e deploy no GitHub Actions com `stlite`: 2 minutos e 40 segundos.
 
 **O que surpreendeu**
@@ -145,7 +145,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 **O que foi medido**
 
 - Prova matemática de normalização: eliminação de anomalias de redundância e atualização na Silver, decomposta em 4 relações normalizadas (`discentes`, `cursos`, `estruturas_curriculares`, `movimentacoes_vinculos`).
-- Modelo Star Schema na Gold: `dim_curso`, `dim_tempo`, `dim_situacao` e tabelas fato (`fato_retencao_curso`, `fato_alunos_ativos_curso`).
+- Modelo Star Schema na Gold: `dim_curso`, `dim_campus`, `dim_tempo` e `dim_perfil_social`, e as tabelas fato `fato_retencao_curso`, `fato_alunos_ativos` e `fato_pibic_perfil`.
 - Particionamento por faixa de ano (`PARTITION BY RANGE (ano_ingresso)`) na tabela `silver.movimentacoes_vinculos`.
 - Remoção de todos os arquivos `.csv` versionados no git, reduzindo o tamanho do repositório em mais de 30 MB.
 
@@ -288,3 +288,98 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 - [x] Ajustar apontamentos de code review na esteira de CDC (PRs #24 e #25): portas do Compose restritas a `127.0.0.1` (db e painel, além de Kafka e Connect); o DELETE já espera com prazo (`TimeoutError` em `demonstrar.py`).
 - [x] Consolidar a documentação final: tabela de aceite da E2 no README e testes unitários no CI (job `testes-unitarios`).
 - [ ] Ensaiar a demonstração prática da E2 (`demonstrar.py` e `demonstrar_reprocessamento.py`) com Docker no ar, e criar a tag `e2` depois do merge.
+
+---
+
+## Semana 11 — Fechamento da E2
+
+**O que foi medido**
+
+- Semântica de entrega de ponta a ponta (`src/cdc/demonstrar_reprocessamento.py`): um lote de 100 mudanças gravado com queda antes de confirmar o offset, reentregue pelo Kafka, e duas releituras completas dos tópicos (766.353 e 766.403 mensagens). O lago ficou com 153.001 linhas e a mesma impressão digital (sha256 de todas as linhas) em cada fase.
+- Exclusão sob reprocessamento: os 50 sentinelas excluídos do banco não ressuscitaram na releitura com os INSERTs antigos.
+
+**O que surpreendeu**
+
+- A impressão digital do lago inclui a hora da gravação (`_gravado_em`), então ela só é comparável dentro de uma execução da demonstração, e não entre execuções.
+
+**O que foi decidido**
+
+- Recarga periódica como mecanismo principal e CDC como opcional, com latência e custo medidos. Registrado no [ADR 0025](../adr/0025-mecanismo-de-ingestao-recarga-e-cdc.md).
+- Testes unitários (`test_unit_*`) no CI, sem banco nem Kafka, e checagem do tamanho máximo dos arquivos versionados (`lint.yml`).
+- Teste que confere o DER da gold contra o catálogo do banco (`tests/test_banco_der.py`).
+
+**Pendências para a Semana seguinte**
+
+- [ ] Criar a tag `e2`.
+
+---
+
+## Semana 12 — Manutenção
+
+**O que foi feito**
+
+- Ajuste da tabela consultada pelo keep-alive do Supabase (`supabase-keepalive.yml`). Não houve outra mudança de código nesta semana.
+
+**Pendências para a Semana seguinte**
+
+- [x] Iniciar a E3: consulta otimizada, grão do fato, dimensão de variação lenta, transformação declarativa, testes de dados, orquestração e frescor.
+
+---
+
+## Semana 13 — Camada Analítica em dbt, Testada e Orquestrada (E3)
+
+**O que foi medido**
+
+- Consulta otimizada pelo plano (`EXPLAIN (ANALYZE, BUFFERS)`, em [`docs/explain/`](../explain/)): o detalhamento de um curso na Silver 3NF caiu de 1.566 para 14 buffers e de 35,6 ms para 0,42 ms com o índice `(id_estrutura, tipo_saida_grupo, ano_ingresso) INCLUDE (semestres_permanencia_valida)` (migração 0024).
+- Grão do fato de retenção, sobre as coortes maduras (68.339 vínculos): o grão do curso tem 101 linhas e perde 0,0% dos vínculos para o k-anonimato; curso × coorte, 633 linhas e 0,1%; curso × coorte × desfecho × semestre de saída, 14.359 linhas e 28,1% ([ADR 0030](../adr/0030-modelagem-analitica-e-ferramentas.md)).
+- Retry com o banco derrubado de propósito: a carga do star schema falhou duas vezes, esperou 10 s e 30 s, e passou na terceira tentativa quando o banco voltou. Com o banco fora de vez, falhou nas 4 tentativas e as etapas dependentes não rodaram ([evidências](../orquestracao/evidencias/)).
+- Backfill: as 6 partições do lago (quinquênios de 2000 a 2025) regravadas numa execução, recuperando a janela de 2015 apagada (152.680 vínculos, sem duplicar).
+- Frescor: a view do painel em 0,0 de 35 dias na carga de 11/2026.
+- Busca híbrida: 20 consultas de referência, com recall@5 de ao menos 0,8 por tipo.
+
+**O que surpreendeu**
+
+- A chave do fato de retenção era `UNIQUE (sk_curso, sk_campus)`, mais larga que o grão. Ela aceitaria o mesmo curso em dois campi, e o painel mostraria o curso duas vezes (migração 0023).
+- A reconciliação do fato do dbt com a gold acusou AUDIOVISUAL: 102/320 = 31,875% dava 31,88 com o `round(numeric)` do PostgreSQL e 31,87 na gold, que arredonda como o `numpy.round`. O dbt passou a usar a mesma macro de arredondamento.
+- Na view do painel, com 94 linhas, o PostgreSQL prefere ler a view inteira a usar o índice único, que continua necessário para o `REFRESH CONCURRENTLY`.
+- O `Heap Fetches: 0` do índice novo depende do mapa de visibilidade: logo depois de uma recarga, antes do autovacuum, o plano lê 202 buffers em vez de 14.
+
+**O que foi decidido**
+
+- Agregações da gold em SQL nativo no banco. Registrado no [ADR 0027](../adr/0027-agregacoes-gold-em-sql-nativo.md).
+- `gold.dim_curso` como SCD tipo 2, com `vigente_de`, `vigente_ate` e `is_atual` (migração 0025). Registrado no [ADR 0028](../adr/0028-dim-curso-scd-tipo-2.md).
+- Transformações em dbt, em staging, intermediate e marts, com testes de esquema, volume, unicidade, integridade, distribuição e domínio, e a prova por injeção de dado ruim. Registrado no [ADR 0029](../adr/0029-transformacoes-em-dbt.md).
+- Estrela no grão do curso, dbt e Dagster, com a opção nula avaliada. Registrado no [ADR 0030](../adr/0030-modelagem-analitica-e-ferramentas.md).
+- SLA de frescor de 35 dias para a view do painel ([`docs/frescor_sla.md`](../frescor_sla.md)).
+- A Visão Executiva do painel abre com a pergunta da E1 e o ranking de `dbt_marts.painel_cursos_criticos`.
+
+**Pendências para a Semana seguinte**
+
+- [x] Levar o histórico da `dim_curso` também para o dbt.
+- [x] Atualizar o ADR 0030, que ainda tratava a orquestração como trabalho futuro.
+
+---
+
+## Semana 14 — SCD no dbt e Revisão da Documentação
+
+**O que foi medido**
+
+- `dbt build`: 1 snapshot, 12 modelos e 65 testes de dados.
+- `tests/test_dbt_scd2.py`: a reclassificação de MATEMATICA abre uma versão nova na `dim_curso` do dbt, a anterior fica fechada, o fato e o painel passam para a nova, e reexecutar sem mudança não abre versão.
+- Painel publicado (export de 03/11/2026): o ranking da E1 vem de `dbt_marts.painel_cursos_criticos`, com 94 cursos.
+
+**O que surpreendeu**
+
+- A `dim_curso` do dbt sobrescrevia os atributos, enquanto a da gold já guardava histórico: o checklist da E3 só ficava atendido na camada SQL.
+- O `--full-refresh` que o Dagster roda reconstrói os marts do zero. Um histórico guardado num modelo comum se perderia a cada execução.
+
+**O que foi decidido**
+
+- Histórico da `dim_curso` no dbt por snapshot (`snap_atributos_curso`, estratégia `check`), que o `--full-refresh` não apaga. A primeira versão vale desde 1962, como na gold. Registrado no [ADR 0028](../adr/0028-dim-curso-scd-tipo-2.md) e no [ADR 0029](../adr/0029-transformacoes-em-dbt.md).
+- README, relatório geral e `docs/` revisados contra o código: tabela de aceite da E3, estrutura de pastas e números atuais.
+
+**Pendências para a Semana seguinte**
+
+- [ ] Criar as tags `e2` e `e3`.
+- [x] Regenerar `docs/dicionario_dados_banco.md` com a migração 0026 (coluna `texto_busca` da busca híbrida), a partir de uma carga do zero num banco limpo.
+

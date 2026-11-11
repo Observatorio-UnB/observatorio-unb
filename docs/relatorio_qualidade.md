@@ -100,7 +100,7 @@
 ### ACHADO-11: O extrato do SIGAA mantém como ATIVO vínculos que já não estão na lista de ativos seguinte, sem virar CANCELADO
 - **Origem**: `bronze.sigaa_discentes`
 - **Linha**: `Todas`
-- **Evidência no Dado Bruto**: `coorte de 2022: 8.530 ativos no extrato de 07/2024 contra 5.772 na lista de ativos de 06/2025. com 1.487 cancelados no extrato; coorte de 2023: 8.935 ativos no extrato de 07/2024 contra 7.785 na lista de ativos de 06/2025. com 525 cancelados no extrato. A queda em pouco tempo é grande demais para ser só formatura.`
+- **Evidência no Dado Bruto**: `coorte de 2022: 8.530 ativos no extrato de 07/2024 contra 5.698 na lista de ativos de 06/2025. com 1.487 cancelados no extrato; coorte de 2023: 8.935 ativos no extrato de 07/2024 contra 7.011 na lista de ativos de 06/2025. com 525 cancelados no extrato. A queda em pouco tempo é grande demais para ser só formatura.`
 - **Impacto Direto**: A evasão de coortes recentes fica subestimada no extrato: o cancelamento é registrado com atraso.
 - **Tratamento Implementado no Pipeline**: A Gold de retenção só usa coortes com 8 anos de acompanhamento. O retrato de ativos usa a lista de ativos do semestre mais recente, não o status do extrato.
 

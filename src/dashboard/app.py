@@ -189,6 +189,25 @@ def load_resposta_e1(versao: str):
 painel_e1, carregado_em = load_resposta_e1(_versao_dos_dados())
 
 
+def correlacao_pibic_evasao(df):
+    """(cursos, r de Pearson) entre projetos de IC por 100 alunos e taxa de evasão, nos cursos com
+    algum projeto de IC. É o recorte do gráfico da aba PIBIC: os textos citam o número calculado
+    sobre os dados carregados, e não um valor fixo que envelhece com a carga."""
+    if df is None or df.empty:
+        return 0, None
+    d = df[df["pibic_total_projetos"] > 0].dropna(
+        subset=["pibic_projetos_por_100_alunos", "taxa_evasao_pct"])
+    if len(d) < 3:
+        return len(d), None
+    r = float(np.corrcoef(d["pibic_projetos_por_100_alunos"].astype(float),
+                          d["taxa_evasao_pct"].astype(float))[0, 1])
+    return len(d), r
+
+
+n_pibic_evasao, r_pibic_evasao = correlacao_pibic_evasao(df_gold)
+r_pibic_evasao_txt = "indisponível" if r_pibic_evasao is None else f"{r_pibic_evasao:.2f}".replace(".", ",")
+
+
 @st.cache_data(ttl=3600)
 def load_frescor_da_view():
     """Atualização da view do painel e SLA (docs/frescor_sla.md), fora do cache da gold: uma
@@ -281,7 +300,7 @@ if df_gold is not None:
                 "O IRC combina a evasão (peso 0,7) e o atraso na formatura (peso 0,3), medidos nas "
                 "coortes que já tiveram 8 anos para se formar."
             )
-            st.dataframe(ranking_e1.head(15).rename(columns=COLUNAS_E1), use_container_width=True, hide_index=True)
+            st.dataframe(ranking_e1.head(15).rename(columns=COLUNAS_E1), width="stretch", hide_index=True)
             legenda = f"Ranking completo: {len(ranking_e1)} cursos. Fonte: `{fonte_e1}`."
             dados_frescor = frescor(carregado_em)
             if dados_frescor:
@@ -362,7 +381,7 @@ if df_gold is not None:
         fig_scatter.add_vline(x=0, line_dash="dash", line_color="#9CA3AF")
         fig_scatter.add_hline(y=df_gold["taxa_evasao_pct"].median(
         ), line_dash="dash", line_color="#9CA3AF")
-        st.plotly_chart(fig_scatter, use_container_width=True)
+        st.plotly_chart(fig_scatter, width="stretch")
 
         # Ranking dos Cursos
         col_left, col_right = st.columns(2)
@@ -380,7 +399,7 @@ if df_gold is not None:
                     "indice_retencao_critica": "Score IRC",
                 }
             )
-            st.dataframe(top_retencao, use_container_width=True,
+            st.dataframe(top_retencao, width="stretch",
                          hide_index=True)
 
         with col_right:
@@ -396,7 +415,7 @@ if df_gold is not None:
                     "taxa_formatura_pct": "Taxa Formatura (%)",
                 }
             )
-            st.dataframe(top_pontuais, use_container_width=True,
+            st.dataframe(top_pontuais, width="stretch",
                          hide_index=True)
 
     elif tab_choice == "🔍 Detalhe por Curso":
@@ -454,7 +473,7 @@ if df_gold is not None:
                 text_auto=".1f",
                 height=350,
             )
-            st.plotly_chart(fig_bar, use_container_width=True)
+            st.plotly_chart(fig_bar, width="stretch")
 
         with c_chart2:
             st.markdown("##### 🚪 Desfecho das Movimentações Acadêmicas")
@@ -481,7 +500,7 @@ if df_gold is not None:
                 },
                 height=350,
             )
-            st.plotly_chart(fig_pie, use_container_width=True)
+            st.plotly_chart(fig_pie, width="stretch")
 
     elif tab_choice == "🎒 Alunos Ativos":
         ref = global_meta.get("ativos_hoje_referencia", "")
@@ -538,7 +557,7 @@ if df_gold is not None:
                 title="Cursos com maior parcela de ativos atrasados",
             )
             fig_at.update_layout(height=600)
-            st.plotly_chart(fig_at, use_container_width=True)
+            st.plotly_chart(fig_at, width="stretch")
             st.dataframe(df_at.rename(columns={
                 "curso": "Curso",
                 "periodo_referencia": "Semestre de referência",
@@ -548,7 +567,7 @@ if df_gold is not None:
                 "ativos_acima_prazo_ideal": "Acima do prazo ideal",
                 "ativos_acima_prazo_maximo": "Acima do prazo máximo",
                 "pct_acima_prazo_ideal": "% acima do prazo ideal",
-            }), use_container_width=True, hide_index=True)
+            }), width="stretch", hide_index=True)
 
     elif tab_choice == "⚖️ Noturno vs. Diurno & Turnos":
         st.subheader("⚖️ Comparativo de Formatura e Evasão por Turno (GQ 4)")
@@ -578,7 +597,7 @@ if df_gold is not None:
                 text_auto=".1f",
                 height=380,
             )
-            st.plotly_chart(fig_turno_evas, use_container_width=True)
+            st.plotly_chart(fig_turno_evas, width="stretch")
 
         with c2:
             df_turno_tempo = df_turno.rename(columns={
@@ -597,7 +616,7 @@ if df_gold is not None:
             fig_turno_tempo.update_layout(legend_title_text="")
             fig_turno_tempo.update_traces(
                 hovertemplate="<b>%{fullData.name}</b>: %{y:.1f} sem.<extra></extra>")
-            st.plotly_chart(fig_turno_tempo, use_container_width=True)
+            st.plotly_chart(fig_turno_tempo, width="stretch")
 
         st.markdown("---")
         st.subheader("🎓 Comparativo de Formatura e Evasão por Grau Acadêmico")
@@ -628,7 +647,7 @@ if df_gold is not None:
                 text_auto=".1f",
                 height=380,
             )
-            st.plotly_chart(fig_grau_evas, use_container_width=True)
+            st.plotly_chart(fig_grau_evas, width="stretch")
 
         with c4:
             df_grau_tempo = df_grau.rename(columns={
@@ -647,7 +666,7 @@ if df_gold is not None:
             fig_grau_tempo.update_layout(legend_title_text="")
             fig_grau_tempo.update_traces(
                 hovertemplate="<b>%{fullData.name}</b>: %{y:.1f} sem.<extra></extra>")
-            st.plotly_chart(fig_grau_tempo, use_container_width=True)
+            st.plotly_chart(fig_grau_tempo, width="stretch")
 
         st.markdown("---")
         st.subheader("🏫 Comparativo de Formatura e Evasão por Campus")
@@ -683,7 +702,7 @@ if df_gold is not None:
                 height=420,
             )
             fig_campus_evas.update_layout(showlegend=False)
-            st.plotly_chart(fig_campus_evas, use_container_width=True)
+            st.plotly_chart(fig_campus_evas, width="stretch")
 
         with c6:
             fig_campus_alunos = px.bar(
@@ -697,7 +716,7 @@ if df_gold is not None:
                 height=420,
             )
             fig_campus_alunos.update_layout(showlegend=False)
-            st.plotly_chart(fig_campus_alunos, use_container_width=True)
+            st.plotly_chart(fig_campus_alunos, width="stretch")
 
     elif tab_choice == "🔬 PIBIC & Inclusão Social na Ciência":
         st.subheader(
@@ -767,7 +786,7 @@ if df_gold is not None:
                     height=380,
                 )
                 fig_area.update_layout(showlegend=False, yaxis_range=[0, 60])
-                st.plotly_chart(fig_area, use_container_width=True)
+                st.plotly_chart(fig_area, width="stretch")
 
             with col_g2:
                 st.markdown(
@@ -782,7 +801,7 @@ if df_gold is not None:
                     height=380,
                     color_discrete_sequence=px.colors.qualitative.Safe,
                 )
-                st.plotly_chart(fig_campi, use_container_width=True)
+                st.plotly_chart(fig_campi, width="stretch")
 
             # "% Cotistas" acima mede a composição interna do programa de IC (quem, entre os
             # bolsistas, é cotista); esta segunda métrica mede penetração real na área (quantos
@@ -802,15 +821,18 @@ if df_gold is not None:
                 height=380,
             )
             fig_participacao.update_layout(showlegend=False)
-            st.plotly_chart(fig_participacao, use_container_width=True)
+            st.plotly_chart(fig_participacao, width="stretch")
 
             # Linha 2: O Fator "PIBIC vs. Evasão" (A Dinâmica da 'Correlação Suspeita')
             st.markdown("---")
             st.markdown(
                 "##### 🎯 Cruzamento Estratégico: O PIBIC Protege Contra a Evasão?")
             st.markdown(
-                "Cruzamento entre o Observatório de Retenção e a base de Iniciação Científica (73 cursos casados). "
-                "**Correlação encontrada: -0.51** (cursos com mais bolsas de IC por 100 alunos têm expressivamente menor evasão)."
+                "Cruzamento entre o Observatório de Retenção e a base de Iniciação Científica "
+                f"({n_pibic_evasao} cursos com ao menos um projeto de IC). "
+                f"**Correlação encontrada: r = {r_pibic_evasao_txt}**"
+                + (" (cursos com mais projetos de IC por 100 alunos tendem a ter menor evasão)."
+                   if r_pibic_evasao is not None and r_pibic_evasao < 0 else ".")
             )
 
             df_scatter = df_gold[df_gold["pibic_total_projetos"] > 0].dropna(
@@ -849,12 +871,12 @@ if df_gold is not None:
                         x=x_line,
                         y=y_line,
                         mode="lines",
-                        name="Tendência Linear (r = -0.51)",
+                        name=f"Tendência Linear (r = {r_pibic_evasao_txt})",
                         line=dict(color="#DC2626", dash="dash", width=2),
                     )
                 )
 
-            st.plotly_chart(fig_pibic_evas, use_container_width=True)
+            st.plotly_chart(fig_pibic_evas, width="stretch")
 
             st.warning(
                 "🔎 **Dinâmica 'A Correlação Suspeita' (Provocação do CBL):** "
@@ -898,7 +920,7 @@ if df_gold is not None:
                     "taxa_voluntario_pct": "% Voluntários",
                     "valor_total_investido_formatado": "Total Investido (R$)",
                 }),
-                use_container_width=True,
+                width="stretch",
                 height=350,
             )
         else:
@@ -1003,7 +1025,7 @@ if df_gold is not None:
             )
             fig_gap.add_vline(x=0, line_color="#374151", line_width=2)
             fig_gap.update_layout(legend_title_text="")
-            st.plotly_chart(fig_gap, use_container_width=True)
+            st.plotly_chart(fig_gap, width="stretch")
             st.caption(
                 "Passe o mouse sobre a barra para ver **quantas vezes o padrão nacional** aquele curso "
                 "representa. A barra mede a diferença em pontos percentuais, que não distingue gravidade "
@@ -1074,7 +1096,7 @@ if df_gold is not None:
                     line=dict(color="#DC2626", dash="dash", width=2),
                 )
             )
-            st.plotly_chart(fig_conc, use_container_width=True)
+            st.plotly_chart(fig_conc, width="stretch")
 
             with st.expander("📄 Ver todos os cursos comparados"):
                 st.dataframe(
@@ -1091,7 +1113,7 @@ if df_gold is not None:
                         "mediana_trancamento_federais_pct": "Trancamento Federais (%)",
                         "n_ies_comparadas": "Federais comparadas",
                     }),
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     height=400,
                 )
@@ -1174,7 +1196,12 @@ if df_gold is not None:
                 max_value=100,
                 value=25,
                 step=5,
-                help="Com base na elasticidade empírica calculada (r = -0.51), bolsas acadêmicas reduzem a probabilidade de evasão.",
+                help=(f"Nos dados, a correlação entre projetos de IC por 100 alunos e evasão é r = {r_pibic_evasao_txt} "
+                      f"({n_pibic_evasao} cursos)"
+                      + (": mais IC acompanha menos evasão" if r_pibic_evasao is not None and r_pibic_evasao < 0 else "")
+                      + ". Correlação não prova causa "
+                      "(ver a aba PIBIC). O simulador supõe que cada 10% a mais de bolsas reduz a taxa de evasão do "
+                      "curso em 2,5% do seu valor (fator fixo de 0,25)."),
             )
         with col_ctrl3:
             st.markdown("##### 💰 3. Custo Público por Aluno")
@@ -1194,7 +1221,8 @@ if df_gold is not None:
         semestres_poupados_totais = total_formados * reducao_semestres
         economia_retencao_reais = semestres_poupados_totais * custo_semestral
 
-        # 2. Redução de evasão projetada (fórmula com amortecimento empírico baseado em r = -0.51)
+        # 2. Redução de evasão projetada: fator fixo de 0,25, uma hipótese do simulador. A correlação
+        # observada (r_pibic_evasao) só indica o sentido da relação, não a magnitude do efeito.
         fator_reducao_evasao = (aumento_pibic_pct / 100.0) * 0.25
         taxa_evasao_projetada = max(
             5.0, taxa_evasao_atual * (1.0 - fator_reducao_evasao))
@@ -1284,7 +1312,7 @@ if df_gold is not None:
                 color_discrete_map={
                     "Cenário Atual": "#94A3B8", "Cenário Projetado": UNB_GREEN},
             )
-            st.plotly_chart(fig_comp, use_container_width=True)
+            st.plotly_chart(fig_comp, width="stretch")
 
         with col_v2:
             st.markdown("##### 💵 Balanço Custo-Benefício da Intervenção (R$)")
@@ -1313,7 +1341,7 @@ if df_gold is not None:
                 title="Balanço Orçamentário e Retorno Social",
             )
             fig_waterfall.update_layout(coloraxis_showscale=False)
-            st.plotly_chart(fig_waterfall, use_container_width=True)
+            st.plotly_chart(fig_waterfall, width="stretch")
 
         # Caixa de Exportação de Dossiê Executivo para o Colegiado
         st.markdown("---")
@@ -1406,7 +1434,7 @@ if df_gold is not None:
                         "discentes_impactados": "Discentes Conciliados",
                         "justificativa": "Justificativa Metodológica / Pedagógica",
                     }),
-                    use_container_width=True,
+                    width="stretch",
                     height=320,
                 )
 

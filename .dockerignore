@@ -8,8 +8,8 @@ venv
 .env
 __pycache__
 *.pyc
-data/bronze/*.csv
-data/silver/*.csv
+# Lago Delta local: tem vínculos individuais da silver e não pode entrar na imagem.
+data/lake
 export
 site
 *.pdf

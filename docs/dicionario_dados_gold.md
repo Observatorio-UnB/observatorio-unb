@@ -42,8 +42,14 @@ Este documento descreve a semântica, os tipos de dados e os métodos de cálcul
 | `tempo_medio_real_semestres` | Float | `12.37` | Duração média observada em semestres entre o ingresso e a outorga de grau. |
 | `tempo_mediano_real_semestres` | Float | `12.00` | Mediana do tempo de integralização em semestres (robusta a outliers). |
 | `desvio_medio_semestres` | Float | `3.37` | Diferença média em semestres: $\text{tempo\_medio\_real} - \text{semestre\_ideal\_previsto}$. |
-| `indice_retencao_critica` | Float (0-100) | `59.7` | Índice composto normalizado: $0.5 \times \text{norm}(desvio) + 0.5 \times \text{norm}(evasao)$. |
+| `indice_retencao_critica` | Float (0-100) | `59.7` | Índice composto (ADR 0006): $(0{,}3 \times \text{norm}(atraso) + 0{,}7 \times \text{norm}(evasao)) \times 100$, com cada termo saturado nos percentis 5 e 95 e normalizado min-max entre os cursos. O atraso negativo conta como zero. |
 | `classificacao_retencao` | String | `RETENÇÃO CRÍTICA` | Nível de urgência institucional: `RETENÇÃO CRÍTICA` (Top 25%), `ALTA`, `MÉDIA`, `BAIXA`. |
+| `pibic_total_projetos` | Inteiro | `93` | Planos de iniciação científica de alunos do curso, em todos os anos publicados. Zero quando não há plano. |
+| `pibic_bolsas_remuneradas` | Inteiro | `61` | Planos com bolsa remunerada (PIBIC). Nulo quando o curso não tem plano de IC. |
+| `pibic_bolsas_voluntarias` | Inteiro | `26` | Planos voluntários (PIVIC). Nulo quando o curso não tem plano de IC. |
+| `pibic_cotistas` | Inteiro | `36` | Planos de bolsistas que ingressaram por cota. Nulo quando o curso não tem plano de IC. |
+| `pibic_investimento_total` | Float (R$) | `326700.00` | Soma estimada das bolsas remuneradas do curso, pela tabela de vigências do CNPq (ADR 0023). |
+| `pibic_projetos_por_100_alunos` | Float | `13.04` | `pibic_total_projetos / total_discentes_registrados × 100`. |
 
 ---
 
@@ -57,13 +63,13 @@ Uma primeira tentativa separou esses cursos usando o código `opcao` do SIGRA co
 
 ---
 
-## Tabela `ativos_hoje_cursos_unb.csv`
+## Tabela `gold.ativos_hoje_cursos_unb`
 
 Discentes de graduação na **lista de ativos do SIGAA** do semestre mais recente publicado (`sigaa_ativos_AAAA_S.csv`, hoje 2025/1), por curso, de todas as coortes. Complementa a tabela de retenção, que só olha coortes com 8 anos de acompanhamento. Cursos-tronco e cursos sem estrutura curricular publicada ficam de fora. Só entram cursos com 5 ou mais ativos (k-anonimato).
 
 | Coluna | Tipo | Exemplo | Descrição |
 | :--- | :--- | :--- | :--- |
-| `curso` | String | `MUSEOLOGIA` | Nome canônico do curso (mesmo de `retencao_cursos_unb.csv`). |
+| `curso` | String | `MUSEOLOGIA` | Nome canônico do curso (mesmo de `gold.retencao_cursos_unb`). |
 | `periodo_referencia` | String | `2025/1` | Semestre da lista de ativos, tirado do nome do arquivo publicado. |
 | `semestre_ideal_previsto` | Float | `8.0` | Duração ideal da matriz curricular. |
 | `semestre_maximo_previsto` | Float | `12.0` | Prazo máximo de integralização. |

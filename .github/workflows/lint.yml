@@ -40,7 +40,9 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      # Só os testes que não precisam de banco nem de Kafka: CDC (MERGE idempotente no Delta),
-      # lago, dado atrasado e 3NF/Star. Os de banco rodam no medalhao.yml.
+      # Só os testes que não precisam de banco nem de Kafka (tests/test_unit_*): CDC (MERGE
+      # idempotente no Delta), lago, dado atrasado, 3NF/Star, busca, frescor, leitura do INEP,
+      # grafo do Dagster (pulado sem o Dagster instalado) e a resposta da E1. Os de banco rodam no
+      # medalhao.yml.
       - name: "Testes unitários"
         run: python -m unittest discover -s tests -p "test_unit_*.py"

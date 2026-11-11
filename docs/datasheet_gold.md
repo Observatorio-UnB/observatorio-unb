@@ -16,7 +16,7 @@
 - **O que cada instância representa?**
   Cada linha representa um curso canônico de graduação da Universidade de Brasília com métricas agregadas de retenção, tempo médio real de formatura, percentuais de pontualidade e taxas de desligamento.
 - **Quantas instâncias existem no dataset?**
-  76 cursos de graduação consolidados (com supressão ética de cursos com menos de 5 registros para proteção de privacidade).
+  95 cursos de graduação consolidados na carga de 03/11/2026 (67 bacharelados, 13 licenciaturas e 15 com oferta mista), com supressão ética de cursos com menos de 5 registros para proteção de privacidade. A atualização mensal pode mudar esse número.
 - **O dataset contém dados confidenciais ou LGPD?**
   Não. Todas as variáveis sensíveis (data de nascimento, raça, sexo e cota) foram descartadas e o dataset expõe exclusivamente agregados estatísticos por curso.
 

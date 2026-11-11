@@ -14,3 +14,7 @@ Uma lista explícita de regras origem → destino (`CANONICAL_RULES_METADATA` em
 ## Consequências
 
 Casamento de 100% dos vínculos, sem descarte, e cada reclassificação é auditável no painel. Curso novo com grafia diferente exige regra nova; o relatório `relatorio_casamento_joins.json` lista os que não casaram.
+
+## Atualização (09/11/2026)
+
+As regras não são mais publicadas em `data/gold/regras_harmonizacao_canonicas.json`. Elas ficam na tabela `gold.regras_harmonizacao_canonicas`, que o export do painel (`export/gold.json`) leva para o GitHub Pages.

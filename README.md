@@ -5,58 +5,58 @@
 > **Stakeholder**: Decanato de Ensino de Graduação (DEG/DAA) e Coordenações de Curso da UnB.  
 > **Portal de Origem**: [dados.unb.br](https://dados.unb.br) (API CKAN 2.11).  
 > 
-> 📄 **Síntese das Semanas 1 e 2** (histórico, anterior à E2): [RELATORIO_GERAL_PROJETO_SEMANAS_1_E_2.md](RELATORIO_GERAL_PROJETO_SEMANAS_1_E_2.md) para a explicação detalhada de como o projeto atende a 100% das duas primeiras semanas, a lógica das bases e o valor para o DEG.
+> 📄 **Relatório geral**: [RELATORIO_GERAL_PROJETO_SEMANAS_1_E_2.md](RELATORIO_GERAL_PROJETO_SEMANAS_1_E_2.md), com as semanas 1 e 2 em detalhe (a lógica das bases e o valor para o DEG) e o que foi feito de 2 em 2 semanas até a semana 14, incluindo as entregas E2 e E3.
 
 ---
 
 ## 📌 1. Visão Geral e Estrutura dos Entregáveis
 
-Este repositório contém a solução completa para o desafio de 2 semanas, estruturada de forma modular, versionada e 100% reprodutível do zero:
+Este repositório reúne o projeto inteiro, das semanas 1 e 2 (ingestão, medalhão e painel) às entregas E2 (lote, lago e CDC) e E3 (camada analítica em dbt, testada e orquestrada). Tudo é versionado e reprodutível do zero:
 
 ```
-bd2/
+observatorio-unb/
 ├── docs/
 │   ├── challenge_canvas.md          # Challenge Canvas v2 (Stakeholder, EQ, Challenge, 5 GQs)
-│   ├── relatorio_qualidade.md       # Relatório de Qualidade (8 achados com evidência + Issue CPD)
+│   ├── relatorio_qualidade.md       # Relatório de Qualidade (12 achados com evidência + Issue CPD)
 │   ├── registro_privacidade_lgpd.md # Análise de privacidade, quase-identificadores e k-anonimato
 │   ├── datasheet_gold.md            # Datasheet for Datasets (padrão Gebru et al.)
 │   ├── dicionario_dados_gold.md     # Dicionário de dados formal da tabela Gold
 │   ├── dicionario_dados_banco.md    # Dicionário de TODAS as tabelas do banco (gerado do catálogo)
 │   ├── caderno_analise.md           # Caderno de análise com respostas às 5 GQs e dinâmicas
-│   └── adr/                         # Decisões de arquitetura (ADRs), uma por arquivo
+│   ├── arquitetura/                 # 3NF, modelagem dimensional, tuning (EXPLAIN) e DER
+│   ├── explain/                     # Planos EXPLAIN (ANALYZE, BUFFERS) antes e depois, com a consulta
+│   ├── testes_de_dados.md           # Testes de dados do dbt: tipos, limites e injeções
+│   ├── orquestracao.md              # Grafo do Dagster, retry, agenda e backfill
+│   ├── orquestracao/evidencias/     # Logs do retry com o banco derrubado, da falha e do backfill
+│   ├── frescor_sla.md               # Métrica de frescor e SLA da view do painel
+│   ├── diario/                      # Diário de bordo
+│   └── adr/                         # Decisões de arquitetura (ADRs 0001 a 0030), uma por arquivo
 ├── db/
-│   └── migrations/                  # Esquema versionado do PostgreSQL (0001 ... 0021)
+│   └── migrations/                  # Esquema versionado do PostgreSQL (0001 ... 0026)
+├── transform/                       # Projeto dbt: staging, intermediate, marts e snapshot (SCD 2)
+│   ├── models/
+│   ├── snapshots/
+│   └── tests/                       # Testes de distribuição, domínio, SCD e reconciliação
+├── orquestracao/
+│   └── definicoes.py                # Grafo de assets do Dagster (pipeline_mensal e backfill_lago)
 ├── scripts/
-│   └── rodar_pipeline.sh            # Pipeline completo: portal -> medalhão -> banco -> vetores
+│   ├── rodar_pipeline.sh            # Pipeline completo em shell (Docker e quem roda sem o Dagster)
+│   ├── dbt.sh                       # Roda o dbt com o DATABASE_URL do projeto
+│   └── cdc.sh                       # Registra e remove o conector Debezium
 ├── src/
-│   ├── ingestion/                   # Ingestão via API CKAN e INEP, direto para bronze.*
-│   │   ├── ckan_client.py
-│   │   ├── inep_censo_superior.py
-│   │   └── procedencia.py           # Registro de cada download em bronze.ingestoes
+│   ├── ingestion/                   # Ingestão via API CKAN, INEP e CNPq, direto para bronze.*
 │   ├── audit/                       # Auditoria automatizada de inconsistências
-│   │   └── quality_auditor.py
 │   ├── privacy/                     # Avaliação de conformidade LGPD
-│   │   └── lgpd_check.py
-│   ├── pipeline/                    # Pipeline em camadas (Bronze -> Silver -> Gold)
-│   │   ├── transform_silver.py
-│   │   └── build_gold.py            # semeia as regras e dispara CALL gold.atualizar_gold (ADR 0027)
-│   ├── db/                          # Banco: migrações, leitura/gravação das camadas, export e dicionário
-│   │   ├── migrar.py
-│   │   ├── tabelas.py               # gravar(df, tabela) / ler(tabela): o contrato com o esquema
-│   │   ├── exportar_gold.py         # Gold -> export/gold.json para o GitHub Pages (gerado no CI)
-│   │   └── gerar_dicionario.py
-│   ├── busca/                       # Busca semântica (embeddings + pgvector)
-│   │   ├── vetorizar.py
-│   │   └── buscar.py
-│   └── dashboard/                   # Produto interativo em Streamlit
-│       ├── app.py
-│       └── pages/busca_semantica.py # Página de busca semântica (requer o banco)
-├── tests/
-│   ├── test_pipeline.py             # Testes automatizados de esquema e integridade
-│   └── test_banco.py                # Contrato do banco, reconciliação entre camadas, acesso e busca
-├── docker-compose.yml               # Banco + pipeline + painel
+│   ├── pipeline/                    # Silver e gold (CALL gold.atualizar_gold, ADR 0027)
+│   ├── db/                          # Migrações, 3NF e star schema, lago Delta, frescor, export, Supabase
+│   ├── cdc/                         # Consumidor do Debezium e demonstrações de entrega
+│   ├── busca/                       # Busca semântica híbrida (embeddings + pgvector + texto)
+│   └── dashboard/                   # Painel em Streamlit (resposta_e1.py: ranking da pergunta da E1)
+├── tests/                           # 21 arquivos: test_unit_* sem banco; os demais com banco
+├── .github/workflows/               # Medalhão, atualização mensal, frescor, lint e keep-alive
+├── docker-compose.yml               # Banco + pipeline + painel (+ Kafka e Debezium no profile cdc)
 ├── Dockerfile
-├── requirements.txt
+├── requirements.txt                 # + requirements-dbt.txt e requirements-orquestracao.txt
 └── README.md
 ```
 
@@ -75,6 +75,21 @@ bd2/
 | ADR com a opção nula | ADR 0025 (recarga agendada contra CDC) |
 | Diário das semanas 7 a 10 | [docs/diario/diario_de_bordo.md](docs/diario/diario_de_bordo.md) |
 | Testes sem banco nem Kafka no CI | `python -m unittest discover -s tests -p "test_unit_*.py"` (job `testes-unitarios`) |
+
+---
+
+## 🧾 Entrega E3 — Camada analítica transformada, testada e orquestrada
+
+| Item do checklist | Evidência |
+|---|---|
+| Modelo com fato e dimensão, grão declarado e dimensão de variação lenta | Fato `fct_retencao_curso`, "um registro por curso canônico" (`transform/models/marts/_marts.yml`, migração 0023). `dim_curso` em SCD tipo 2 na gold (migração 0025, [ADR 0028](docs/adr/0028-dim-curso-scd-tipo-2.md)) e no dbt (snapshot `snap_atributos_curso`) |
+| Transformações versionadas em dbt, em camadas | [Transformações em dbt](#transformações-em-dbt-staging-intermediate-e-marts): staging, intermediate e marts, [ADR 0029](docs/adr/0029-transformacoes-em-dbt.md) |
+| Testes de esquema, volume, unicidade, integridade e distribuição | [docs/testes_de_dados.md](docs/testes_de_dados.md); `tests/test_dbt_dado_ruim.py` prova que cada um falha com dado injetado |
+| Orquestração agendada com grafo, retry e backfill demonstrado | [Orquestração (Dagster)](#orquestração-dagster), [docs/orquestracao.md](docs/orquestracao.md) e os logs em [docs/orquestracao/evidencias/](docs/orquestracao/evidencias/) |
+| Consulta otimizada com `EXPLAIN (ANALYZE, BUFFERS)` antes e depois | [docs/explain/](docs/explain/) e a seção 5 de [03_ENGENHARIA_FISICA_E_TUNING_SGBD.md](docs/arquitetura/03_ENGENHARIA_FISICA_E_TUNING_SGBD.md): de 1.566 para 14 buffers e de 35,6 ms para 0,42 ms (migração 0024) |
+| Freshness e SLA de uma tabela de consumo | [Frescor e SLA do painel](#frescor-e-sla-do-painel), [docs/frescor_sla.md](docs/frescor_sla.md) |
+| ADR de modelagem analítica e ferramentas | [ADR 0030](docs/adr/0030-modelagem-analitica-e-ferramentas.md): estrela contra Data Vault e OBT, quatro grãos medidos, dbt e Dagster contra a opção nula |
+| Painel que responde à pergunta da E1 | Visão Executiva do painel, a partir de `dbt_marts.painel_cursos_criticos` (roteiro na seção D abaixo) |
 
 ---
 
@@ -108,6 +123,7 @@ python3 src/db/migrar.py
 # 1. Ingestão automatizada via API CKAN e do Censo INEP -> bronze.* (Semana 1 - Dia 3)
 python3 src/ingestion/ckan_client.py
 python3 src/ingestion/inep_censo_superior.py
+python3 src/ingestion/cnpq_valor_bolsa.py     # valor da bolsa IC (CNPq); sem ele, valem as vigências versionadas
 
 # 2. Transformação Silver: bronze.* -> silver.* (Semana 2 - Dia 1)
 python3 src/pipeline/transform_silver.py
@@ -119,22 +135,27 @@ python3 src/pipeline/build_gold.py
 python3 src/audit/quality_auditor.py
 python3 src/privacy/lgpd_check.py
 
-# 5. Povoamento dimensional (Silver 3NF e Star Schema da gold), camadas dbt e export para o lago Delta
+# 5. Povoamento dimensional (Silver 3NF e Star Schema da gold), view do painel, camadas dbt e lago Delta
 python3 src/db/povoar_dimensional.py
+python3 src/db/atualizar_view_painel.py        # REFRESH da gold.mv_dashboard_executivo, que o painel lê
 pip install -r requirements-dbt.txt && bash scripts/dbt.sh build --full-refresh
 python3 src/db/exportar_lago.py --janelas-alteradas
 
 # 6. Busca semântica e dicionário de dados do banco
 python3 src/busca/vetorizar.py
 python3 src/db/gerar_dicionario.py
+
+# 7. (Opcional) Sincronização incremental da gold com o Supabase; pulada sem SUPABASE_DATABASE_URL
+python3 src/db/sincronizar_supabase.py
 ```
-Os passos 0 a 6 estão em sequência em `bash scripts/rodar_pipeline.sh` (com o banco no ar).
+Os passos 0 a 7 estão em sequência em `bash scripts/rodar_pipeline.sh` (com o banco no ar).
 
 ### C. Execução dos Testes Automatizados
 ```bash
 python3 -m unittest discover -s tests -p "test_*.py"
 ```
-Os testes de `tests/test_banco.py` são pulados se o banco não estiver acessível.
+Os `test_unit_*` rodam sem banco. Os demais são pulados sem o banco no ar, e os `test_dbt_*` também
+sem o dbt instalado (`pip install -r requirements-dbt.txt`).
 
 ### D. Execução do Dashboard Interativo (Streamlit)
 ```bash
@@ -150,7 +171,7 @@ prioritária?*
 
 1. Abra o painel. A página inicial, **📊 Visão Executiva (DEG)**, começa pela pergunta e pela resposta.
 2. A frase de resposta diz quantos cursos estão em **retenção crítica** (o quartil mais alto do
-   Índice de Retenção Crítica) e quais são os primeiros da fila de intervenção. Na carga de 10/2026,
+   Índice de Retenção Crítica) e quais são os primeiros da fila de intervenção. Na carga de 03/11/2026,
    são 23 cursos, e o primeiro é Física Computacional.
 3. A tabela logo abaixo é a fila: os 15 cursos de maior IRC, com a evasão, o atraso médio na
    formatura e o percentual de formados no prazo ideal, que mostram por que cada curso está ali.
@@ -215,7 +236,7 @@ camadas e três esquemas: `dbt_staging` (views que só renomeiam a silver, sem o
 
 ```bash
 pip install -r requirements-dbt.txt
-bash scripts/dbt.sh build --full-refresh     # modelos e 61 testes de dados, do zero, na ordem do grafo
+bash scripts/dbt.sh build --full-refresh     # modelos, snapshot e 65 testes de dados, na ordem do grafo
 bash scripts/dbt.sh docs generate --static   # documentação e linhagem: transform/target/static_index.html
 ```
 
@@ -227,7 +248,8 @@ avaliada: [ADR 0029](docs/adr/0029-transformacoes-em-dbt.md).
 Os testes cobrem esquema (contrato de tipos), volume, unicidade, integridade referencial,
 distribuição (salto de série entre coortes, desfechos por coorte, curso que some, mediana da evasão)
 e o que o domínio tem de sujo (permanência negativa, saída antes do ingresso).
-`tests/test_dbt_dado_ruim.py` prova que cada um falha ao injetar um dado ruim numa cópia da silver.
+`tests/test_dbt_dado_ruim.py` prova que cada um falha ao injetar um dado ruim numa cópia da silver, e
+`tests/test_dbt_scd2.py` reclassifica um curso e confere que a `dim_curso` abre uma versão sem apagar a anterior.
 As variáveis `esquema_silver` e `prefixo_esquema` do dbt existem só para essa prova; com os padrões, o
 pipeline não muda.
 Limites, origem de cada um e a tabela de injeções: [docs/testes_de_dados.md](docs/testes_de_dados.md).
@@ -439,22 +461,29 @@ a cada `push` na `main`, em cada Pull Request e sob demanda (`workflow_dispatch`
 
 1. **Job `pipeline`** — executa o medalhão do zero numa máquina limpa, com um
    PostgreSQL com pgvector como serviço: migrações → ingestão CKAN e INEP (bronze) →
-   Silver → Gold → auditoria → privacidade → vetorização de cursos e documentação, cada
-   etapa gravando direto no banco. Roda a suíte de testes como verificação
-   determinística dos contratos da camada Gold e do banco. As camadas Bronze/Silver
+   Silver → Gold → auditoria → privacidade → Silver 3NF e Star Schema → `dbt build` e a
+   documentação do dbt → lago Delta → validação do grafo do Dagster e backfill das janelas
+   do lago → vetorização de cursos e documentação → dicionário, cada etapa gravando direto
+   no banco. Roda a suíte de testes como verificação determinística dos contratos da camada
+   Gold e do banco, confere o SLA de frescor e, fora de pull request, sincroniza o Supabase. As camadas Bronze/Silver
    (que contêm dado pessoal) **nunca** saem do runner; só o export da Gold agregada
    (k ≥ 5, `export/gold.json`) e os relatórios em `docs/` são empacotados.
 2. **Job `deploy`** — publica o dashboard Streamlit completo no **GitHub Pages**
    via [`stlite`](https://github.com/whitphx/stlite) (Python roda no navegador do
-   usuário, sem servidor): **https://observatorio-unb.github.io/observatorio-unb/**
+   usuário, sem servidor): **https://observatorio-unb.github.io/observatorio-unb/**, e a
+   documentação do dbt com a linhagem em `/dbt/`.
+
+Os testes unitários (`test_unit_*`) e o limite de tamanho dos arquivos versionados rodam no
+[`lint.yml`](.github/workflows/lint.yml). O [`frescor.yml`](.github/workflows/frescor.yml) confere o SLA no Supabase todo dia.
 
 A atualização dos dados fica em [`.github/workflows/atualiza-dados.yml`](.github/workflows/atualiza-dados.yml),
 que roda no dia 1 de cada mês (06:00 UTC) e sob demanda: coleta as fontes (portal
-dados.unb.br, INEP e valor da bolsa IC do CNPq), roda `scripts/rodar_pipeline.sh` e os
-testes e, se algo mudou, commita a Gold, os metadados do CKAN
-(`data/bronze/metadata_*.json`), a série do valor da bolsa e os relatórios gerados direto
-na `main` pelo `github-actions[bot]`. Em seguida dispara o `medalhao.yml` para republicar
-o painel.
+dados.unb.br, INEP e valor da bolsa IC do CNPq) e roda o job `pipeline_mensal` do Dagster
+(`dagster job execute -m orquestracao -j pipeline_mensal`) e os testes. Se algo mudou, o `github-actions[bot]` commita direto
+na `main` a série do valor da bolsa (`data/bronze/cnpq_valor_bolsa_ic.json`) e os relatórios gerados
+(`docs/relatorio_qualidade.md`, `docs/registro_privacidade_lgpd.md` e `docs/dicionario_dados_banco.md`).
+A gold não é versionada: em seguida, o workflow dispara o `medalhao.yml`, que refaz o export a partir
+do banco e republica o painel.
 
 **Configuração única necessária:** em *Settings → Pages*, definir *Source* =
 **GitHub Actions**.
@@ -471,11 +500,11 @@ derivadas (Gold) seguem os termos de uso do portal de origem.
 
 ## 📊 3. Principais Resultados e Achados
 
-Recorte: SIGRA + SIGAA, coortes de ingresso 2010-2016 (as com 8 anos ou mais de acompanhamento). Os números abaixo são da Gold de 09/2026; a atualização mensal pode alterá-los.
+Recorte: SIGRA + SIGAA, coortes de ingresso 2010-2016 (as com 8 anos ou mais de acompanhamento). Os números abaixo são da carga de 03/11/2026, a do painel publicado; a atualização mensal pode alterá-los.
 
 1. **Taxa de Formatura no Tempo Ideal**: Apenas **50.36%** dos formados na UnB concluem o curso dentro do prazo regulamentar da matriz curricular.
 2. **Tempo Médio Global de Conclusão**: **11.77 semestres** (~5.9 anos).
-3. **Cursos com Maior Retenção Crítica (IRC)**: *Física Computacional*, *Computação*, *Ciência da Computação* e *Línguas Estrangeiras Aplicadas - MSI* combinam atrasos médios de 2,8 a 4,3 semestres e taxas de evasão acima de 59%.
+3. **Cursos com Maior Retenção Crítica (IRC)**: 23 cursos estão em retenção crítica, o quartil mais alto do IRC. Os primeiros da fila são *Física Computacional*, *Computação*, *Ciência da Computação* e *Línguas Estrangeiras Aplicadas - MSI* combinam atrasos médios de 2,8 a 4,3 semestres e taxas de evasão acima de 59%.
 4. **Cursos com Maior Pontualidade**: *Medicina* (83.72% no tempo ideal), *Direito* (82.75%) e *Língua de Sinais Brasileira - Português como Segunda Língua* (81.82%).
 5. **Cursos Noturnos**: Apresentam evasão média maior (**50.90%** vs. **40.85%** no diurno; cursos com oferta diurna e noturna sob o mesmo nome ficam fora da comparação).
 6. **Taxa de Casamento dos Joins**: **100%** dos 152.680 vínculos de graduação integrados com estruturas curriculares.

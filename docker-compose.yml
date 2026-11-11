@@ -29,9 +29,10 @@ services:
       timeout: 3s
       retries: 20
 
-  # Roda o medalhão do zero (API CKAN e INEP -> bronze -> silver -> gold ->
-  # vetorização) e termina. Cada camada vai direto para o banco: nenhum dado,
-  # inclusive o pessoal da bronze e da silver, é gravado na pasta do host.
+  # Roda o medalhão do zero (scripts/rodar_pipeline.sh: API CKAN, INEP e CNPq -> bronze ->
+  # silver -> gold -> Silver 3NF e Star Schema -> camadas dbt -> lago Delta -> vetorização ->
+  # dicionário) e termina. Cada camada vai direto para o banco, e o lago fica dentro do
+  # container: nenhum dado, inclusive o pessoal da bronze e da silver, é gravado na pasta do host.
   pipeline:
     build: .
     command: ["bash", "scripts/rodar_pipeline.sh"]
