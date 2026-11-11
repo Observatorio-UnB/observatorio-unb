@@ -8,6 +8,7 @@ Uso:
     python3 -m unittest tests/test_painel_e1.py
 """
 
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -53,6 +54,24 @@ class TestPainelE1(unittest.TestCase):
         self.assertIn("dbt_marts.painel_cursos_criticos", legenda)
         self.assertIn(f"{self.total} cursos", legenda)
         self.assertIn("SLA de frescor", legenda)
+
+    def test_04_le_o_banco_sem_a_raiz_no_sys_path(self):
+        """Como no `streamlit run`, que só põe a pasta do app no sys.path.
+
+        Este processo já tem a raiz do projeto no caminho, e o AppTest acima herda isso. Aqui o app
+        roda num interpretador isolado (-I: sem a pasta atual nem o PYTHONPATH), e precisa achar o
+        pacote src sozinho para ler o banco.
+        """
+        codigo = (
+            "import sys\n"
+            "from streamlit.testing.v1 import AppTest\n"
+            "app = AppTest.from_file(sys.argv[1], default_timeout=120).run()\n"
+            "print(any(m.value.startswith('**Resposta:**') for m in app.markdown), [e.value for e in app.error])\n"
+        )
+        app = str(BASE_DIR / "src" / "dashboard" / "app.py")
+        saida = subprocess.run([sys.executable, "-I", "-c", codigo, app], cwd=BASE_DIR,
+                               capture_output=True, text=True, timeout=300)
+        self.assertTrue(saida.stdout.startswith("True"), saida.stdout + saida.stderr[-1500:])
 
 
 if __name__ == "__main__":
