@@ -102,6 +102,9 @@ st.markdown(
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+# O `streamlit run` só põe no sys.path a pasta do app. Sem a raiz, o `from src...` da leitura do
+# banco falha em silêncio, e o painel cai no export estático ou em "Sem dados da gold".
+sys.path.insert(0, str(BASE_DIR))
 DOCS_DIR = BASE_DIR / "docs"
 # Export estático da gold, gerado pelo CI a partir do banco (src/db/exportar_gold.py). É o
 # que a versão do GitHub Pages lê: o stlite roda no navegador, sem acesso ao PostgreSQL.

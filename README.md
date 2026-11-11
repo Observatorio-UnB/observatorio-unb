@@ -29,6 +29,7 @@ observatorio-unb/
 │   ├── orquestracao.md              # Grafo do Dagster, retry, agenda e backfill
 │   ├── orquestracao/evidencias/     # Logs do retry com o banco derrubado, da falha e do backfill
 │   ├── frescor_sla.md               # Métrica de frescor e SLA da view do painel
+│   ├── verificacao_e3.md            # Verificação da E3 do zero, num banco vazio, item por item
 │   ├── diario/                      # Diário de bordo
 │   └── adr/                         # Decisões de arquitetura (ADRs 0001 a 0030), uma por arquivo
 ├── db/
@@ -90,6 +91,8 @@ observatorio-unb/
 | Freshness e SLA de uma tabela de consumo | [Frescor e SLA do painel](#frescor-e-sla-do-painel), [docs/frescor_sla.md](docs/frescor_sla.md) |
 | ADR de modelagem analítica e ferramentas | [ADR 0030](docs/adr/0030-modelagem-analitica-e-ferramentas.md): estrela contra Data Vault e OBT, quatro grãos medidos, dbt e Dagster contra a opção nula |
 | Painel que responde à pergunta da E1 | Visão Executiva do painel, a partir de `dbt_marts.painel_cursos_criticos` (roteiro na seção D abaixo) |
+
+Cada item foi rodado de novo num banco vazio no dia da entrega, pelo mesmo job do agendamento mensal: [docs/verificacao_e3.md](docs/verificacao_e3.md), com o resultado de cada um e os dois problemas encontrados e corrigidos.
 
 ---
 

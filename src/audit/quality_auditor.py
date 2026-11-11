@@ -198,6 +198,19 @@ def _mes_ano(data_iso: str) -> str:
     return f"{data_iso[5:7]}/{data_iso[:4]}" if len(data_iso) >= 7 else data_iso
 
 
+def ativos_de_graduacao_por_coorte(linhas) -> Counter:
+    """Ativos da lista do SIGAA por ano de ingresso, sem mestrado, doutorado e grau em branco.
+
+    `linhas` são pares (ano_ingresso, grau). O grau é conferido como texto, e não pela verdade do
+    valor: com o pandas 3, a coluna de texto lida do banco guarda o nulo como NaN, que é verdadeiro,
+    e os vínculos sem grau entravam na conta (5.772 em vez de 5.698 na coorte de 2022).
+    """
+    return Counter(
+        str(ano).strip() for ano, grau in linhas
+        if isinstance(grau, str) and grau.strip() not in ("", "Mestrado", "Doutorado")
+    )
+
+
 def achados_sigaa_e_catalogo() -> List[Dict]:
     """Achados 10 a 12, calculados sobre as versões baixadas."""
     findings = []
@@ -247,10 +260,7 @@ def achados_sigaa_e_catalogo() -> List[Dict]:
                 cancelados[ano] += 1
 
         df_ativos = consultar("SELECT ano_ingresso, grau FROM bronze.sigaa_ativos")
-        ativos_lista = Counter(
-            str(row["ano_ingresso"]).strip() for _, row in df_ativos.iterrows()
-            if row["grau"] and str(row["grau"]).strip() not in ("Mestrado", "Doutorado")
-        )
+        ativos_lista = ativos_de_graduacao_por_coorte(df_ativos.itertuples(index=False))
 
         referencia = _publicado_em("sigaa_ativos")
         ano_extrato = int(publicado[:4]) if len(publicado) >= 4 else 2024
