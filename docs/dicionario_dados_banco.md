@@ -233,7 +233,7 @@ SIGRA (sigra.csv, pacote dados-referente-aos-alunos-de-graduacao-pos-graduacao-l
 
 Uma linha por carga de silver.movimentacoes_vinculos, com a marca d'água usada para classificar o que chegou.
 
-**Linhas na última carga:** 1
+**Linhas na última carga:** 2
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -254,7 +254,7 @@ Uma linha por carga de silver.movimentacoes_vinculos, com a marca d'água usada 
 
 Vínculos de cada carga por ano de ingresso, desfecho e período de saída. Só contagens: nenhuma linha identifica um discente.
 
-**Linhas na última carga:** 549
+**Linhas na última carga:** 1.098
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -1006,7 +1006,7 @@ Iniciação científica por curso e campus: volume, bolsas e perfil social dos b
 
 Regras de equivalência entre o nome do curso no SIGRA e o nome da matriz curricular (entity resolution). Uma linha por nome de origem.
 
-**Linhas na última carga:** 72
+**Linhas na última carga:** 71
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -1037,6 +1037,44 @@ Relatórios JSON do pipeline: métricas gerais da UnB, métricas do PIBIC e audi
 **Restrições:**
 
 - Chave primária: `PRIMARY KEY (nome)`
+
+### `gold.retencao_cursos_coorte`
+
+Retenção, formatura e evasão por curso canônico e ano de ingresso, todas as coortes. Mesmas definições de gold.retencao_cursos_unb. Só entram coortes com 5 ou mais discentes (k-anonimato).
+
+**Linhas na última carga:** 1.311
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `curso` | `text` | não |  |
+| `ano_ingresso` | `integer` | não |  |
+| `coorte_madura` | `boolean` | não | Verdadeiro se a coorte tem o acompanhamento mínimo (anos de maturação) e portanto entra em gold.retencao_cursos_unb. |
+| `semestre_ideal_previsto` | `numeric(4,1)` | não |  |
+| `total_discentes_registrados` | `integer` | não |  |
+| `total_formados` | `integer` | não |  |
+| `total_evadidos_desligados` | `integer` | não |  |
+| `total_ainda_ativos` | `integer` | não |  |
+| `taxa_formatura_pct` | `numeric(5,2)` | não |  |
+| `taxa_evasao_pct` | `numeric(5,2)` | não |  |
+| `formados_tempo_minimo_pct` | `numeric(5,2)` | não | Percentual dos formados com prazo calculável que concluíram no tempo mínimo da matriz. |
+| `formados_tempo_ideal_pct` | `numeric(5,2)` | não |  |
+| `formados_acima_ideal_pct` | `numeric(5,2)` | não |  |
+| `formados_limite_maximo_pct` | `numeric(5,2)` | não |  |
+| `tempo_medio_real_semestres` | `numeric(5,2)` | sim |  |
+| `faixa_minimo_pct` | `numeric(5,2)` | sim | Como em gold.retencao_cursos_unb.faixa_minimo_pct, só para a coorte. |
+| `faixa_ideal_pct` | `numeric(5,2)` | sim | Como em gold.retencao_cursos_unb.faixa_ideal_pct, só para a coorte. |
+| `faixa_acima_pct` | `numeric(5,2)` | sim | Como em gold.retencao_cursos_unb.faixa_acima_pct, só para a coorte. |
+| `faixa_limite_pct` | `numeric(5,2)` | sim | Como em gold.retencao_cursos_unb.faixa_limite_pct, só para a coorte. |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (curso, ano_ingresso)`
+- Verificação: `CHECK (((taxa_evasao_pct >= (0)::numeric) AND (taxa_evasao_pct <= (100)::numeric)))`
+- Verificação: `CHECK (((taxa_formatura_pct >= (0)::numeric) AND (taxa_formatura_pct <= (100)::numeric)))`
+- Verificação: `CHECK ((total_ainda_ativos >= 0))`
+- Verificação: `CHECK ((total_discentes_registrados >= 5))`
+- Verificação: `CHECK ((total_evadidos_desligados >= 0))`
+- Verificação: `CHECK ((total_formados >= 0))`
 
 ### `gold.retencao_cursos_unb`
 
@@ -1079,6 +1117,10 @@ Retenção, formatura e evasão por curso, sobre as coortes de ingresso com pelo
 | `pibic_projetos_por_100_alunos` | `numeric(7,2)` | sim | pibic_total_projetos / total_discentes_registrados x 100. |
 | `total_ainda_ativos` | `integer` | não | Vínculos das coortes analisadas ainda ativos ou trancados no extrato do SIGAA. |
 | `_ordem` | `integer` | sim | Ordem de gravação: do maior para o menor índice de retenção crítica. |
+| `faixa_minimo_pct` | `numeric(5,2)` | sim | % dos formados com permanência calculável que concluíram em até o semestre mínimo da matriz. Faixas exclusivas: as quatro faixa_*_pct somam 100. |
+| `faixa_ideal_pct` | `numeric(5,2)` | sim | % dos formados entre o semestre mínimo (exclusive) e o ideal (inclusive). |
+| `faixa_acima_pct` | `numeric(5,2)` | sim | % dos formados acima do ideal e abaixo do semestre máximo. |
+| `faixa_limite_pct` | `numeric(5,2)` | sim | % dos formados no semestre máximo da matriz (limite de jubilamento) ou depois. |
 
 **Restrições:**
 

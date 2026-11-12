@@ -288,9 +288,9 @@ CANONICAL_RULES_METADATA = [
     },
     {
         "origem_sigra": "INTERPRETACAO TEATRAL",
-        "destino_estrutura": "ARTES CENICAS",
+        "destino_estrutura": "ARTES CENICAS - INTERPRETACAO TEATRAL",
         "categoria": "Artes",
-        "justificativa": "Habilitação de Interpretação Teatral vinculada à matriz de Artes Cênicas.",
+        "justificativa": "Bacharelado em Interpretação Teatral (código 5371 no SIGRA), curso distinto das licenciaturas em Artes Cênicas.",
     },
     {
         "origem_sigra": "LICENCIATURA EM ARTES VISUAIS",
@@ -327,12 +327,6 @@ CANONICAL_RULES_METADATA = [
         "destino_estrutura": "QUIMICA",
         "categoria": "Licenciatura",
         "justificativa": "Licenciatura vinculada à matriz correspondente de Química.",
-    },
-    {
-        "origem_sigra": "LICENCIATURA EM TEATRO",
-        "destino_estrutura": "ARTES CENICAS",
-        "categoria": "Licenciatura",
-        "justificativa": "Licenciatura em Teatro vinculada à matriz de Artes Cênicas.",
     },
     {
         "origem_sigra": "LICENCIATURA EM MUSICA",
@@ -517,7 +511,7 @@ def build_gold() -> None:
                 (ANOS_MATURACAO_COORTE, sorted(EXCLUDED_GENERIC_COURSES),
                  MIN_MATRICULAS_BENCHMARK, valor_bolsa_ic_vigente()),
             )
-        for tabela in ("regras_harmonizacao_canonicas", "retencao_cursos_unb", "ativos_hoje_cursos_unb",
+        for tabela in ("regras_harmonizacao_canonicas", "retencao_cursos_unb", "retencao_cursos_coorte", "ativos_hoje_cursos_unb",
                        "inep_benchmark_cursos_unb", "pibic_social_unb"):
             conn.execute(f"ANALYZE gold.{tabela}")
         retencao = conn.execute("SELECT count(*) FROM gold.retencao_cursos_unb").fetchone()[0]
