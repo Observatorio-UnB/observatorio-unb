@@ -35,6 +35,7 @@ logger = logging.getLogger("exportar_gold")
 SAIDA = BASE_DIR / "export" / "gold.json"
 TABELAS = (
     "gold.retencao_cursos_unb",
+    "gold.retencao_cursos_coorte",
     "gold.ativos_hoje_cursos_unb",
     "gold.pibic_social_unb",
     "gold.regras_harmonizacao_canonicas",

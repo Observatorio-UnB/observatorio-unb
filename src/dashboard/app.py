@@ -135,9 +135,20 @@ def _ler_dados_da_gold():
 
 
 @st.cache_data
-def _snapshot(versao: str):
+def _snapshot_em_cache(versao: str):
     """Um snapshot da gold por versão, compartilhado pelas leituras abaixo."""
-    return _ler_dados_da_gold()
+    dados = _ler_dados_da_gold()
+    if dados is None:
+        # Exceção não entra no cache: um "sem dados" transitório (banco ainda carregando) não fica preso.
+        raise LookupError("gold indisponível")
+    return dados
+
+
+def _snapshot(versao: str):
+    try:
+        return _snapshot_em_cache(versao)
+    except LookupError:
+        return None
 
 
 @st.cache_data
@@ -146,11 +157,7 @@ def load_gold_data(versao: str):
     # ignora parâmetros com "_" ao montar a chave).
     dados = _snapshot(versao)
     if dados is None:
-        st.error(
-            "Sem dados da gold. Suba o banco (`docker compose up -d db`) e rode o pipeline "
-            "(`bash scripts/rodar_pipeline.sh`)."
-        )
-        return None, None, None, None, None, None, None, None
+        raise LookupError("gold indisponível")  # não entra no cache; o aviso é mostrado fora dele
 
     tabelas, relatorios = dados["tabelas"], dados["relatorios"]
     df = pd.DataFrame(tabelas["retencao_cursos_unb"]) if tabelas.get("retencao_cursos_unb") else None
@@ -173,11 +180,62 @@ def load_gold_data(versao: str):
     return df, meta, join_meta, df_pibic, pibic_meta, regras_meta, df_inep, df_ativos
 
 
-df_gold, global_meta, join_meta, df_pibic, pibic_meta, regras_meta, df_inep, df_ativos = load_gold_data(_versao_dos_dados())
+try:
+    df_gold, global_meta, join_meta, df_pibic, pibic_meta, regras_meta, df_inep, df_ativos = load_gold_data(_versao_dos_dados())
+except LookupError:
+    st.error(
+        "Sem dados da gold. Suba o banco (`docker compose up -d db`) e rode o pipeline "
+        "(`bash scripts/rodar_pipeline.sh`)."
+    )
+    df_gold = global_meta = join_meta = df_pibic = pibic_meta = regras_meta = df_inep = df_ativos = None
 # Resposta à pergunta da E1 (src/dashboard/resposta_e1.py), lida à parte do cache da gold: o mart do
 # dbt e a data da carga entram no snapshot, mas não nas tabelas que o resto do painel usa.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from faixas import FAIXAS, faixas_exclusivas  # noqa: E402
 from resposta_e1 import COLUNAS as COLUNAS_E1, PERGUNTA_E1, SLA_DIAS, frescor, ranking_cursos_criticos  # noqa: E402
+
+
+def _graficos_do_curso(row, chave: str):
+    """Faixas de tempo dos formados e desfecho dos alunos de uma linha (curso inteiro ou uma coorte)."""
+    c_chart1, c_chart2 = st.columns(2)
+    with c_chart1:
+        st.markdown("##### ⏱️ Distribuição de Tempo dos Formados")
+        st.caption(f"% dos {int(row['total_formados']):,} alunos formados, por faixa de tempo (as faixas não se sobrepõem e somam 100%).")
+        df_dist = pd.DataFrame({"Faixa de Conclusão": FAIXAS, "Percentual": faixas_exclusivas(row)})
+        fig_bar = px.bar(
+            df_dist, x="Faixa de Conclusão", y="Percentual", color="Faixa de Conclusão",
+            color_discrete_sequence=["#10B981", "#3B82F6", "#F59E0B", "#DC2626"],
+            text_auto=".1f", height=350,
+        )
+        fig_bar.update_traces(hovertemplate="%{x}<br>%{y:.1f}% dos alunos formados<extra></extra>")
+        st.plotly_chart(fig_bar, width="stretch", key=f"barras_{chave}")
+
+    with c_chart2:
+        st.markdown("##### 🚪 Desfecho das Movimentações Acadêmicas")
+        st.caption("Situação de cada aluno que ingressou (1 fatia = nº de alunos).")
+        n_form = row["total_formados"]
+        n_evad = row["total_evadidos_desligados"]
+        n_ativos = row["total_ainda_ativos"]
+        n_outros = max(0, row["total_discentes_registrados"] - n_form - n_evad - n_ativos)
+        df_pie = pd.DataFrame({
+            "Desfecho": ["Formatura", "Evasão / Desligamento", "Ainda ativo", "Outros"],
+            "Quantidade": [n_form, n_evad, n_ativos, n_outros],
+        })
+        fig_pie = px.pie(
+            df_pie, names="Desfecho", values="Quantidade", color="Desfecho",
+            color_discrete_map={
+                "Formatura": "#10B981", "Evasão / Desligamento": "#DC2626",
+                "Ainda ativo": "#3B82F6", "Outros": "#6B7280",
+            },
+            height=350,
+        )
+        fig_pie.update_traces(hovertemplate="%{label}<br>%{value:,} alunos (%{percent})<extra></extra>")
+        st.plotly_chart(fig_pie, width="stretch", key=f"pizza_{chave}")
+
+
+@st.cache_data
+def load_coortes(versao: str):
+    return (_snapshot(versao) or {}).get("tabelas", {}).get("retencao_cursos_coorte") or []
 
 
 @st.cache_data
@@ -383,40 +441,40 @@ if df_gold is not None:
         ), line_dash="dash", line_color="#9CA3AF")
         st.plotly_chart(fig_scatter, width="stretch")
 
-        # Ranking dos Cursos
-        col_left, col_right = st.columns(2)
-        with col_left:
-            st.subheader("🚨 Top 25 Cursos com Maior Retenção Crítica (IRC)")
-            top_retencao = df_gold.head(25)[
-                ["curso", "tempo_medio_real_semestres", "desvio_medio_semestres",
-                    "taxa_evasao_pct", "indice_retencao_critica"]
-            ].rename(
-                columns={
-                    "curso": "Curso",
-                    "tempo_medio_real_semestres": "Tempo Real (sem.)",
-                    "desvio_medio_semestres": "Atraso (sem.)",
-                    "taxa_evasao_pct": "Evasão (%)",
-                    "indice_retencao_critica": "Score IRC",
-                }
-            )
-            st.dataframe(top_retencao, width="stretch",
-                         hide_index=True)
-
-        with col_right:
-            st.subheader("⭐ Top 25 Cursos com Maior Formatura no Prazo Ideal")
-            top_pontuais = df_gold.sort_values(by="formados_tempo_ideal_pct", ascending=False).head(25)[
-                ["curso", "semestre_ideal_previsto",
-                    "formados_tempo_ideal_pct", "taxa_formatura_pct"]
-            ].rename(
-                columns={
-                    "curso": "Curso",
-                    "semestre_ideal_previsto": "Tempo Ideal (sem.)",
-                    "formados_tempo_ideal_pct": "% No Prazo Ideal",
-                    "taxa_formatura_pct": "Taxa Formatura (%)",
-                }
-            )
-            st.dataframe(top_pontuais, width="stretch",
-                         hide_index=True)
+        # Rankings: à esquerda os 25 piores, à direita os 25 melhores, na mesma ordem de tema.
+        # Colunas: (coluna do df, nome na tabela). A primeira é a que ordena.
+        RANKINGS = [
+            (("🚨 Top 25 Maiores Atrasos na Formatura", "desvio_medio_semestres", False,
+              [("desvio_medio_semestres", "Atraso (sem.)"), ("tempo_medio_real_semestres", "Tempo Real (sem.)"),
+               ("semestre_ideal_previsto", "Tempo Ideal (sem.)")]),
+             ("⭐ Top 25 Menores Atrasos na Formatura", "desvio_medio_semestres", True,
+              [("desvio_medio_semestres", "Atraso (sem.)"), ("tempo_medio_real_semestres", "Tempo Real (sem.)"),
+               ("semestre_ideal_previsto", "Tempo Ideal (sem.)")])),
+            (("🚨 Top 25 Maiores Evasões", "taxa_evasao_pct", False,
+              [("taxa_evasao_pct", "Evasão (%)"), ("taxa_formatura_pct", "Formatura (%)"),
+               ("total_discentes_registrados", "Alunos")]),
+             ("⭐ Top 25 Menores Evasões", "taxa_evasao_pct", True,
+              [("taxa_evasao_pct", "Evasão (%)"), ("taxa_formatura_pct", "Formatura (%)"),
+               ("total_discentes_registrados", "Alunos")])),
+            (("🚨 Top 25 Maiores Retenções Críticas (IRC)", "indice_retencao_critica", False,
+              [("indice_retencao_critica", "Score IRC"), ("desvio_medio_semestres", "Atraso (sem.)"),
+               ("taxa_evasao_pct", "Evasão (%)")]),
+             ("⭐ Top 25 Maior Formatura no Prazo Ideal", "formados_tempo_ideal_pct", False,
+              [("formados_tempo_ideal_pct", "% No Prazo Ideal"), ("taxa_formatura_pct", "Formatura (%)"),
+               ("semestre_ideal_previsto", "Tempo Ideal (sem.)")])),
+        ]
+        st.caption("Rankings sobre as coortes com 8+ anos de acompanhamento. À esquerda, os 25 cursos mais "
+                   "problemáticos; à direita, os 25 com melhor desempenho.")
+        for linha in RANKINGS:
+            col_ruim, col_bom = st.columns(2)
+            for coluna, (titulo, ordena_por, crescente, colunas) in zip((col_ruim, col_bom), linha):
+                with coluna:
+                    st.subheader(titulo)
+                    ranking = (df_gold.dropna(subset=[ordena_por])
+                               .sort_values(ordena_por, ascending=crescente, kind="stable").head(25))
+                    tabela = ranking[["curso"] + [c for c, _ in colunas]].rename(
+                        columns={"curso": "Curso", **dict(colunas)})
+                    st.dataframe(tabela, width="stretch", hide_index=True)
 
     elif tab_choice == "🔍 Detalhe por Curso":
         st.subheader("🔍 Raio-X Acadêmico por Curso")
@@ -433,12 +491,22 @@ if df_gold is not None:
         )
 
         row_course = df_gold[df_gold["curso"] == selected_course].iloc[0]
+        coortes = (global_meta or {}).get("coortes_ingresso_analisadas", "n/d")
+        st.markdown(
+            f"**{int(row_course['total_discentes_registrados']):,} alunos** ingressaram em "
+            f"**{selected_course}** nas coortes de **{coortes}** (ano de ingresso): "
+            f"{int(row_course['total_formados']):,} se formaram, "
+            f"{int(row_course['total_evadidos_desligados']):,} evadiram ou foram desligados e "
+            f"{int(row_course['total_ainda_ativos']):,} ainda estão ativos. "
+            "Só entram coortes com 8+ anos de acompanhamento."
+        )
 
         # Metadados do curso
         m1, m2, m3, m4 = st.columns(4)
         with m1:
             st.metric("Tempo Médio Real",
-                      f"{row_course['tempo_medio_real_semestres']:.1f} sem.")
+                      f"{row_course['tempo_medio_real_semestres']:.1f} sem.",
+                      help="Média de semestres do ingresso à formatura, só entre quem se formou.")
         with m2:
             st.metric("Tempo Ideal da Matriz",
                       f"{row_course['semestre_ideal_previsto']:.0f} sem.")
@@ -447,60 +515,62 @@ if df_gold is not None:
                       f"{row_course['desvio_medio_semestres']:+.1f} sem.")
         with m4:
             st.metric("Taxa de Formatura",
-                      f"{row_course['taxa_formatura_pct']:.1f}%")
+                      f"{row_course['taxa_formatura_pct']:.1f}%",
+                      help="Alunos formados ÷ alunos que ingressaram nas coortes analisadas.")
 
         st.markdown("---")
 
-        c_chart1, c_chart2 = st.columns(2)
-        with c_chart1:
-            st.markdown("##### ⏱️ Distribuição de Tempo dos Formados")
-            df_dist = pd.DataFrame({
-                "Faixa de Conclusão": ["Tempo Mínimo", "Tempo Ideal", "Acima do Ideal", "Limite Jubilamento"],
-                "Percentual": [
-                    row_course["formados_tempo_minimo_pct"],
-                    row_course["formados_tempo_ideal_pct"],
-                    row_course["formados_acima_ideal_pct"],
-                    row_course["formados_limite_maximo_pct"],
-                ],
-            })
-            fig_bar = px.bar(
-                df_dist,
-                x="Faixa de Conclusão",
-                y="Percentual",
-                color="Faixa de Conclusão",
-                color_discrete_sequence=["#10B981",
-                                         "#3B82F6", "#F59E0B", "#DC2626"],
-                text_auto=".1f",
-                height=350,
-            )
-            st.plotly_chart(fig_bar, width="stretch")
+        _graficos_do_curso(row_course, "curso")
 
-        with c_chart2:
-            st.markdown("##### 🚪 Desfecho das Movimentações Acadêmicas")
-            n_form = row_course["total_formados"]
-            n_evad = row_course["total_evadidos_desligados"]
-            n_ativos = row_course["total_ainda_ativos"]
-            n_outros = max(
-                0, row_course["total_discentes_registrados"] - n_form - n_evad - n_ativos)
-
-            df_pie = pd.DataFrame({
-                "Desfecho": ["Formatura", "Evasão / Desligamento", "Ainda ativo", "Outros"],
-                "Quantidade": [n_form, n_evad, n_ativos, n_outros],
-            })
-            fig_pie = px.pie(
-                df_pie,
-                names="Desfecho",
-                values="Quantidade",
-                color="Desfecho",
-                color_discrete_map={
-                    "Formatura": "#10B981",
-                    "Evasão / Desligamento": "#DC2626",
-                    "Ainda ativo": "#3B82F6",
-                    "Outros": "#6B7280",
-                },
-                height=350,
+        st.markdown("---")
+        st.subheader("🎓 Por coorte de ingresso")
+        todas_coortes = pd.DataFrame(load_coortes(_versao_dos_dados()))
+        df_coortes = todas_coortes[todas_coortes["curso"] == selected_course] if not todas_coortes.empty else todas_coortes
+        if todas_coortes.empty:
+            st.warning(
+                "Os dados por coorte não vieram na carga que o painel está lendo (tabela "
+                "`gold.retencao_cursos_coorte` vazia ou ausente). Rode as migrações e o pipeline, ou "
+                "gere o export novo (`python3 src/db/exportar_gold.py`)."
             )
-            st.plotly_chart(fig_pie, width="stretch")
+        elif df_coortes.empty:
+            st.info(f"Sem coortes com 5 ou mais alunos em {selected_course}.")
+        else:
+            df_coortes = df_coortes.sort_values("ano_ingresso")
+            anos = [int(a) for a in df_coortes["ano_ingresso"]]
+            ano_sel = st.selectbox("Turma (ano de ingresso):", anos, index=len(anos) - 1, key="coorte_sel")
+            row_coorte = df_coortes[df_coortes["ano_ingresso"] == ano_sel].iloc[0]
+            if not row_coorte["coorte_madura"]:
+                st.warning(
+                    f"A turma de {ano_sel} ainda não tem 8 anos de acompanhamento: muitos alunos seguem "
+                    "ativos, a evasão é registrada com atraso e o tempo de formatura só conta quem já "
+                    "se formou (parece menor do que será). Não entra nos números do topo da página."
+                )
+            st.markdown(
+                f"**{int(row_coorte['total_discentes_registrados']):,} alunos** ingressaram em {ano_sel}: "
+                f"{int(row_coorte['total_formados']):,} formados "
+                f"({row_coorte['taxa_formatura_pct']:.1f}%), "
+                f"{int(row_coorte['total_evadidos_desligados']):,} evadidos ou desligados "
+                f"({row_coorte['taxa_evasao_pct']:.1f}%) e "
+                f"{int(row_coorte['total_ainda_ativos']):,} ainda ativos."
+            )
+            _graficos_do_curso(row_coorte, f"coorte{ano_sel}")
+
+            st.markdown("##### 📈 Todas as turmas")
+            st.caption("Turmas recentes (sem 8 anos de acompanhamento) têm formatura baixa e evasão "
+                       "subestimada só porque o tempo ainda não passou. Marcadas com ⚠️.")
+            df_evol = df_coortes.assign(
+                turma=[f"{int(a)}" + ("" if m else " ⚠️") for a, m in
+                       zip(df_coortes["ano_ingresso"], df_coortes["coorte_madura"])]
+            ).melt(id_vars="turma", value_vars=["taxa_formatura_pct", "taxa_evasao_pct"],
+                   var_name="Indicador", value_name="Percentual")
+            df_evol["Indicador"] = df_evol["Indicador"].map(
+                {"taxa_formatura_pct": "Formatura", "taxa_evasao_pct": "Evasão / Desligamento"})
+            fig_evol = px.line(df_evol, x="turma", y="Percentual", color="Indicador", markers=True,
+                               color_discrete_map={"Formatura": "#10B981", "Evasão / Desligamento": "#DC2626"},
+                               height=320)
+            fig_evol.update_traces(hovertemplate="Turma %{x}<br>%{y:.1f}% dos alunos<extra></extra>")
+            fig_evol.update_xaxes(type="category", title="Ano de ingresso")
+            st.plotly_chart(fig_evol, width="stretch", key="coorte_evolucao")
 
     elif tab_choice == "🎒 Alunos Ativos":
         ref = global_meta.get("ativos_hoje_referencia", "")

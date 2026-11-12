@@ -75,6 +75,7 @@ MEDIDAS_PIBIC = ["total_projetos", "total_remuneradas", "total_voluntarias", "va
 # Ordem importa: dimensões antes dos fatos.
 SINCRONIAS = [
     Sincronia("gold.retencao_cursos_unb", ["curso"]),
+    Sincronia("gold.retencao_cursos_coorte", ["curso", "ano_ingresso"]),
     Sincronia("gold.ativos_hoje_cursos_unb", ["curso"]),
     Sincronia("gold.pibic_social_unb", ["curso_pibic_norm", "campus"]),
     Sincronia("gold.regras_harmonizacao_canonicas", ["origem_sigra"]),
