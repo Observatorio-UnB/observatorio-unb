@@ -40,6 +40,9 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-observatorio}:${POSTGRES_PASSWORD:-observatorio}@db:5432/${POSTGRES_DB:-observatorio}
       SUPABASE_DATABASE_URL: ${SUPABASE_DATABASE_URL:-}
       FASTEMBED_CACHE_PATH: /cache/fastembed
+      CHAT_DATABASE_URL: postgresql://observatorio_chat:observatorio_chat@db:5432/${POSTGRES_DB:-observatorio}
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b-instruct}
     volumes:
       - modelos:/cache
     depends_on:
@@ -59,6 +62,15 @@ services:
     depends_on:
       pipeline:
         condition: service_completed_successfully
+
+  # LLM local do chat (profile chat). Baixe o modelo uma vez: docker compose --profile chat exec ollama ollama pull qwen2.5:7b-instruct
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["chat"]
+    ports:
+      - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama:/root/.ollama
 
   # Captura de mudanças (profile cdc): Kafka em modo KRaft, sem ZooKeeper, e Kafka Connect com o
   # conector do Debezium. Os tópicos não têm volume: recriar o container do Kafka apaga o histórico,
@@ -110,3 +122,4 @@ services:
 volumes:
   pgdata:
   modelos:
+  ollama:
