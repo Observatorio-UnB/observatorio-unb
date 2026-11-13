@@ -31,6 +31,12 @@ ADVISORY_LOCK_ID = 70402026
 
 
 def _checksum(path: Path) -> str:
+    # Em LF: no Windows o git (autocrlf) entrega o arquivo com CRLF, e o mesmo SQL não pode mudar de checksum.
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def _checksum_bruto(path: Path) -> str:
+    # Bancos migrados no Windows antes disso registraram o hash dos bytes como estavam (CRLF).
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -57,7 +63,7 @@ def aplicar_migracoes(url: Optional[str] = None) -> List[str]:
         for arquivo in sorted(MIGRATIONS_DIR.glob("*.sql")):
             checksum = _checksum(arquivo)
             if arquivo.name in ja_aplicadas:
-                if ja_aplicadas[arquivo.name] != checksum:
+                if ja_aplicadas[arquivo.name] not in (checksum, _checksum_bruto(arquivo)):
                     raise RuntimeError(
                         f"A migração {arquivo.name} foi alterada depois de aplicada. "
                         "Reverta a edição e crie uma migração nova em db/migrations/."
