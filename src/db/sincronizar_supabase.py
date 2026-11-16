@@ -15,10 +15,11 @@ viajam com os atributos naturais (nome e início da vigência da versão do curs
 social) e são religados às dimensões do Supabase na chegada.
 
 O destino vem de SUPABASE_DATABASE_URL (ambiente ou .env). Sem ela, a etapa é pulada.
-As migrações pendentes são aplicadas no destino antes da cópia.
+As migrações pendentes são aplicadas no destino antes da cópia. Com --verificar, roda depois a
+auditoria de src/db/reconciliar_supabase.py e sai com erro se ela não aprovar.
 
 Uso:
-    python3 src/db/sincronizar_supabase.py [--somente-inserir]
+    python3 src/db/sincronizar_supabase.py [--somente-inserir] [--verificar]
 """
 
 import argparse
@@ -203,7 +204,9 @@ def montar_insercao(s: Sincronia, colunas: List[str], inserir: str, somente_inse
 def sincronizar(url_destino: str, somente_inserir: bool = False) -> Dict[str, Tuple[int, int]]:
     aplicar_migracoes(url_destino)
     resumo = {}
-    with conectar() as origem, conectar(url_destino, autocommit=True) as destino:
+    # Sem prepared statement no destino: o pooler transacional do Supabase não os mantém entre
+    # transações (ver reconciliar_supabase.py).
+    with conectar() as origem, conectar(url_destino, autocommit=True, prepare_threshold=None) as destino:
         with destino.transaction():
             for s in SINCRONIAS:
                 resumo[s.tabela] = sincronizar_tabela(origem, destino, s, somente_inserir)
@@ -217,6 +220,8 @@ def main(argv: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--somente-inserir", action="store_true",
                         help="Não atualiza linhas que já existem no Supabase, mesmo que tenham mudado.")
+    parser.add_argument("--verificar", action="store_true",
+                        help="Executa auditoria e reconciliação com o Supabase após a sincronização.")
     args = parser.parse_args(argv)
 
     url_destino = ler_variavel("SUPABASE_DATABASE_URL")
@@ -228,6 +233,11 @@ def main(argv: Optional[List[str]] = None):
         raise SystemExit("DATABASE_URL e SUPABASE_DATABASE_URL apontam para o mesmo banco. "
                          "DATABASE_URL deve ser o banco local do pipeline.")
     sincronizar(url_destino, args.somente_inserir)
+    if args.verificar:
+        # Importado aqui: reconciliar_supabase importa SINCRONIAS deste módulo.
+        from src.db.reconciliar_supabase import verificar
+        if not verificar(url_destino, database_url(), markdown=True):
+            raise SystemExit("Auditoria do Supabase reprovada (docs/disponibilizacao_online_supabase.md).")
 
 
 if __name__ == "__main__":

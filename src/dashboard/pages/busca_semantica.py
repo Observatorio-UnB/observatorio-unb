@@ -52,9 +52,9 @@ def _carregar_modelo():
 
 
 def _documentos_vetorizados() -> int:
-    from src.db.conexao import conectar
+    from src.db.conexao import conexao_do_pool
 
-    with conectar() as conn:
+    with conexao_do_pool() as conn:
         return conn.execute("SELECT count(*) FROM busca.documentos").fetchone()[0]
 
 
@@ -71,6 +71,7 @@ if consulta.strip():
         st.stop()
 
     import psycopg
+    from psycopg_pool import PoolTimeout
 
     from src.busca.buscar import buscar
 
@@ -85,7 +86,7 @@ if consulta.strip():
             f"`python3 src/db/migrar.py && python3 src/busca/vetorizar.py`.\n\nDetalhe: `{erro}`"
         )
         st.stop()
-    except psycopg.OperationalError as erro:
+    except (psycopg.OperationalError, PoolTimeout) as erro:
         st.error(
             "Não foi possível consultar o banco. Suba com `docker compose up -d db` e rode "
             f"`scripts/rodar_pipeline.sh`.\n\nDetalhe: `{erro}`"

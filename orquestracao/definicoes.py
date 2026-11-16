@@ -241,9 +241,10 @@ def dicionario(context: AssetExecutionContext) -> None:
 
 
 @asset(group_name="publicacao", deps=[view_painel, vetorizacao, dicionario, lago], retry_policy=RETRY_PORTAL,
-       description="Sincronização incremental da gold com o Supabase. Pulada sem SUPABASE_DATABASE_URL.")
+       description="Sincronização incremental da gold com o Supabase e auditoria do destino (LGPD, "
+                   "acesso e reconciliação). Pulada sem SUPABASE_DATABASE_URL.")
 def supabase(context: AssetExecutionContext) -> None:
-    rodar(context, "src/db/sincronizar_supabase.py")
+    rodar(context, "src/db/sincronizar_supabase.py", "--verificar")
 
 
 # --- Jobs, agenda e definições ---------------------------------------------------------------
