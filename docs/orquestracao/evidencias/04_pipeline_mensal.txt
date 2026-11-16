@@ -29,8 +29,8 @@
 2026-11-02 19:35:08 -0300 - star_schema - STEP_SUCCESS - Finished execution of step "star_schema" in 3.62s.
 2026-11-02 19:35:08 -0300 - camadas_dbt - STEP_START - Started execution of step "camadas_dbt".
 2026-11-02 19:35:13 -0300 - camadas_dbt - STEP_SUCCESS - Finished execution of step "camadas_dbt" in 5.68s.
-2026-11-02 19:35:13 -0300 - lago - STEP_START - Started execution of step "lago".
-2026-11-02 19:35:14 -0300 - lago - STEP_SUCCESS - Finished execution of step "lago" in 966ms.
+2026-11-02 19:35:13 -0300 - data lake - STEP_START - Started execution of step "lake".
+2026-11-02 19:35:14 -0300 - data lake - STEP_SUCCESS - Finished execution of step "lake" in 966ms.
 2026-11-02 19:35:14 -0300 - view_painel - STEP_START - Started execution of step "view_painel".
 2026-11-02 19:35:15 -0300 - view_painel - STEP_SUCCESS - Finished execution of step "view_painel" in 400ms.
 2026-11-02 19:35:15 -0300 - dicionario - STEP_START - Started execution of step "dicionario".

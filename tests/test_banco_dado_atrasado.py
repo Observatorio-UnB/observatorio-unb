@@ -5,7 +5,7 @@ Dois grupos:
   - TestChegadasPorCarga: classificação da view silver.chegadas_por_carga sobre retratos montados
     no teste. Só precisa das migrações: tudo numa transação desfeita no fim.
   - TestRegistroDaCarga: a carga da Silver 3NF grava o retrato, a recarga igual não acusa chegada
-    nem muda os ids, e uma formatura atrasada aparece como ATRASADA na coorte já publicada. São
+    nem muda os ids, e uma formatura atrasada aparece como ATRASADA na turma já publicada. São
     pulados se a silver não foi carregada.
 
 Pulados se o banco não estiver no ar.
@@ -28,7 +28,7 @@ from src.db.migrar import aplicar_migracoes  # noqa: E402
 from src.db.povoar_silver_3nf import povoar_silver_3nf, silver_carregada  # noqa: E402
 
 SQL_CHEGADAS = """
-SELECT ano_ingresso, tipo_saida_grupo, periodo_saida, diferenca, chegada, coorte_publicada
+SELECT ano_ingresso, tipo_saida_grupo, periodo_saida, diferenca, chegada, turma_publicada
 FROM silver.chegadas_por_carga
 WHERE id_carga = %s
 ORDER BY ano_ingresso, tipo_saida_grupo, periodo_saida NULLS FIRST
@@ -62,7 +62,7 @@ class TestChegadasPorCarga(unittest.TestCase):
     def carga(self, marca_dagua: int, retrato: list) -> int:
         id_carga = self.conn.execute(
             """
-            INSERT INTO silver.cargas_vinculos (publicada_em, marca_dagua, ultima_coorte_madura, total_vinculos)
+            INSERT INTO silver.cargas_vinculos (publicada_em, marca_dagua, ultima_turma_madura, total_vinculos)
             VALUES ('2024-07-15', %s, 2016, %s) RETURNING id_carga
             """,
             (marca_dagua, sum(total for *_, total in retrato)),
@@ -143,8 +143,8 @@ class TestRegistroDaCarga(unittest.TestCase):
             self.assertEqual(self.um(SQL_IMPRESSAO_DIGITAL), impressao)
             raise Rollback()
 
-    def test_02_formatura_atrasada_revisa_coorte_publicada(self):
-        """Diploma de 2022/2 que só aparece na carga seguinte: ATRASADA na coorte 2012, já na gold."""
+    def test_02_formatura_atrasada_revisa_turma_publicada(self):
+        """Diploma de 2022/2 que só aparece na carga seguinte: ATRASADA na turma 2012, já na gold."""
         with self.conn.transaction():
             id_vinculo = self.conn.execute(
                 """
@@ -154,7 +154,7 @@ class TestRegistroDaCarga(unittest.TestCase):
                 """
             ).fetchone()
             if id_vinculo is None:
-                raise unittest.SkipTest("sem vínculo ativo do SIGAA na coorte 2012")
+                raise unittest.SkipTest("sem vínculo ativo do SIGAA na turma 2012")
             povoar_silver_3nf(self.conn)
             self.conn.execute(
                 """

@@ -1,11 +1,11 @@
 """
 Testes unitários da exportação para o Delta Lake (sem PostgreSQL).
 
-Vínculos sintéticos são gravados num lago temporário: confere que regravar não duplica, que o
+Vínculos sintéticos são gravados num lake temporário: confere que regravar não duplica, que o
 reprocessamento de um quinquênio só toca a partição dele e que cada partição fica num arquivo.
 
 Uso:
-    python3 -m unittest tests/test_unit_lago.py
+    python3 -m unittest tests/test_unit_lake.py
 """
 
 import sys
@@ -20,7 +20,7 @@ from deltalake import DeltaTable
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
-from src.db import exportar_lago as lago  # noqa: E402
+from src.db import exportar_lake as lake  # noqa: E402
 
 COLUNAS = [
     ("id_vinculo", "bigint"),
@@ -36,10 +36,10 @@ def _vinculos(anos, tipo="FORMATURA", ano_saida=None):
 
 
 def _tabela(linhas):
-    return lago.montar_tabela_arrow(COLUNAS, linhas, particionada=True)
+    return lake.montar_tabela_arrow(COLUNAS, linhas, particionada=True)
 
 
-class TestLago(unittest.TestCase):
+class TestLake(unittest.TestCase):
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -50,13 +50,13 @@ class TestLago(unittest.TestCase):
         self._tmp.cleanup()
 
     def _gravar(self, linhas, quinquenios=None):
-        return lago.gravar_no_lago(_tabela(linhas), self.destino, particionada=True, quinquenios=quinquenios)
+        return lake.gravar_no_lake(_tabela(linhas), self.destino, particionada=True, quinquenios=quinquenios)
 
     def _ler(self):
         return DeltaTable(str(self.destino)).to_pyarrow_table().to_pandas()
 
     def test_quinquenio(self):
-        self.assertEqual([lago.quinquenio(a) for a in (2000, 2004, 2005, 2023)], [2000, 2000, 2005, 2020])
+        self.assertEqual([lake.quinquenio(a) for a in (2000, 2004, 2005, 2023)], [2000, 2000, 2005, 2020])
 
     def test_regravar_nao_duplica(self):
         primeira = self._gravar(_vinculos(self.anos))
@@ -71,27 +71,27 @@ class TestLago(unittest.TestCase):
         particoes = Counter(Path(uri).parent.name for uri in delta.file_uris())
         self.assertEqual(
             particoes,
-            Counter({f"{lago.COLUNA_QUINQUENIO}={q}": 1 for q in (2005, 2010, 2015, 2020)}),
+            Counter({f"{lake.COLUNA_QUINQUENIO}={q}": 1 for q in (2005, 2010, 2015, 2020)}),
         )
 
     def test_reprocessar_quinquenio_so_toca_a_particao(self):
         antes = self._gravar(_vinculos(self.anos))
         outras = {uri for uri in antes.file_uris() if "=2020" not in uri}
         # A janela 2020 volta do banco com os vínculos evadidos e um a menos.
-        janela = [ano for ano in self.anos if lago.quinquenio(ano) == 2020][:-1]
+        janela = [ano for ano in self.anos if lake.quinquenio(ano) == 2020][:-1]
         depois = self._gravar(_vinculos(janela, tipo="EVASAO", ano_saida=2024), quinquenios=[2020])
 
         df = self._ler()
-        reprocessado = df[df[lago.COLUNA_QUINQUENIO] == 2020]
+        reprocessado = df[df[lake.COLUNA_QUINQUENIO] == 2020]
         self.assertEqual(len(reprocessado), len(janela))
         self.assertEqual(set(reprocessado["tipo_saida_grupo"]), {"EVASAO"})
-        self.assertEqual(set(df.loc[df[lago.COLUNA_QUINQUENIO] != 2020, "tipo_saida_grupo"]), {"FORMATURA"})
+        self.assertEqual(set(df.loc[df[lake.COLUNA_QUINQUENIO] != 2020, "tipo_saida_grupo"]), {"FORMATURA"})
         self.assertTrue(outras <= set(depois.file_uris()))
 
     def test_janela_vazia_esvazia_a_particao(self):
         self._gravar(_vinculos(self.anos))
         self._gravar([], quinquenios=[2020])
-        self.assertNotIn(2020, set(self._ler()[lago.COLUNA_QUINQUENIO]))
+        self.assertNotIn(2020, set(self._ler()[lake.COLUNA_QUINQUENIO]))
 
     def test_coluna_toda_nula_mantem_o_tipo(self):
         self._gravar(_vinculos(self.anos, ano_saida=2020))
@@ -105,9 +105,9 @@ class TestLago(unittest.TestCase):
         self.assertEqual(meta.row_group(0).column(0).compression, "ZSTD")
 
     def test_quinquenio_em_tabela_nao_particionada_recusado(self):
-        tabela = lago.montar_tabela_arrow(COLUNAS, _vinculos(self.anos), particionada=False)
+        tabela = lake.montar_tabela_arrow(COLUNAS, _vinculos(self.anos), particionada=False)
         with self.assertRaises(ValueError):
-            lago.gravar_no_lago(tabela, self.destino, quinquenios=[2020])
+            lake.gravar_no_lake(tabela, self.destino, quinquenios=[2020])
 
 
 if __name__ == "__main__":

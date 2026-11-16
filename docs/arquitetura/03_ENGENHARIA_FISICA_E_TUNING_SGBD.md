@@ -29,7 +29,7 @@ A reengenharia física implementada nas migrações do Observatório (`0011_silv
 
 A relação `silver.movimentacoes_vinculos` representa a série temporal de histórico acadêmico dos discentes desde os anos 2000. Em escala real, esta tabela acumula dezenas de milhares de tuplas operacionais.
 
-Consultas do DEG/DAA e relatórios institucionais frequentemente restringem o escopo de análise a recortes temporais (ex: coortes maduras para cálculo de retenção ou coortes recentes para acompanhamento de evasão inicial). A varredura sequencial (_Sequential Scan_) em uma tabela monotrilho exigiria leitura integral de páginas de dados.
+Consultas do DEG/DAA e relatórios institucionais frequentemente restringem o escopo de análise a recortes temporais (ex: turmas maduras para cálculo de retenção ou turmas recentes para acompanhamento de evasão inicial). A varredura sequencial (_Sequential Scan_) em uma tabela monotrilho exigiria leitura integral de páginas de dados.
 
 ### 2.2 Estrutura DDL Implementada
 
@@ -56,18 +56,18 @@ CREATE TABLE silver.movimentacoes_vinculos (
 ) PARTITION BY RANGE (ano_ingresso);
 ```
 
-As partições físicas declarativas cobrem períodos históricos, coortes maduras, coortes vigentes e partição default para salvaguarda:
+As partições físicas declarativas cobrem períodos históricos, turmas maduras, turmas vigentes e partição default para salvaguarda:
 
 ```sql
 -- Partição 1: Histórico de 2000 a 2015
 CREATE TABLE silver.movimentacoes_p2000_2015
     PARTITION OF silver.movimentacoes_vinculos FOR VALUES FROM (2000) TO (2016);
 
--- Partição 2: Coortes maduras de 2016 a 2020
+-- Partição 2: Turmas maduras de 2016 a 2020
 CREATE TABLE silver.movimentacoes_p2016_2020
     PARTITION OF silver.movimentacoes_vinculos FOR VALUES FROM (2016) TO (2021);
 
--- Partição 3: Coortes recentes e vigentes (2021 a 2035)
+-- Partição 3: Turmas recentes e vigentes (2021 a 2035)
 CREATE TABLE silver.movimentacoes_p2021_atual
     PARTITION OF silver.movimentacoes_vinculos FOR VALUES FROM (2021) TO (2035);
 
@@ -108,10 +108,10 @@ SELECT silver.provisionar_particoes_movimentacoes(2040);  -- simula a chegada de
 
 ### 2.5 Política de Ciclo de Vida das Partições Legadas
 
-A Silver 3NF é recriada a cada execução do pipeline (`TRUNCATE` + carga a partir da bronze), e o `gold.fato_retencao_curso` usa **todas** as coortes maduras (ingresso até o último ano menos `ANOS_MATURACAO_COORTE` = 8). Por isso:
+A Silver 3NF é recriada a cada execução do pipeline (`TRUNCATE` + carga a partir da bronze), e o `gold.fato_retencao_curso` usa **todas** as turmas maduras (ingresso até o último ano menos `ANOS_MATURACAO_TURMA` = 8). Por isso:
 
-1. **Nenhuma partição é removida ou desanexada enquanto suas coortes alimentam a gold.** Hoje isso vale para todas (2000 em diante).
-2. **Partições fechadas** (todas as coortes com saída registrada, sem vínculo `ATIVO`) são candidatas a `VACUUM (FREEZE, ANALYZE)` após a carga, evitando reescrita futura por _wraparound_.
+1. **Nenhuma partição é removida ou desanexada enquanto suas turmas alimentam a gold.** Hoje isso vale para todas (2000 em diante).
+2. **Partições fechadas** (todas as turmas com saída registrada, sem vínculo `ATIVO`) são candidatas a `VACUUM (FREEZE, ANALYZE)` após a carga, evitando reescrita futura por _wraparound_.
 3. **Compressão**: o PostgreSQL não comprime o _heap_; as colunas textuais longas podem usar `ALTER TABLE ... ALTER COLUMN ... SET COMPRESSION lz4` (TOAST). O ganho é pequeno no volume atual (~150 mil vínculos) e não justifica a mudança agora.
 4. **Arquivamento**: se um período sair do escopo analítico da gold, a partição é desanexada sem bloquear leituras (`ALTER TABLE silver.movimentacoes_vinculos DETACH PARTITION ... CONCURRENTLY`), exportada com `pg_dump -Fc` (formato comprimido) e só então removida. Como a Silver contém dado pessoal pseudonimizado, o arquivo segue as mesmas regras de acesso do banco (LGPD) e nunca vai para o repositório.
 5. **Partição default**: deve ficar vazia para anos a partir de 2000. Linhas nela indicam ano de ingresso fora do intervalo mapeado (ex.: anterior a 2000) e devem ser investigadas.
@@ -149,12 +149,12 @@ CREATE INDEX idx_mov_evasao ON silver.movimentacoes_vinculos (id_curso)
     WHERE tipo_saida_grupo = 'EVASAO';
 ```
 
-O índice parcial `idx_mov_evasao` armazena apenas tuplas onde `tipo_saida_grupo = 'EVASAO'`, ocupando uma fração do espaço em disco de um índice global e permitindo leituras ultrarrápidas das coortes de evasão.
+O índice parcial `idx_mov_evasao` armazena apenas tuplas onde `tipo_saida_grupo = 'EVASAO'`, ocupando uma fração do espaço em disco de um índice global e permitindo leituras ultrarrápidas das turmas de evasão.
 
 A chave estrangeira `id_estrutura`, pela qual o curso canônico chega aos vínculos, ficou sem índice até a migração 0024. O índice dela saiu da leitura de um plano real, e não de antemão (seção 5.1):
 
 ```sql
--- Vínculos de um curso canônico por tipo de saída e coorte (migração 0024):
+-- Vínculos de um curso canônico por tipo de saída e turma (migração 0024):
 CREATE INDEX idx_mov_estrutura_saida_ano ON silver.movimentacoes_vinculos
     (id_estrutura, tipo_saida_grupo, ano_ingresso) INCLUDE (semestres_permanencia_valida);
 ```
@@ -265,7 +265,7 @@ Os planos desta seção estão versionados em [`docs/explain/`](../explain/), ju
 
 ### 5.1 Detalhamento de um curso na Silver 3NF (otimizado)
 
-**Consulta** ([`distribuicao_formatura_por_curso.sql`](../explain/distribuicao_formatura_por_curso.sql)): distribuição de semestres até a formatura dos formados de Ciência da Computação nas coortes maduras (2010 a 2016). É o detalhamento por curso do painel e o caso de uso de orientação ao calouro ("em quantos semestres os formados deste curso de fato se formam?").
+**Consulta** ([`distribuicao_formatura_por_curso.sql`](../explain/distribuicao_formatura_por_curso.sql)): distribuição de semestres até a formatura dos formados de Ciência da Computação nas turmas maduras (2010 a 2016). É o detalhamento por curso do painel e o caso de uso de orientação ao calouro ("em quantos semestres os formados deste curso de fato se formam?").
 
 ```sql
 SELECT m.semestres_permanencia_valida AS semestres, count(*) AS formados
@@ -300,7 +300,7 @@ Buffers: shared hit=1566     Execution Time: 35.593 ms
 
 A reescrita funciona porque todo vínculo tem o mesmo `id_curso` da sua matriz (conferido: 0 de 152.680 divergem). Mas ela ainda lê as páginas de todos os vínculos do curso (601 + 112 linhas) para filtrar formatura na heap, e o planejador erra a estimativa (3 linhas previstas, 198 reais), porque não sabe que as duas condições da junção são redundantes. Ela também obriga cada consulta futura a lembrar da chave redundante. Por isso a escolha foi o índice.
 
-**Mudança** ([migração 0024](../../db/migrations/0024_indice_vinculos_por_estrutura.sql)): as colunas de igualdade (`id_estrutura`, `tipo_saida_grupo`) vêm antes da de intervalo (`ano_ingresso`), e a coluna agregada vai no `INCLUDE`. Assim o intervalo de coortes é uma faixa contígua do índice e a contagem não precisa da heap. Criado na tabela particionada, o índice nasce em cada partição, inclusive nas que a [migração 0019](../../db/migrations/0019_provisionar_particoes.sql) provisionar depois.
+**Mudança** ([migração 0024](../../db/migrations/0024_indice_vinculos_por_estrutura.sql)): as colunas de igualdade (`id_estrutura`, `tipo_saida_grupo`) vêm antes da de intervalo (`ano_ingresso`), e a coluna agregada vai no `INCLUDE`. Assim o intervalo de turmas é uma faixa contígua do índice e a contagem não precisa da heap. Criado na tabela particionada, o índice nasce em cada partição, inclusive nas que a [migração 0019](../../db/migrations/0019_provisionar_particoes.sql) provisionar depois.
 
 **Depois** ([`depois_distribuicao_formatura_por_curso.txt`](../explain/depois_distribuicao_formatura_por_curso.txt)):
 

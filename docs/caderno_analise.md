@@ -3,7 +3,7 @@
 **Projeto**: Retenção, Tempo Real de Formatura e Evasão nos Cursos de Graduação da UnB  
 **Stakeholder**: Decanato de Ensino de Graduação (DEG/DAA)  
 **Base Analítica**: Camada Gold (`gold.retencao_cursos_unb`, no PostgreSQL)  
-**Recorte**: vínculos de graduação do SIGRA (encerrados até 2020/1) e do SIGAA (extrato de 07/2024), coortes de ingresso 2010-2016 — as que têm pelo menos 8 anos de acompanhamento. Números da Gold de 11/2026 (carga de 03/11/2026, conferidos de novo numa carga do zero em 09/11/2026); a atualização mensal do portal pode alterá-los.  
+**Recorte**: vínculos de graduação do SIGRA (encerrados até 2020/1) e do SIGAA (extrato de 07/2024), turmas de ingresso 2010-2016 — as que têm pelo menos 8 anos de acompanhamento. Números da Gold de 11/2026 (carga de 03/11/2026, conferidos de novo numa carga do zero em 09/11/2026); a atualização mensal do portal pode alterá-los.  
 
 ---
 
@@ -31,7 +31,7 @@
 
 ### **GQ 3: Qual a proporção de saídas por formatura versus desligamentos críticos?**
 - **Evidência Global**:
-  - Do total de 68.339 vínculos das coortes 2010-2016, **51.28%** terminaram em *Formatura*, **44.07%** em *Evasão* (saída do curso sem diploma: abandono, desligamento, jubilamento, mudança de curso ou cancelamento no SIGAA) e **2.85%** seguiam ativos ou trancados em 07/2024.
+  - Do total de 68.339 vínculos das turmas 2010-2016 (universo bruto; o painel mostra 67.063, nos cursos com 5 ou mais alunos e sem curso de tronco), **51,28%** terminaram em *Formatura*, **44,07%** em *Evasão* (saída do curso sem diploma: abandono, desligamento, jubilamento, mudança de curso ou cancelamento no SIGAA) e **2.85%** seguiam ativos ou trancados em 07/2024.
   - Evasão inclui mudança de curso porque o SIGAA só marca o vínculo como CANCELADO, sem o motivo; é a definição de "evasão de curso" da Comissão Especial MEC/SESu (1996).
 - **Cursos com Maior Evasão Crítica**:
   - *Física Computacional*: 76.19% de evasão.

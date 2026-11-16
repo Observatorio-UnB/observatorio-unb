@@ -9,7 +9,7 @@ Este documento descreve a semântica, os tipos de dados e os métodos de cálcul
 - **Granularidade**: 1 linha por curso canônico de graduação da UnB. Cursos com oferta dupla de Bacharelado e Licenciatura sob o mesmo nome no catálogo (ex. Química, Física, Matemática — ver seção 3) permanecem em uma única linha, com `categoria_grau = "MISTO"`.
 - **Total de Cursos Consolidados**: 95 cursos (versão de 09/2026). O curso-tronco de ingresso comum `ENGENHARIA` (habilitação escolhida posteriormente pelo discente, ex. modelo FGA/FT) permanece na tabela e nas métricas globais — compõe o panorama geral da UnB — mas é descartado apenas nas telas de Visão Executiva e Detalhe por Curso do dashboard (`EXCLUDED_GENERIC_COURSES` em `src/dashboard/app.py`), por não ser um curso terminal válido para um raio-x individual.
 - **Fontes Primárias**: `sigra_discentes.csv` (SIGRA, vínculos encerrados até 2020/1) + `sigaa_discentes.csv` (SIGAA, extrato de 07/2024) + `estrutura_curricular.csv` + `cursos_graduacao.csv`.
-- **Recorte Temporal**: coortes de ingresso com pelo menos 8 anos de acompanhamento até o último ano de ingresso da base (hoje 2010-2016; `ANOS_MATURACAO_COORTE` em `src/pipeline/build_gold.py`).
+- **Recorte Temporal**: turmas de ingresso com pelo menos 8 anos de acompanhamento até o último ano de ingresso da base (hoje 2010-2016; `ANOS_MATURACAO_TURMA` em `src/pipeline/build_gold.py`).
 - **Taxa de Casamento dos Joins**: 100.00%.
 
 ---
@@ -29,10 +29,10 @@ Este documento descreve a semântica, os tipos de dados e os métodos de cálcul
 | `semestre_ideal_previsto` | Float | `9.0` | Duração padrão/ideal em semestres para integralização da matriz curricular. |
 | `semestre_maximo_previsto` | Float | `16.0` | Prazo máximo de permanência antes da abertura de processo de jubilamento. |
 | `carga_horaria_minima` | Float | `3600.0` | Carga horária total mínima (horas-aula) exigida para conclusão. |
-| `total_discentes_registrados` | Inteiro | `1450` | Vínculos do curso nas coortes analisadas, somando SIGRA e SIGAA. |
+| `total_discentes_registrados` | Inteiro | `1450` | Vínculos do curso nas turmas analisadas, somando SIGRA e SIGAA. |
 | `total_formados` | Inteiro | `580` | Vínculos encerrados por formatura (`Formatura` no SIGRA; `CONCLUÍDO` ou `FORMADO` no SIGAA). |
 | `total_evadidos_desligados` | Inteiro | `850` | Vínculos encerrados sem diploma: abandono, jubilamento, reprovação 3x, desligamento, mudança de curso/novo vestibular (SIGRA) e `CANCELADO` (SIGAA, que não publica o motivo). |
-| `total_ainda_ativos` | Inteiro | `40` | Vínculos das coortes analisadas ainda ativos, formandos ou trancados no extrato do SIGAA. |
+| `total_ainda_ativos` | Inteiro | `40` | Vínculos das turmas analisadas ainda ativos, formandos ou trancados no extrato do SIGAA. |
 | `taxa_formatura_pct` | Float (%) | `40.00` | Percentual de discentes que concluíram o curso: $\frac{\text{total\_formados}}{\text{total\_discentes}} \times 100$. |
 | `taxa_evasao_pct` | Float (%) | `58.62` | Percentual de discentes evadidos/desligados: $\frac{\text{total\_evadidos}}{\text{total\_discentes}} \times 100$. |
 | `formados_tempo_minimo_pct` | Float (%) | `5.17` | Proporção de egressos que integralizaram o curso em prazo $\le \text{semestre\_minimo\_previsto}$. |
@@ -51,7 +51,7 @@ Este documento descreve a semântica, os tipos de dados e os métodos de cálcul
 | `pibic_investimento_total` | Float (R$) | `326700.00` | Soma estimada das bolsas remuneradas do curso, pela tabela de vigências do CNPq (ADR 0023). |
 | `pibic_projetos_por_100_alunos` | Float | `13.04` | `pibic_total_projetos / total_discentes_registrados × 100`. |
 
-> As quatro colunas `formados_*_pct` se sobrepõem (o tempo mínimo está dentro do ideal, e o limite máximo costuma estar dentro do "acima do ideal"), então não somam 100%. Para gráficos de distribuição use `faixa_minimo_pct` (t ≤ mínimo da matriz), `faixa_ideal_pct` (mínimo < t ≤ ideal), `faixa_acima_pct` (ideal < t < máximo) e `faixa_limite_pct` (t ≥ máximo, limite de jubilamento), que são exclusivas e somam 100%; quando máximo = ideal, o limite prevalece. Também existem em `gold.retencao_cursos_coorte`.
+> As quatro colunas `formados_*_pct` se sobrepõem (o tempo mínimo está dentro do ideal, e o limite máximo costuma estar dentro do "acima do ideal"), então não somam 100%. Para gráficos de distribuição use `faixa_minimo_pct` (t ≤ mínimo da matriz), `faixa_ideal_pct` (mínimo < t ≤ ideal), `faixa_acima_pct` (ideal < t < máximo) e `faixa_limite_pct` (t ≥ máximo, limite de jubilamento), que são exclusivas e somam 100%; quando máximo = ideal, o limite prevalece. Também existem em `gold.retencao_cursos_turma`.
 
 ---
 
@@ -67,7 +67,7 @@ Uma primeira tentativa separou esses cursos usando o código `opcao` do SIGRA co
 
 ## Tabela `gold.ativos_hoje_cursos_unb`
 
-Discentes de graduação na **lista de ativos do SIGAA** do semestre mais recente publicado (`sigaa_ativos_AAAA_S.csv`, hoje 2025/1), por curso, de todas as coortes. Complementa a tabela de retenção, que só olha coortes com 8 anos de acompanhamento. Cursos-tronco e cursos sem estrutura curricular publicada ficam de fora. Só entram cursos com 5 ou mais ativos (k-anonimato).
+Discentes de graduação na **lista de ativos do SIGAA** do semestre mais recente publicado (`sigaa_ativos_AAAA_S.csv`, hoje 2025/1), por curso, de todas as turmas. Complementa a tabela de retenção, que só olha turmas com 8 anos de acompanhamento. Cursos-tronco e cursos sem estrutura curricular publicada ficam de fora. Só entram cursos com 5 ou mais ativos (k-anonimato).
 
 | Coluna | Tipo | Exemplo | Descrição |
 | :--- | :--- | :--- | :--- |

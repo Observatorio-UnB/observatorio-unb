@@ -22,7 +22,7 @@ from typing import Dict
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conexao_do_pool  # noqa: E402
-from src.db.frescor import resumo_para_o_painel  # noqa: E402
+from src.db.freshness import resumo_para_o_painel  # noqa: E402
 from src.db.tabelas import consultar, ler  # noqa: E402
 
 logging.basicConfig(
@@ -35,7 +35,7 @@ logger = logging.getLogger("exportar_gold")
 SAIDA = BASE_DIR / "export" / "gold.json"
 TABELAS = (
     "gold.retencao_cursos_unb",
-    "gold.retencao_cursos_coorte",
+    "gold.retencao_cursos_turma",
     "gold.ativos_hoje_cursos_unb",
     "gold.pibic_social_unb",
     "gold.regras_harmonizacao_canonicas",
@@ -58,13 +58,13 @@ def montar_snapshot() -> Dict:
         relatorios = dict(consultar("SELECT nome, conteudo FROM gold.relatorios ORDER BY nome").values.tolist())
     except Exception:
         relatorios = {}
-    # Atualização da view do painel e SLA (docs/frescor_sla.md). O painel calcula a idade na hora
+    # Atualização da view do painel e SLA (docs/freshness_sla.md). O painel calcula a idade na hora
     # em que é aberto, então a versão do GitHub Pages mostra quando o export envelheceu.
     try:
         with conexao_do_pool() as conn:
-            frescor = resumo_para_o_painel(conn)
+            freshness = resumo_para_o_painel(conn)
     except Exception:
-        frescor = None
+        freshness = None
     # Quando a gold foi gravada pela última vez, para o painel mostrar a idade dos dados.
     try:
         carregado_em = consultar("SELECT max(_carregado_em) AS carregado_em FROM gold.relatorios").iloc[0]["carregado_em"]
@@ -75,7 +75,7 @@ def montar_snapshot() -> Dict:
         "gerado_em": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "tabelas": tabelas,
         "relatorios": relatorios,
-        "frescor": frescor,
+        "freshness": freshness,
         "carregado_em": carregado_em,
     }
 

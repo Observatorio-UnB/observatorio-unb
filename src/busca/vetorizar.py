@@ -136,6 +136,11 @@ def documentos_de_cursos(conn: psycopg.Connection) -> List[Documento]:
                total_discentes_registrados, formados_tempo_ideal_pct, semestre_ideal_previsto,
                tempo_medio_real_semestres, desvio_medio_semestres
         FROM gold.retencao_cursos_unb
+        -- Cursos-tronco (ingresso comum) não têm prazo próprio e ficam fora das telas: o cartão deles
+        -- na busca mostraria evasão de 93% sem aviso.
+        WHERE curso NOT IN (
+            SELECT jsonb_array_elements_text(conteudo->'cursos_tronco')
+            FROM gold.relatorios WHERE nome = 'metricas_gerais_unb')
         """
     ).fetchall()
     docs = []
@@ -143,7 +148,7 @@ def documentos_de_cursos(conn: psycopg.Connection) -> List[Documento]:
          total, no_ideal, ideal, tempo_medio, desvio) in linhas:
         # Frase em minúsculas: o tokenizador do modelo lida mal com texto todo em caixa alta.
         conteudo = (
-            f"curso de {curso.lower()} ({categoria.lower()}, {grau.lower()}), campus {campus.lower()}, "
+            f"curso de {curso.lower()} ({', '.join(dict.fromkeys([categoria.lower(), grau.lower()]))}), campus {campus.lower()}, "
             f"turno {turno.lower()}, área de {area.lower()}. "
             f"{classe.lower()}, {_faixa_evasao(evasao)}, {_faixa_atraso(desvio)}. "
             f"índice de retenção crítica {_fmt(irc)}. "

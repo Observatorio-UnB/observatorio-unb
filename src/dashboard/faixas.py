@@ -5,7 +5,9 @@ curricular do curso: mínimo (<= mínimo), ideal (mínimo < t <= ideal), acima d
 (ideal < t < máximo) e limite de jubilamento (t >= máximo). Somam 100% dos formados.
 """
 
-FAIXAS = ["Tempo Mínimo", "Tempo Ideal", "Acima do Ideal", "Limite Jubilamento"]
+# Rótulos pelo que a faixa É (intervalo do tempo de conclusão, exclusivo), e não por "ideal/jubilamento":
+# a faixa de cima descreve formados que levaram o prazo máximo da matriz ou mais, não alunos jubilados.
+FAIXAS = ["Até o mínimo", "Do mínimo ao ideal", "Do ideal ao máximo", "No máximo ou depois"]
 COLUNAS = ["faixa_minimo_pct", "faixa_ideal_pct", "faixa_acima_pct", "faixa_limite_pct"]
 
 

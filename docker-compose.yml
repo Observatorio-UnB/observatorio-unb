@@ -30,8 +30,8 @@ services:
       retries: 20
 
   # Roda o medalhão do zero (scripts/rodar_pipeline.sh: API CKAN, INEP e CNPq -> bronze ->
-  # silver -> gold -> Silver 3NF e Star Schema -> camadas dbt -> lago Delta -> vetorização ->
-  # dicionário) e termina. Cada camada vai direto para o banco, e o lago fica dentro do
+  # silver -> gold -> Silver 3NF e Star Schema -> camadas dbt -> lake Delta -> vetorização ->
+  # dicionário) e termina. Cada camada vai direto para o banco, e o lake fica dentro do
   # container: nenhum dado, inclusive o pessoal da bronze e da silver, é gravado na pasta do host.
   pipeline:
     build: .
@@ -62,7 +62,7 @@ services:
 
   # Captura de mudanças (profile cdc): Kafka em modo KRaft, sem ZooKeeper, e Kafka Connect com o
   # conector do Debezium. Os tópicos não têm volume: recriar o container do Kafka apaga o histórico,
-  # e o conector refaz o snapshot inicial, que o MERGE idempotente do lago absorve.
+  # e o conector refaz o snapshot inicial, que o MERGE idempotente do lake absorve.
   kafka:
     image: apache/kafka:3.7.0
     profiles: ["cdc"]

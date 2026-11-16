@@ -5,7 +5,7 @@ A busca é híbrida, com três listas de candidatos (migração 0026):
   - vetorial: a consulta é vetorizada com o mesmo modelo dos documentos e comparada por distância
     de cosseno (operador <=> do pgvector);
   - texto completo: trechos com ao menos metade dos termos da consulta, em português, no título e no
-    conteúdo, ordenados por ts_rank_cd; acha o termo técnico que o embedding dilui ("SLA de frescor");
+    conteúdo, ordenados por ts_rank_cd; acha o termo técnico que o embedding dilui ("SLA de freshness");
   - título: trigramas da consulta no título (pg_trgm), com o título que contém a consulta inteira
     primeiro; acha sigla, número e nome exato ("ADR 0028", o título de um plano de IC).
 As listas são combinadas por Reciprocal Rank Fusion (RRF): cada documento soma

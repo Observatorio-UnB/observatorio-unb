@@ -8,7 +8,7 @@ venv
 .env
 __pycache__
 *.pyc
-# Lago Delta local: tem vínculos individuais da silver e não pode entrar na imagem.
+# Lake Delta local: tem vínculos individuais da silver e não pode entrar na imagem.
 data/lake
 export
 site

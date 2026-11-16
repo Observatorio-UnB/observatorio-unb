@@ -13,8 +13,8 @@ migracoes ─┬─ bronze_ckan ─┐
                                       ├─ auditoria ─────┤   silver 3NF  ├─ camadas_dbt ─ dicionario ─┤
                                       └─ privacidade ───┘   e gold)     │  (12 modelos e         │
                                                                         │   1 snapshot)          │
-                                                                        ├─ lago ─────────────────┼─ supabase
-                                                                        └─ lago_vinculos_por_quinquenio
+                                                                        ├─ data lake ─────────────────┼─ supabase
+                                                                        └─ lake_vinculos_por_quinquenio
                                                                            (partições; backfill)  │
                                          gold_tabular ── vetorizacao ───────────────────────────┘
 ```
@@ -27,7 +27,7 @@ migracoes ─┬─ bronze_ckan ─┐
 | Job | O que roda |
 |---|---|
 | `pipeline_mensal` | Todas as etapas, do portal ao Supabase |
-| `backfill_lago` | `lago_vinculos_por_quinquenio`, por partição |
+| `backfill_lake` | `lake_vinculos_por_quinquenio`, por partição |
 
 ## Retry
 
@@ -44,14 +44,14 @@ O INEP e o CNPq continuam tolerados como no `rodar_pipeline.sh`: se falharem nas
 
 - **No GitHub Actions:** o `atualiza-dados.yml` dispara `dagster job execute -m orquestracao -j pipeline_mensal` no dia 1 de cada mês, às 06:00 UTC. O projeto não tem servidor; o Dagster roda dentro do job.
 - **Com o Dagster no ar** (`dagster dev`): a agenda `agenda_mensal` tem o mesmo horário e já vem ligada.
-- **No CI** (`medalhao.yml`, a cada push): o grafo é validado e o backfill das janelas do lago roda sobre o lago recém-gravado.
+- **No CI** (`medalhao.yml`, a cada push): o grafo é validado e o backfill das janelas do data lake roda sobre o data lake recém-gravado.
 
 ## Backfill
 
-`lago_vinculos_por_quinquenio` tem uma partição por quinquênio de ingresso, de 2000 até o atual. É a partição do lago Delta (ADR 0024). Materializar uma partição regrava aquela janela inteira, com o overwrite com predicado do ADR 0026. Um intervalo de partições vira uma execução só (`BackfillPolicy.single_run`).
+`lake_vinculos_por_quinquenio` tem uma partição por quinquênio de ingresso, de 2000 até o atual. É a partição do data lake Delta (ADR 0024). Materializar uma partição regrava aquela janela inteira, com o overwrite com predicado do ADR 0026. Um intervalo de partições vira uma execução só (`BackfillPolicy.single_run`).
 
 ```bash
-dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio --partition-range 2000...2025   # hoje; INTERVALO_BACKFILL dá o atual
+dagster asset materialize -m orquestracao --select lake_vinculos_por_quinquenio --partition-range 2000...2025   # hoje; INTERVALO_BACKFILL dá o atual
 ```
 
 ## Demonstrações
@@ -62,7 +62,7 @@ Todas rodaram no PostgreSQL local, com o pipeline carregado. Os logs, filtrados 
 |---|---|---|---|
 | 1 | **Dependência derrubada de propósito:** `docker compose stop db`, o `star_schema` disparado, e o banco religado 25 s depois | O `star_schema` falhou com `Connection refused`, foi repetido depois de 10 s e de 30 s, e passou na 3ª tentativa, com o banco de volta. A `view_painel` só rodou depois dele | [01_retry_banco_fora.txt](orquestracao/evidencias/01_retry_banco_fora.txt) |
 | 2 | **Falha definitiva:** o banco apontado para uma porta sem servidor | As 4 tentativas falharam (esperas de 10, 30 e 70 s), o run terminou com código 1, e a `view_painel` não rodou ("Dependencies for step view_painel failed… Not executing"). A view do painel ficou com a última versão boa | [02_falha_definitiva.txt](orquestracao/evidencias/02_falha_definitiva.txt) |
-| 3 | **Backfill de verdade:** numa cópia do lago, a janela de 2015 foi apagada (56.600 vínculos), e o backfill de 2000 a 2025 rodou duas vezes | A 1ª execução restaurou a janela: o lago voltou a 152.680 vínculos e 3 arquivos. A 2ª deu o mesmo resultado, sem duplicar nada. As 6 partições ficaram registradas como materializadas | [03_backfill_lago.txt](orquestracao/evidencias/03_backfill_lago.txt) |
+| 3 | **Backfill de verdade:** numa cópia do data lake, a janela de 2015 foi apagada (56.600 vínculos), e o backfill de 2000 a 2025 rodou duas vezes | A 1ª execução restaurou a janela: o data lake voltou a 152.680 vínculos e 3 arquivos. A 2ª deu o mesmo resultado, sem duplicar nada. As 6 partições ficaram registradas como materializadas | [03_backfill_lake.txt](orquestracao/evidencias/03_backfill_lake.txt) |
 | 4 | **Job completo:** `dagster job execute -m orquestracao -j pipeline_mensal` | 15 etapas, todas com sucesso, em 1 min 3 s, cada uma depois das que ela depende | [04_pipeline_mensal.txt](orquestracao/evidencias/04_pipeline_mensal.txt) |
 
 ## Como rodar
@@ -76,4 +76,4 @@ dagster job execute -m orquestracao -j pipeline_mensal
 
 Para reproduzir a demonstração 1: rode `docker compose stop db`; em outro terminal, rode `dagster asset materialize -m orquestracao --select '(group:gold and not key:gold_tabular) or key:view_painel'`; depois de uns 20 s, rode `docker compose start db`.
 
-Para o backfill não tocar o lago de verdade, aponte `LAGO_DIR` para uma cópia.
+Para o backfill não tocar o data lake de verdade, aponte `LAKE_DIR` para uma cópia.

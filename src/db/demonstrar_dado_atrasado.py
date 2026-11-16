@@ -1,17 +1,17 @@
 """
-Demonstra o tratamento de dado atrasado, da carga ao lago: a chegada é classificada pela marca
-d'água, a gold é recalculada e só a janela do lago que recebeu o dado é regravada.
+Demonstra o tratamento de dado atrasado, da carga ao lake: a chegada é classificada pela marca
+d'água, a gold é recalculada e só a janela do lake que recebeu o dado é regravada.
 
 Simula duas publicações do SIGAA sobre silver.discentes_graduacao, a tabela que alimenta a
-Silver 3NF. Em cada uma, N vínculos ativos de uma coorte viram formados, com diploma registrado:
-  1. no prazo: coorte 2019, diploma de agosto de 2024 (2024/1, período ainda aberto);
-  2. atrasada: coorte 2012, diploma de março de 2023 (2022/2, período já fechado), que entrou
+Silver 3NF. Em cada uma, N vínculos ativos de uma turma viram formados, com diploma registrado:
+  1. no prazo: turma 2019, diploma de agosto de 2024 (2024/1, período ainda aberto);
+  2. atrasada: turma 2012, diploma de março de 2023 (2022/2, período já fechado), que entrou
      no sistema depois da publicação anterior.
 Depois de cada uma: recarga da Silver 3NF e do Star Schema (src/db/povoar_dimensional.py), o
-que chegou na carga (silver.chegadas_por_carga) e o export do lago só das janelas alteradas.
+que chegou na carga (silver.chegadas_por_carga) e o export do lake só das janelas alteradas.
 
 No fim, mesmo se a demonstração falhar no meio, a silver volta ao estado de antes, a Silver 3NF
-e o lago são refeitos, e as cargas simuladas saem de silver.cargas_vinculos.
+e o lake são refeitos, e as cargas simuladas saem de silver.cargas_vinculos.
 
 Requer o pipeline rodado (scripts/rodar_pipeline.sh).
 
@@ -30,7 +30,7 @@ from deltalake import DeltaTable
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
-from src.db import exportar_lago as lago  # noqa: E402
+from src.db import exportar_lake as lake  # noqa: E402
 from src.db.conexao import conectar  # noqa: E402
 from src.db.dado_atrasado import marca_dagua, resumo, rotulo  # noqa: E402
 from src.db.povoar_dimensional import executar_elt_dimensional  # noqa: E402
@@ -70,8 +70,8 @@ SELECT sk_curso, total_formados, total_ainda_ativos FROM gold.fato_retencao_curs
 """
 
 
-def escolher_vinculos(coorte: int) -> List[int]:
-    """Vínculos ativos do SIGAA na coorte, os prestes a se formar primeiro."""
+def escolher_vinculos(turma: int) -> List[int]:
+    """Vínculos ativos do SIGAA na turma, os prestes a se formar primeiro."""
     with conectar() as conn:
         ids = [i for (i,) in conn.execute(
             """
@@ -80,15 +80,15 @@ def escolher_vinculos(coorte: int) -> List[int]:
             ORDER BY status_aluno = 'ATIVO - FORMANDO' DESC, id
             LIMIT %s
             """,
-            (coorte, VINCULOS_POR_PUBLICACAO),
+            (turma, VINCULOS_POR_PUBLICACAO),
         ).fetchall()]
     if len(ids) < VINCULOS_POR_PUBLICACAO:
-        raise RuntimeError(f"A coorte {coorte} tem só {len(ids)} vínculos ativos no SIGAA. Rode o pipeline antes.")
+        raise RuntimeError(f"A turma {turma} tem só {len(ids)} vínculos ativos no SIGAA. Rode o pipeline antes.")
     return ids
 
 
 def arquivos_por_janela() -> Dict[int, Set[str]]:
-    caminho = lago.LAGO_DIR / "silver" / "movimentacoes_vinculos"
+    caminho = lake.LAKE_DIR / "silver" / "movimentacoes_vinculos"
     arquivos = defaultdict(set)
     for uri in DeltaTable(str(caminho)).file_uris():
         particao = Path(uri).parent.name
@@ -99,12 +99,12 @@ def arquivos_por_janela() -> Dict[int, Set[str]]:
 def recarregar() -> int:
     """Recarga da Silver 3NF e do Star Schema e export do que mudou; devolve o id da carga."""
     executar_elt_dimensional()
-    lago.exportar(so_alteradas=True)
+    lake.exportar(so_alteradas=True)
     with conectar() as conn:
         return conn.execute("SELECT max(id_carga) FROM silver.cargas_vinculos").fetchone()[0]
 
 
-def publicar(nome: str, coorte: int, diploma: date, ids: List[int]) -> None:
+def publicar(nome: str, turma: int, diploma: date, ids: List[int]) -> None:
     with conectar() as conn:
         gold_antes = set(conn.execute(SQL_GOLD).fetchall())
         conn.execute(SQL_FORMAR, {"diploma": diploma, "ids": ids})
@@ -124,17 +124,17 @@ def publicar(nome: str, coorte: int, diploma: date, ids: List[int]) -> None:
                         if arquivos_antes.get(q) != arquivos_depois.get(q))
     intactas = sorted(arquivos_antes.keys() - set(regravadas))
 
-    print(f"\nPublicação {nome}: {len(ids)} formaturas da coorte {coorte}, diploma de {diploma:%d/%m/%Y}")
+    print(f"\nPublicação {nome}: {len(ids)} formaturas da turma {turma}, diploma de {diploma:%d/%m/%Y}")
     print(f"  carga {id_carga}; marca d'água da carga anterior: {rotulo(marca)}")
-    for quinquenio, chegada, a_mais, a_menos, coortes in chegadas:
-        publicada = f"   revisa {coortes} coorte já publicada" if coortes else ""
+    for quinquenio, chegada, a_mais, a_menos, turmas in chegadas:
+        publicada = f"   revisa {turmas} turma já publicada" if turmas else ""
         print(f"  quinquênio {quinquenio}  {chegada:<12}{a_mais - a_menos:>+5}{publicada}")
     print(f"  gold: {cursos_revisados} curso(s) com contagem revisada em gold.fato_retencao_curso")
-    print(f"  lago: janela(s) regravada(s) {regravadas}; sem arquivo novo {intactas}")
+    print(f"  lake: janela(s) regravada(s) {regravadas}; sem arquivo novo {intactas}")
 
 
 def demonstrar() -> None:
-    escolhidos = {coorte: escolher_vinculos(coorte) for _, coorte, _ in PUBLICACOES}
+    escolhidos = {turma: escolher_vinculos(turma) for _, turma, _ in PUBLICACOES}
     todos = [i for ids in escolhidos.values() for i in ids]
     with conectar() as conn:
         originais = conn.execute(
@@ -148,8 +148,8 @@ def demonstrar() -> None:
     print(f"Carga de referência {id_base}: publicação de {publicada_em:%d/%m/%Y}, "
           f"marca d'água {rotulo(marca_dagua(publicada_em))}")
     try:
-        for nome, coorte, diploma in PUBLICACOES:
-            publicar(nome, coorte, diploma, escolhidos[coorte])
+        for nome, turma, diploma in PUBLICACOES:
+            publicar(nome, turma, diploma, escolhidos[turma])
     finally:
         with conectar() as conn:
             conn.cursor().executemany(
@@ -159,7 +159,7 @@ def demonstrar() -> None:
         recarregar()
         with conectar() as conn:
             conn.execute("DELETE FROM silver.cargas_vinculos WHERE id_carga > %s", (id_base,))
-        print(f"\nSilver, Silver 3NF e lago de volta ao estado da carga {id_base}; cargas simuladas removidas.")
+        print(f"\nSilver, Silver 3NF e lake de volta ao estado da carga {id_base}; cargas simuladas removidas.")
 
 
 if __name__ == "__main__":

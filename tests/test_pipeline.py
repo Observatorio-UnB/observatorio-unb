@@ -10,8 +10,9 @@ Sem banco acessível, os testes de dados são pulados.
 import json
 import logging
 import sys
-from pathlib import Path
 import unittest
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import psycopg
@@ -21,13 +22,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conectar
 from src.db.tabelas import consultar, ler, ler_relatorio, tem_linhas
+from src.ingestion.ckan_client import DATASETS_CONFIG, escolher_recurso
 from src.pipeline.transform_silver import (
     categorize_forma_saida,
-    semestre_pela_data_do_diploma,
     normalize_curso,
+    semestre_pela_data_do_diploma,
     valor_bolsa_no_periodo,
 )
-from src.ingestion.ckan_client import DATASETS_CONFIG, escolher_recurso
 
 
 class TestCanonicalNormalization(unittest.TestCase):

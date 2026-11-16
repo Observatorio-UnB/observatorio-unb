@@ -35,7 +35,7 @@ case "${1:-}" in
     # skipped.operations=none: o Debezium ignora TRUNCATE por padrão, e a recarga da Silver faz um.
     # topic.creation.default.*: tópicos sem retenção por tempo. Com a retenção padrão do Kafka
     # (7 dias), um consumidor parado por mais tempo perderia eventos, e um DELETE perdido deixa a
-    # linha viva no lago. Vale para os tópicos que o conector cria: os que já existem ficam como estão.
+    # linha viva no lake. Vale para os tópicos que o conector cria: os que já existem ficam como estão.
     # jq monta o JSON: uma senha com aspas ou barra invertida não quebra o documento.
     config=$(jq -n --arg user "$PG_USER" --arg senha "${POSTGRES_PASSWORD:-observatorio}" \
       --arg db "$PG_DB" --arg slot "$SLOT" '{

@@ -70,7 +70,7 @@ class TestGrafo(unittest.TestCase):
         particoes = d.QUINQUENIOS.get_partition_keys()
         self.assertEqual(particoes[:3], ["2000", "2005", "2010"])
         self.assertTrue(all(int(p) % 5 == 0 for p in particoes))
-        self.assertIs(self.grafo.get(chave("lago_vinculos_por_quinquenio")).partitions_def, d.QUINQUENIOS)
+        self.assertIs(self.grafo.get(chave("lake_vinculos_por_quinquenio")).partitions_def, d.QUINQUENIOS)
 
     def test_06_mesmos_scripts_no_grafo_e_no_rodar_pipeline(self):
         """O grafo é a fonte da verdade, e o rodar_pipeline.sh (Docker, sem Dagster) tem de chamar as
@@ -101,7 +101,7 @@ class TestGrafo(unittest.TestCase):
     def test_05_job_mensal_cobre_tudo_menos_o_backfill(self):
         selecionados = d.pipeline_mensal.selection.resolve(self.grafo)
         todos = self.grafo.get_all_asset_keys()
-        self.assertEqual(todos - selecionados, {chave("lago_vinculos_por_quinquenio")})
+        self.assertEqual(todos - selecionados, {chave("lake_vinculos_por_quinquenio")})
 
 
 if __name__ == "__main__":

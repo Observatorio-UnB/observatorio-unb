@@ -30,7 +30,7 @@
   3. *estrutura-curricular* (`estrutura-curricular.csv`);
   4. *cursos-de-graduacao* (todas as versões publicadas, de `curso_graduacao.csv` a `cursos-de-graduao-08-2024.csv`; a mais recente vale).
 - **Qual foi o período temporal de cobertura?**
-  Ingressos de 2010 a 2024 na Silver (SIGRA com saídas até 2020/1; SIGAA com a situação em 07/2024). As taxas da Gold usam as coortes com pelo menos 8 anos de acompanhamento (hoje 2010-2016). Um workflow mensal (`.github/workflows/atualiza-dados.yml`) reprocessa as fontes e versiona a Gold quando elas mudam.
+  Ingressos de 2010 a 2024 na Silver (SIGRA com saídas até 2020/1; SIGAA com a situação em 07/2024). As taxas da Gold usam as turmas com pelo menos 8 anos de acompanhamento (hoje 2010-2016). Um workflow mensal (`.github/workflows/atualiza-dados.yml`) reprocessa as fontes e versiona a Gold quando elas mudam.
 
 ---
 
