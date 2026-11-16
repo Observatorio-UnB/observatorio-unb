@@ -77,4 +77,4 @@ etapa "Dicionário de dados do banco"
 # Envia ao Supabase só o que é novo ou mudou na gold e na busca (bronze e silver não saem do
 # banco local). Pulada se SUPABASE_DATABASE_URL não estiver definida.
 etapa "Supabase: sincronização incremental da gold"
-"$PYTHON" src/db/sincronizar_supabase.py
+"$PYTHON" src/db/sincronizar_supabase.py --verificar

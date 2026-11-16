@@ -31,13 +31,14 @@ from itertools import combinations
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from pgvector.psycopg import register_vector
+from pgvector.psycopg.vector import register_vector_info
 from psycopg import sql
+from psycopg.types import TypeInfo
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.busca.vetorizar import TIPOS, carregar_modelo, gerar_embeddings, nome_do_modelo  # noqa: E402
-from src.db.conexao import conectar  # noqa: E402
+from src.db.conexao import conexao_do_pool  # noqa: E402
 
 # Calibrados com tests/test_banco_busca.py. A similaridade de cosseno sozinha não separa acerto de
 # ruído: os documentos esperados ficaram entre 0,29 e 0,81, e consultas sem sentido ("lorem ipsum",
@@ -168,9 +169,10 @@ def buscar(consulta: str, k: int = 5, tipo: Optional[str] = None) -> List[Dict]:
         "min_vetor_com_evidencia": SIMILARIDADE_COM_EVIDENCIA, "min_texto": SIMILARIDADE_TEXTO_MINIMA,
         "rrf_k": RRF_K, "peso_completo": PESO_TEXTO_COMPLETO, "peso_titulo": PESO_TITULO,
     }
-    with conectar() as conn:
-        register_vector(conn)  # o vetor vai em binário, sem passar por texto
+    with conexao_do_pool() as conn:
         with conn.cursor() as cur:
+            # No cursor, e não na conexão, que volta ao pool: o vetor vai em binário.
+            register_vector_info(cur, TypeInfo.fetch(conn, "vector"))
             with conn.transaction():
                 # Com filtro por tipo, o índice HNSW sozinho devolveria os vizinhos de todos
                 # os tipos e o WHERE descartaria a maioria (ex.: 88 cursos entre 13 mil

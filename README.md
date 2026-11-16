@@ -215,6 +215,17 @@ O banco guarda o medalhão inteiro, um esquema por camada:
 Conexão: variável `DATABASE_URL` (ou arquivo `.env`, ver `.env.example`). Sem ela, os
 scripts usam o banco do `docker-compose.yml` em `localhost:5435`.
 
+**Pool de conexões:** as leituras do painel, da busca semântica e de `consultar`/`ler`
+(`src/db/tabelas.py`) pegam conexão de um pool (`psycopg_pool`, `conexao_do_pool()` em
+`src/db/conexao.py`), um por URL, compartilhado pelas sessões do Streamlit e fechado na saída do
+processo. Padrão: 1 a 10 conexões, 10 s de espera por uma conexão livre, conexão ociosa fechada
+depois de 5 min e renovada depois de 30 min; mude com `POOL_MINIMO`, `POOL_MAXIMO`,
+`POOL_ESPERA_S`, `POOL_OCIOSA_S` e `POOL_VIDA_MAXIMA_S`. As conexões aparecem em
+`pg_stat_activity` como `observatorio_pool` e não usam prepared statements, que o pooler
+transacional do Supabase (porta 6543) não aceita. Sem banco no ar, a primeira leitura falha na
+hora e o painel cai no export estático. `tests/test_banco_pool.py` dispara 20 requisições em
+paralelo num pool de 5 e confere que o banco nunca vê mais de 5 conexões.
+
 > ⚠️ **Banco remoto (ex.: Supabase):** o pipeline grava as três camadas em
 > `DATABASE_URL`, e bronze e silver têm registro individual de discente. Rode o
 > pipeline num banco local ou restrito; o que é público (painel no GitHub Pages) só
@@ -224,7 +235,12 @@ scripts usam o banco do `docker-compose.yml` em `localhost:5435`.
 Star Schema e `busca.documentos` do banco local para `SUPABASE_DATABASE_URL`. A comparação é
 pela chave natural: insere o que é novo, atualiza o que mudou (`--somente-inserir` desliga a
 atualização) e não apaga nada; rodar de novo sem mudança não escreve nenhuma linha. No CI a
-etapa usa o secret `SUPABASE_DATABASE_URL` e não roda em pull request.
+etapa usa o secret `SUPABASE_DATABASE_URL` e não roda em pull request. Depois da cópia, a etapa
+(`--verificar`) audita o Supabase com `src/db/reconciliar_supabase.py`: bronze e silver vazias, k ≥ 5
+na gold, nenhum papel público em bronze e silver, contagens iguais às do banco local e conexão por
+SSL. Se o veredito não for `APROVADO`, a etapa falha. Para rodar só a auditoria:
+`python3 src/db/reconciliar_supabase.py --markdown` (detalhes no [guia de disponibilização online](docs/disponibilizacao_online_supabase.md)
+e na [ADR 0031](docs/adr/0031-escopo-disponibilizacao-online-supabase-lgpd.md)).
 
 ### Transformações em dbt (staging, intermediate e marts)
 O projeto `transform/` reconstrói a camada de consumo a partir da Silver 3NF, com dbt, em três

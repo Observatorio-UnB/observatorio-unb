@@ -24,7 +24,7 @@ import psycopg
 from psycopg import sql
 from psycopg.types.numeric import FloatLoader
 
-from src.db.conexao import conectar
+from src.db.conexao import conectar, conexao_do_pool
 
 logger = logging.getLogger("tabelas")
 
@@ -161,23 +161,24 @@ def gravar(df: pd.DataFrame, tabela: str, conn: Optional[psycopg.Connection] = N
     return gravar_varias({tabela: df}, conn=conn)[tabela]
 
 
-def _conectar_leitura() -> psycopg.Connection:
-    conn = conectar()
-    # NUMERIC chega como float, e não Decimal: o pipeline faz conta com pandas e numpy.
-    conn.adapters.register_loader("numeric", FloatLoader)
-    return conn
+def _cursor_de_leitura(conn: psycopg.Connection) -> psycopg.Cursor:
+    cur = conn.cursor()
+    # NUMERIC chega como float, e não Decimal: o pipeline faz conta com pandas e numpy. Registrado
+    # no cursor, e não na conexão, que volta ao pool e serve outras leituras.
+    cur.adapters.register_loader("numeric", FloatLoader)
+    return cur
 
 
 def consultar(consulta: str, params=None) -> pd.DataFrame:
-    """Resultado de uma consulta SQL como DataFrame."""
-    with _conectar_leitura() as conn:
-        cur = conn.execute(consulta, params)
+    """Resultado de uma consulta SQL como DataFrame, numa conexão do pool."""
+    with conexao_do_pool() as conn, _cursor_de_leitura(conn) as cur:
+        cur.execute(consulta, params)
         return pd.DataFrame(cur.fetchall(), columns=[d.name for d in cur.description])
 
 
 def ler(tabela: str, colunas_de_controle: bool = False) -> pd.DataFrame:
-    """Lê uma tabela inteira, na ordem em que foi gravada."""
-    with _conectar_leitura() as conn:
+    """Lê uma tabela inteira, na ordem em que foi gravada, numa conexão do pool."""
+    with conexao_do_pool() as conn, _cursor_de_leitura(conn) as cur:
         colunas = colunas_da_tabela(conn, tabela)
         nomes = [c.nome for c in colunas]
         ordem = next((c for c in ("_ordem", "id") if c in nomes), None)
@@ -185,7 +186,7 @@ def ler(tabela: str, colunas_de_controle: bool = False) -> pd.DataFrame:
         consulta = sql.SQL("SELECT * FROM {}").format(sql.Identifier(esquema, nome))
         if ordem:
             consulta += sql.SQL(" ORDER BY {}").format(sql.Identifier(ordem))
-        cur = conn.execute(consulta)
+        cur.execute(consulta)
         df = pd.DataFrame(cur.fetchall(), columns=nomes)
     if not colunas_de_controle:
         df = df.drop(columns=[c.nome for c in colunas if c.nome in COLUNAS_DE_CONTROLE or c.identidade])
