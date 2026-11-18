@@ -9,6 +9,15 @@ permissions:
   contents: read
 
 jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Erros reais (pyflakes, sintaxe, imports fora de ordem); configuração em ruff.toml.
+      - name: "Ruff"
+        run: pipx run ruff==0.17.5 check .
+
   tamanho-arquivos:
     runs-on: ubuntu-latest
     env:
@@ -38,11 +47,13 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements.txt coverage
 
       # Só os testes que não precisam de banco nem de Kafka (tests/test_unit_*): CDC (MERGE
-      # idempotente no Delta), lago, dado atrasado, 3NF/Star, busca, frescor, leitura do INEP,
+      # idempotente no Delta), lake, dado atrasado, 3NF/Star, busca, freshness, leitura do INEP,
       # grafo do Dagster (pulado sem o Dagster instalado) e a resposta da E1. Os de banco rodam no
       # medalhao.yml.
       - name: "Testes unitários"
-        run: python -m unittest discover -s tests -p "test_unit_*.py"
+        run: |
+          coverage run --source=src -m unittest discover -s tests -p "test_unit_*.py"
+          coverage report --skip-empty --fail-under=50

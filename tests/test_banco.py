@@ -19,7 +19,7 @@ sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conectar
 from src.db.migrar import MIGRATIONS_DIR
 from src.db.tabelas import Coluna, ErroDeContrato, gravar, ler, preparar
-from src.pipeline.build_gold import ANOS_MATURACAO_COORTE
+from src.pipeline.build_gold import ANOS_MATURACAO_TURMA
 
 
 class TestContratoDeCarga(unittest.TestCase):
@@ -130,7 +130,7 @@ class TestBanco(unittest.TestCase):
                OR a.formados IS DISTINCT FROM g.total_formados
                OR a.ativos IS DISTINCT FROM g.total_ainda_ativos
             """,
-            (ANOS_MATURACAO_COORTE,),
+            (ANOS_MATURACAO_TURMA,),
         ).fetchall()
         self.assertEqual(divergentes, [], "Cursos da gold que não batem com a silver")
 
@@ -212,7 +212,10 @@ class TestBuscaSemantica(unittest.TestCase):
 
     def test_um_documento_por_curso_da_gold(self):
         faltando = self.conn.execute(
-            "SELECT curso FROM gold.retencao_cursos_unb EXCEPT "
+            # Cursos-tronco ficam fora do índice (vetorizar.documentos_de_cursos).
+            "SELECT curso FROM gold.retencao_cursos_unb WHERE curso NOT IN ("
+            "  SELECT jsonb_array_elements_text(conteudo->'cursos_tronco') FROM gold.relatorios "
+            "  WHERE nome = 'metricas_gerais_unb') EXCEPT "
             "SELECT chave FROM busca.documentos WHERE tipo = 'curso'"
         ).fetchall()
         self.assertEqual(faltando, [])

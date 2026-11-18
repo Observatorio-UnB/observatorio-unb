@@ -7,7 +7,7 @@
 
 Na E2, as transformações da gold ficaram em dois lugares. A gold tabular é feita em pandas (`src/pipeline/build_gold.py`). O star schema é feito por SQL guardado em strings Python (`src/db/povoar_dimensional.py`), executado em sequência numa transação. Funciona, mas tem três problemas:
 
-- **Dependências implícitas.** A ordem das etapas está escrita à mão. Nada mostra que o IRC depende das métricas, que dependem das coortes maduras.
+- **Dependências implícitas.** A ordem das etapas está escrita à mão. Nada mostra que o IRC depende das métricas, que dependem das turmas maduras.
 - **Testes de dados longe dos modelos.** Os testes estão em `tests/test_banco*.py`, ligados ao pipeline, e não a cada tabela que o modelo produz.
 - **Sem documentação nem linhagem geradas.** O dicionário vem do catálogo, mas não diz de onde cada tabela vem.
 
@@ -33,7 +33,7 @@ A E3 pede transformações declarativas e versionadas, em camadas.
 - **dbt** (`dbt-core` e `dbt-postgres`, em `requirements-dbt.txt`), projeto em `transform/`, rodado por `scripts/dbt.sh`. O script lê o `DATABASE_URL` do projeto.
 - **Três camadas, cada uma no seu esquema:**
   - `staging` (`dbt_staging`, views): uma view por tabela da Silver 3NF. Só renomeia e tipa, e o `id_discente` fica de fora.
-  - `intermediate` (`dbt_intermediate`, views): as regras de negócio. Atributos do curso (oferta principal, MISTO), campus (MULTICAMPUS), coortes maduras (8 anos), métricas com k ≥ 5 e IRC com a classificação por quartis.
+  - `intermediate` (`dbt_intermediate`, views): as regras de negócio. Atributos do curso (oferta principal, MISTO), campus (MULTICAMPUS), turmas maduras (8 anos), métricas com k ≥ 5 e IRC com a classificação por quartis.
   - `marts` (`dbt_marts`, tabelas): `dim_curso`, `dim_campus`, `fct_retencao_curso` (grão: um curso canônico) e `painel_cursos_criticos`, a tabela que responde à pergunta da E1.
 - **Acesso.** Só os marts, agregados com k ≥ 5, recebem `GRANT SELECT` para `observatorio_leitura`. `staging` e `intermediate` carregam vínculos individuais e ficam inacessíveis a esse papel, como a silver.
 - **Mesmo arredondamento da gold.** Desde a migração 0022, a gold arredonda em ponto flutuante, com empate para o par (`gold.arredondar`, como o `numpy.round`). Os modelos do dbt usam a macro `arredondar`, idêntica a ela, e as mesmas fórmulas: a razão em ponto flutuante vezes 100, e o IRC na mesma ordem de operações. Com o `round(numeric)` do PostgreSQL, que arredonda o empate para cima, 102/320 = 31,875% dava 31,88 no dbt e 31,87 na gold, e a reconciliação acusava.

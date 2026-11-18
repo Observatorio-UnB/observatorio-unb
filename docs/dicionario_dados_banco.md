@@ -233,7 +233,7 @@ SIGRA (sigra.csv, pacote dados-referente-aos-alunos-de-graduacao-pos-graduacao-l
 
 Uma linha por carga de silver.movimentacoes_vinculos, com a marca d'água usada para classificar o que chegou.
 
-**Linhas na última carga:** 1
+**Linhas na última carga:** 2
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -241,7 +241,7 @@ Uma linha por carga de silver.movimentacoes_vinculos, com a marca d'água usada 
 | `carregada_em` | `timestamp with time zone` | não |  |
 | `publicada_em` | `date` | não | Publicação no portal do arquivo de vínculos mais recente da carga (SIGRA ou SIGAA, por bronze.ingestoes). É o tempo de processamento. |
 | `marca_dagua` | `integer` | não | Último período de saída (AAAAS, semestre 0 = verão) dado como fechado: o fim do período mais a tolerância não passa de publicada_em. |
-| `ultima_coorte_madura` | `smallint` | sim | Último ano de ingresso que entra na gold nesta carga (ADR 0014). Mudança em coorte até aqui revisa número já publicado. |
+| `ultima_turma_madura` | `smallint` | sim | Último ano de ingresso que entra na gold nesta carga (ADR 0014). Mudança em turma até aqui revisa número já publicado. |
 | `total_vinculos` | `integer` | não |  |
 
 **Restrições:**
@@ -254,7 +254,7 @@ Uma linha por carga de silver.movimentacoes_vinculos, com a marca d'água usada 
 
 Vínculos de cada carga por ano de ingresso, desfecho e período de saída. Só contagens: nenhuma linha identifica um discente.
 
-**Linhas na última carga:** 549
+**Linhas na última carga:** 1.098
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -332,7 +332,7 @@ Catálogo de cursos de graduação consolidado: um registro por id_curso, com o 
 | `grau_academico_norm` | `text` | sim | Titulação normalizada (ex.: BACHAREL, LICENCIADO). |
 | `area_conhecimento_norm` | `text` | sim | Grande Área CNPq/MEC. Os 13 cursos classificados como "Outra" na fonte são remapeados à mão (AREA_CONHECIMENTO_OVERRIDES). |
 | `unidade_responsavel_norm` | `text` | sim | Unidade acadêmica normalizada. |
-| `no_catalogo_vigente` | `boolean` | não | Falso para código de curso que não está na versão mais recente do catálogo; mantido porque pode ter alunos nas coortes analisadas. |
+| `no_catalogo_vigente` | `boolean` | não | Falso para código de curso que não está na versão mais recente do catálogo; mantido porque pode ter alunos nas turmas analisadas. |
 | `_ordem` | `integer` | sim | Ordem de gravação. A gold pega o primeiro registro de cada nome de curso, então a ordem faz parte do resultado. |
 
 **Restrições:**
@@ -485,7 +485,7 @@ Cursos presenciais das federais no Censo 2019, com as taxas por curso que permit
 | `QT_CONC` | `integer` | sim | Concluintes no ano. |
 | `QT_SIT_TRANCADA` | `integer` | sim | Matrículas trancadas. |
 | `QT_SIT_DESVINCULADO` | `integer` | sim | Matrículas desvinculadas do curso. |
-| `taxa_trancamento_pct` | `numeric(6,2)` | sim | QT_SIT_TRANCADA / QT_MAT x 100. Situação apurada no ano-censo, não por coorte. |
+| `taxa_trancamento_pct` | `numeric(6,2)` | sim | QT_SIT_TRANCADA / QT_MAT x 100. Situação apurada no ano-censo, não por turma. |
 | `taxa_desvinculacao_pct` | `numeric(6,2)` | sim | QT_SIT_DESVINCULADO / QT_MAT x 100. Não é comparável com a taxa de evasão do SIGRA. |
 | `concorrencia_vestibular` | `numeric(8,2)` | sim | QT_INSCRITO_TOTAL / QT_VG_TOTAL (inscritos por vaga). |
 | `_ordem` | `integer` | sim | Ordem de gravação. |
@@ -728,7 +728,7 @@ Discentes de graduação ativos no período de referência (lista do SIGAA), sem
 
 ### `gold.ativos_hoje_cursos_unb`
 
-Discentes de graduação ativos no semestre mais recente publicado pelo SIGAA (lista de ativos), por curso canônico, todas as coortes. Cursos-tronco e cursos sem estrutura curricular publicada ficam de fora. Só entram cursos com 5 ou mais ativos (k-anonimato).
+Discentes de graduação ativos no semestre mais recente publicado pelo SIGAA (lista de ativos), por curso canônico, todas as turmas. Cursos-tronco e cursos sem estrutura curricular publicada ficam de fora. Só entram cursos com 5 ou mais ativos (k-anonimato).
 
 **Linhas na última carga:** 95
 
@@ -897,7 +897,7 @@ Grão: um registro por curso canônico e perfil social do bolsista (dim_perfil_s
 
 ### `gold.fato_retencao_curso`
 
-Grão: um registro por curso canônico, agregando as coortes maduras (ingresso até o último ano da base menos 8). Chave do grão: UNIQUE (sk_curso). O campus (sk_campus) é atributo do curso, e não parte do grão. Contagens (total_*) são aditivas entre cursos; taxas, % no tempo ideal, atraso médio e IRC não são: para agregar, recalcular a partir das contagens. Só entram cursos com k >= 5. Mesmas regras de gold.retencao_cursos_unb.
+Grão: um registro por curso canônico, agregando as turmas maduras (ingresso até o último ano da base menos 8). Chave do grão: UNIQUE (sk_curso). O campus (sk_campus) é atributo do curso, e não parte do grão. Contagens (total_*) são aditivas entre cursos; taxas, % no tempo ideal, atraso médio e IRC não são: para agregar, recalcular a partir das contagens. Só entram cursos com k >= 5. Mesmas regras de gold.retencao_cursos_unb.
 
 **Linhas na última carga:** 95
 
@@ -1006,7 +1006,7 @@ Iniciação científica por curso e campus: volume, bolsas e perfil social dos b
 
 Regras de equivalência entre o nome do curso no SIGRA e o nome da matriz curricular (entity resolution). Uma linha por nome de origem.
 
-**Linhas na última carga:** 72
+**Linhas na última carga:** 71
 
 | Coluna | Tipo | Nulo | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -1038,9 +1038,47 @@ Relatórios JSON do pipeline: métricas gerais da UnB, métricas do PIBIC e audi
 
 - Chave primária: `PRIMARY KEY (nome)`
 
+### `gold.retencao_cursos_turma`
+
+Retenção, formatura e evasão por curso canônico e ano de ingresso, todas as turmas. Mesmas definições de gold.retencao_cursos_unb. Só entram turmas com 5 ou mais discentes (k-anonimato).
+
+**Linhas na última carga:** 1.311
+
+| Coluna | Tipo | Nulo | Descrição |
+| :--- | :--- | :---: | :--- |
+| `curso` | `text` | não |  |
+| `ano_ingresso` | `integer` | não |  |
+| `turma_madura` | `boolean` | não | Verdadeiro se a turma tem o acompanhamento mínimo (anos de maturação) e portanto entra em gold.retencao_cursos_unb. |
+| `semestre_ideal_previsto` | `numeric(4,1)` | não |  |
+| `total_discentes_registrados` | `integer` | não |  |
+| `total_formados` | `integer` | não |  |
+| `total_evadidos_desligados` | `integer` | não |  |
+| `total_ainda_ativos` | `integer` | não |  |
+| `taxa_formatura_pct` | `numeric(5,2)` | não |  |
+| `taxa_evasao_pct` | `numeric(5,2)` | não |  |
+| `formados_tempo_minimo_pct` | `numeric(5,2)` | não | Percentual dos formados com prazo calculável que concluíram no tempo mínimo da matriz. |
+| `formados_tempo_ideal_pct` | `numeric(5,2)` | não |  |
+| `formados_acima_ideal_pct` | `numeric(5,2)` | não |  |
+| `formados_limite_maximo_pct` | `numeric(5,2)` | não |  |
+| `tempo_medio_real_semestres` | `numeric(5,2)` | sim |  |
+| `faixa_minimo_pct` | `numeric(5,2)` | sim | Como em gold.retencao_cursos_unb.faixa_minimo_pct, só para a turma. |
+| `faixa_ideal_pct` | `numeric(5,2)` | sim | Como em gold.retencao_cursos_unb.faixa_ideal_pct, só para a turma. |
+| `faixa_acima_pct` | `numeric(5,2)` | sim | Como em gold.retencao_cursos_unb.faixa_acima_pct, só para a turma. |
+| `faixa_limite_pct` | `numeric(5,2)` | sim | Como em gold.retencao_cursos_unb.faixa_limite_pct, só para a turma. |
+
+**Restrições:**
+
+- Chave primária: `PRIMARY KEY (curso, ano_ingresso)`
+- Verificação: `CHECK (((taxa_evasao_pct >= (0)::numeric) AND (taxa_evasao_pct <= (100)::numeric)))`
+- Verificação: `CHECK (((taxa_formatura_pct >= (0)::numeric) AND (taxa_formatura_pct <= (100)::numeric)))`
+- Verificação: `CHECK ((total_ainda_ativos >= 0))`
+- Verificação: `CHECK ((total_discentes_registrados >= 5))`
+- Verificação: `CHECK ((total_evadidos_desligados >= 0))`
+- Verificação: `CHECK ((total_formados >= 0))`
+
 ### `gold.retencao_cursos_unb`
 
-Retenção, formatura e evasão por curso, sobre as coortes de ingresso com pelo menos 8 anos de acompanhamento (ver ANOS_MATURACAO_COORTE em build_gold.py). Uma linha por curso canônico de graduação; cursos com bacharelado e licenciatura sob o mesmo nome ficam numa linha só (categoria_grau = MISTO). Só entram cursos com 5 ou mais discentes.
+Retenção, formatura e evasão por curso, sobre as turmas de ingresso com pelo menos 8 anos de acompanhamento (ver ANOS_MATURACAO_TURMA em build_gold.py). Uma linha por curso canônico de graduação; cursos com bacharelado e licenciatura sob o mesmo nome ficam numa linha só (categoria_grau = MISTO). Só entram cursos com 5 ou mais discentes.
 
 **Linhas na última carga:** 95
 
@@ -1057,7 +1095,7 @@ Retenção, formatura e evasão por curso, sobre as coortes de ingresso com pelo
 | `semestre_ideal_previsto` | `numeric(4,1)` | sim | Duração ideal da matriz curricular, em semestres. |
 | `semestre_maximo_previsto` | `numeric(4,1)` | sim | Prazo máximo antes do jubilamento, em semestres. |
 | `carga_horaria_minima` | `integer` | sim | Carga horária total mínima para conclusão, em horas. |
-| `total_discentes_registrados` | `integer` | não | Vínculos do curso nas coortes analisadas (SIGRA + SIGAA). Mínimo 5 (supressão de grupos pequenos, k-anonimato). |
+| `total_discentes_registrados` | `integer` | não | Vínculos do curso nas turmas analisadas (SIGRA + SIGAA). Mínimo 5 (supressão de grupos pequenos, k-anonimato). |
 | `total_formados` | `integer` | não | Vínculos com saída por formatura. |
 | `total_evadidos_desligados` | `integer` | não | Vínculos encerrados sem diploma: abandono, jubilamento, desligamento, mudança de curso ou cancelamento no SIGAA. |
 | `taxa_formatura_pct` | `numeric(5,2)` | sim | total_formados / total_discentes_registrados x 100. |
@@ -1077,8 +1115,12 @@ Retenção, formatura e evasão por curso, sobre as coortes de ingresso com pelo
 | `pibic_cotistas` | `integer` | sim | Planos de bolsistas que ingressaram por cota. Nulo quando o curso não tem plano de IC. |
 | `pibic_investimento_total` | `numeric(14,2)` | sim | Soma estimada das bolsas remuneradas do curso, em R$. |
 | `pibic_projetos_por_100_alunos` | `numeric(7,2)` | sim | pibic_total_projetos / total_discentes_registrados x 100. |
-| `total_ainda_ativos` | `integer` | não | Vínculos das coortes analisadas ainda ativos ou trancados no extrato do SIGAA. |
+| `total_ainda_ativos` | `integer` | não | Vínculos das turmas analisadas ainda ativos ou trancados no extrato do SIGAA. |
 | `_ordem` | `integer` | sim | Ordem de gravação: do maior para o menor índice de retenção crítica. |
+| `faixa_minimo_pct` | `numeric(5,2)` | sim | % dos formados com permanência calculável que concluíram em até o semestre mínimo da matriz. Faixas exclusivas: as quatro faixa_*_pct somam 100. |
+| `faixa_ideal_pct` | `numeric(5,2)` | sim | % dos formados entre o semestre mínimo (exclusive) e o ideal (inclusive). |
+| `faixa_acima_pct` | `numeric(5,2)` | sim | % dos formados acima do ideal e abaixo do semestre máximo. |
+| `faixa_limite_pct` | `numeric(5,2)` | sim | % dos formados no semestre máximo da matriz (limite de jubilamento) ou depois. |
 
 **Restrições:**
 

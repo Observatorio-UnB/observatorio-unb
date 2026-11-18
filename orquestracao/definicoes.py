@@ -11,13 +11,13 @@ checagens dos assets.
 
   pipeline_mensal  todas as etapas, do portal ao Supabase. Agendado no dia 1 de cada mês; no CI, o
                    atualiza-dados.yml dispara o mesmo job (`dagster job execute`).
-  backfill_lago    reprocessa janelas (quinquênios de ingresso) dos vínculos no lago Delta, uma
+  backfill_lake    reprocessa janelas (quinquênios de ingresso) dos vínculos no lake Delta, uma
                    partição por quinquênio (ADR 0024 e 0026).
 
 Uso:
     dagster dev -m orquestracao                               # UI em http://localhost:3000
     dagster job execute -m orquestracao -j pipeline_mensal
-    dagster asset materialize -m orquestracao --select lago_vinculos_por_quinquenio \
+    dagster asset materialize -m orquestracao --select lake_vinculos_por_quinquenio \
         --partition-range "$(python -c 'from orquestracao.definicoes import INTERVALO_BACKFILL as i; print(i)')"
 
 Retry, falha forçada e backfill demonstrados em docs/orquestracao.md.
@@ -33,18 +33,18 @@ from dagster import (
     AssetExecutionContext,
     AssetKey,
     AssetSpec,
-    Backoff,
     BackfillPolicy,
+    Backoff,
     DefaultScheduleStatus,
     Definitions,
     Failure,
+    MaterializeResult,
     RetryPolicy,
     ScheduleDefinition,
     StaticPartitionsDefinition,
     asset,
     define_asset_job,
     in_process_executor,
-    MaterializeResult,
     multi_asset,
 )
 from dagster_dbt import DagsterDbtTranslator, DbtCliResource, dbt_assets
@@ -69,7 +69,7 @@ RETRY_PORTAL = RetryPolicy(max_retries=3, delay=30, backoff=Backoff.EXPONENTIAL)
 # Uma etapa travada (rede pendurada, lock no banco) vira falha depois de 1 h, e o retry assume.
 TEMPO_MAXIMO_ETAPA = 3600
 
-# Quinquênios de ingresso dos vínculos, a partição do lago (ADR 0024): de 2000 ao atual. O intervalo
+# Quinquênios de ingresso dos vínculos, a partição do lake (ADR 0024): de 2000 ao atual. O intervalo
 # completo, para o backfill de todas as janelas, cresce sozinho com o ano (usado no medalhao.yml).
 QUINQUENIOS = StaticPartitionsDefinition([str(q) for q in range(2000, date.today().year + 1, 5)])
 INTERVALO_BACKFILL = f"{QUINQUENIOS.get_partition_keys()[0]}...{QUINQUENIOS.get_partition_keys()[-1]}"
@@ -214,19 +214,19 @@ def camadas_dbt(context: AssetExecutionContext, dbt: DbtCliResource):
 # --- Publicação ------------------------------------------------------------------------------
 
 @asset(group_name="publicacao", deps=TABELAS_STAR_SCHEMA, retry_policy=RETRY_BANCO,
-       description="Lago Delta: só as tabelas e as janelas que mudaram desde a última exportação.")
-def lago(context: AssetExecutionContext) -> None:
-    rodar(context, "src/db/exportar_lago.py", "--janelas-alteradas")
+       description="Lake Delta: só as tabelas e as janelas que mudaram desde a última exportação.")
+def lake(context: AssetExecutionContext) -> None:
+    rodar(context, "src/db/exportar_lake.py", "--janelas-alteradas")
 
 
 @asset(group_name="publicacao", deps=TABELAS_STAR_SCHEMA, retry_policy=RETRY_BANCO, partitions_def=QUINQUENIOS,
        backfill_policy=BackfillPolicy.single_run(),
-       description="Janelas (quinquênios de ingresso) dos vínculos no lago Delta, cada uma regravada inteira. "
+       description="Janelas (quinquênios de ingresso) dos vínculos no lake Delta, cada uma regravada inteira. "
                    "É o reprocessamento de janela do ADR 0026, e o alvo do backfill: um intervalo de "
                    "partições vira uma execução só, com um overwrite por janela.")
-def lago_vinculos_por_quinquenio(context: AssetExecutionContext) -> None:
+def lake_vinculos_por_quinquenio(context: AssetExecutionContext) -> None:
     janelas = [arg for q in context.partition_keys for arg in ("--quinquenio", q)]
-    rodar(context, "src/db/exportar_lago.py", *janelas)
+    rodar(context, "src/db/exportar_lake.py", *janelas)
 
 
 @asset(group_name="publicacao", deps=[gold_tabular], retry_policy=RETRY_BANCO, description="Busca semântica.")
@@ -240,7 +240,7 @@ def dicionario(context: AssetExecutionContext) -> None:
     rodar(context, "src/db/gerar_dicionario.py")
 
 
-@asset(group_name="publicacao", deps=[view_painel, vetorizacao, dicionario, lago], retry_policy=RETRY_PORTAL,
+@asset(group_name="publicacao", deps=[view_painel, vetorizacao, dicionario, lake], retry_policy=RETRY_PORTAL,
        description="Sincronização incremental da gold com o Supabase e auditoria do destino (LGPD, "
                    "acesso e reconciliação). Pulada sem SUPABASE_DATABASE_URL.")
 def supabase(context: AssetExecutionContext) -> None:
@@ -252,13 +252,13 @@ def supabase(context: AssetExecutionContext) -> None:
 pipeline_mensal = define_asset_job(
     "pipeline_mensal",
     selection=[migracoes, bronze_ckan, bronze_inep, bronze_cnpq, silver, gold_tabular, auditoria_qualidade,
-               privacidade, star_schema, view_painel, camadas_dbt, lago, vetorizacao, dicionario, supabase],
+               privacidade, star_schema, view_painel, camadas_dbt, lake, vetorizacao, dicionario, supabase],
     description="Pipeline completo, do portal ao Supabase, na ordem do grafo.",
 )
 
-backfill_lago = define_asset_job(
-    "backfill_lago", selection=[lago_vinculos_por_quinquenio], partitions_def=QUINQUENIOS,
-    description="Reprocessa janelas de vínculos no lago, uma partição por quinquênio.",
+backfill_lake = define_asset_job(
+    "backfill_lake", selection=[lake_vinculos_por_quinquenio], partitions_def=QUINQUENIOS,
+    description="Reprocessa janelas de vínculos no lake, uma partição por quinquênio.",
 )
 
 # Mesmo horário do atualiza-dados.yml. Ligada só quando o daemon do Dagster está no ar (dagster dev);
@@ -270,9 +270,9 @@ agenda_mensal = ScheduleDefinition(
 
 defs = Definitions(
     assets=[migracoes, bronze_ckan, bronze_inep, bronze_cnpq, silver, gold_tabular, auditoria_qualidade,
-            privacidade, star_schema, view_painel, camadas_dbt, lago, lago_vinculos_por_quinquenio,
+            privacidade, star_schema, view_painel, camadas_dbt, lake, lake_vinculos_por_quinquenio,
             vetorizacao, dicionario, supabase],
-    jobs=[pipeline_mensal, backfill_lago],
+    jobs=[pipeline_mensal, backfill_lake],
     schedules=[agenda_mensal],
     resources={"dbt": DbtCliResource(project_dir=str(DBT_DIR), profiles_dir=str(DBT_DIR))},
     # Uma etapa por vez, no mesmo processo: o pipeline divide um banco só, e as etapas pesadas

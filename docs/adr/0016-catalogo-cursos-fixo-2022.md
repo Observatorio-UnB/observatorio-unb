@@ -9,8 +9,8 @@ As versões de 03/2023 e 08/2024 de `curso_graduacao` removem cursos extintos (e
 
 ## Decisão
 
-O padrão de ingestão fica fixo em `^curso_graduacao\.csv$`, a versão de 2022, que cobre os cursos das coortes analisadas.
+O padrão de ingestão fica fixo em `^curso_graduacao\.csv$`, a versão de 2022, que cobre os cursos das turmas analisadas.
 
 ## Consequências
 
-Metadados estáveis. Cursos criados depois de 2022 não têm turno e campus do catálogo; revisar quando a análise passar a incluir coortes que entraram neles.
+Metadados estáveis. Cursos criados depois de 2022 não têm turno e campus do catálogo; revisar quando a análise passar a incluir turmas que entraram neles.

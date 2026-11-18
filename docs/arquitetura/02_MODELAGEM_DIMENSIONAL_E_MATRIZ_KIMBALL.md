@@ -12,7 +12,7 @@ Na engenharia de dados analíticos, a consistência de um Data Lakehouse depende
 
 | Processo de Negócio (Linha da Matriz) | dim_curso | dim_campus | dim_tempo | dim_perfil_social | Tabela Fato Gerada | Grão Analítico Declarado |
 |:---|:---:|:---:|:---:|:---:|:---|:---|
-| **1. Retenção e Formatura Histórica** | **X** | **X** | | | `gold.fato_retencao_curso` | Um registro por Curso por Campus sobre Coortes Maduras |
+| **1. Retenção e Formatura Histórica** | **X** | **X** | | | `gold.fato_retencao_curso` | Um registro por Curso por Campus sobre Turmas Maduras |
 | **2. Alunos Cursando no Presente** | **X** | | **X** | | `gold.fato_alunos_ativos` | Um registro por Curso no Semestre de Referência Vigente |
 | **3. Inclusão Social na Ciência (PIBIC)**| **X** | | | **X** | `gold.fato_pibic_perfil` | Um registro por Curso por Perfil Social do Bolsista |
 
@@ -107,7 +107,7 @@ O projeto respeita rigorosamente a taxonomia de métricas dimensionais estabelec
 
 ### 3.1. Medidas Totalmente Aditivas
 Podem ser agregadas por soma ($\sum$) ao longo de **todas** as dimensões associadas:
-* **Total Ingressantes** (`total_ingressantes`): $\sum (\text{vínculos de coortes maduras})$
+* **Total Ingressantes** (`total_ingressantes`): $\sum (\text{vínculos de turmas maduras})$
 * **Total Formados** (`total_formados`): $\sum (\text{vínculos concluídos com diploma})$
 * **Total Evadidos** (`total_evadidos`): $\sum (\text{vínculos encerrados sem diploma})$
 * **Total Projetos de IC** (`total_projetos`): $\sum (\text{planos de trabalho PIBIC/PIVIC})$
@@ -142,12 +142,12 @@ O nosso Star Schema resolve essa armadilha acadêmica separando três Tabelas Fa
 
 | Fato | Grão | Chave do grão | Linhas na carga de 11/2026 |
 |:---|:---|:---|---:|
-| `fato_retencao_curso` | Um registro por curso canônico, sobre as coortes maduras | `UNIQUE (sk_curso)` | 95 |
+| `fato_retencao_curso` | Um registro por curso canônico, sobre as turmas maduras | `UNIQUE (sk_curso)` | 95 |
 | `fato_alunos_ativos` | Um registro por curso canônico no semestre da lista de ativos mais recente (snapshot) | `UNIQUE (sk_curso)` | 95 |
 | `fato_pibic_perfil` | Um registro por curso canônico e perfil social do bolsista, somando todos os editais | `UNIQUE (sk_curso, sk_perfil)` | 286 |
 
-1. **`fato_retencao_curso` (Histórico de Coortes Maduras)**:
-   * **Grão**: um registro por curso canônico, agregando as coortes de ingresso com pelo menos **8 anos de percurso** (`ano_ingresso` até o último ano da base menos 8; na carga de 11/2026, de 2010 a 2016). O campus é atributo do curso (MULTICAMPUS quando o nome é oferecido em mais de um campus), e não parte do grão.
+1. **`fato_retencao_curso` (Histórico de Turmas Maduras)**:
+   * **Grão**: um registro por curso canônico, agregando as turmas de ingresso com pelo menos **8 anos de percurso** (`ano_ingresso` até o último ano da base menos 8; na carga de 11/2026, de 2010 a 2016). O campus é atributo do curso (MULTICAMPUS quando o nome é oferecido em mais de um campus), e não parte do grão.
    * **Finalidade**: Avaliar a taxa real de conclusão, jubilamento e evasão consolidada sem interferência de matrículas ativas recentes.
 2. **`fato_alunos_ativos` (O Momento Presente)**:
    * **Grão**: snapshot de discentes com matrícula regular ativa, um registro por curso no semestre da lista de ativos mais recente publicada (`sk_tempo_referencia`; na carga de 11/2026, 2025/1). A carga substitui o snapshot, sem histórico.
@@ -164,19 +164,19 @@ No banco local isso não acontece, porque o fato é recriado a cada carga. Mas a
 
 ### 4.2 Avaliação de outros níveis de grão
 
-O grão de decisão foi comparado com dois mais finos, sobre os mesmos vínculos das coortes maduras (carga de 11/2026, 68.339 vínculos de 2010 a 2016). Uma célula com menos de 5 vínculos é suprimida (k-anonimato).
+O grão de decisão foi comparado com dois mais finos, sobre os mesmos vínculos das turmas maduras (carga de 11/2026, 68.339 vínculos de 2010 a 2016, universo bruto: o painel mostra 67.063, nos cursos com 5 ou mais alunos e sem curso de tronco). Uma célula com menos de 5 vínculos é suprimida (k-anonimato).
 
 | Grão | Células | Células com k ≥ 5 | Vínculos suprimidos | Mediana de vínculos por célula |
 |:---|---:|---:|---:|---:|
 | **Curso (atual)** | 101 | 95 | 12 (0,02%) | 588 |
-| Curso × coorte (ano de ingresso) | 633 | 597 | 76 (0,11%) | 90 |
-| Curso × coorte × semestre de ingresso | 633 | 597 | 76 (0,11%) | 90 |
+| Curso × turma (ano de ingresso) | 633 | 597 | 76 (0,11%) | 90 |
+| Curso × turma × semestre de ingresso | 633 | 597 | 76 (0,11%) | 90 |
 
-* **Curso × coorte × semestre de ingresso não existe nos dados.** `semestre_ingresso` é nulo nos 152.680 vínculos, porque o SIGRA e o SIGAA publicam só o ano de ingresso (achado de qualidade do relatório da Semana 1). Esse grão é o mesmo que curso × coorte.
-* **Curso × coorte é viável pela privacidade** (só 0,11% suprimido), **mas não serve à decisão.** A taxa de evasão do mesmo curso varia, na mediana, 18 pontos percentuais entre as 7 coortes, e 33 dos 77 cursos com as 7 coortes variam 20 pontos ou mais. Com mediana de 90 vínculos por célula, boa parte dessa variação é ruído amostral. Um ranking de intervenção por coorte trocaria de curso de um ano para o outro.
-* **O grão por coorte expõe o viés de maturação dentro da janela madura.** A coorte de 2016 ainda tem 9,3% de vínculos ativos (contra 0,1% na de 2010), e por isso a evasão dela parece menor (39,7% contra 43% a 47% nas anteriores). No grão do curso, esse efeito se dilui nas 7 coortes.
+* **Curso × turma × semestre de ingresso não existe nos dados.** `semestre_ingresso` é nulo nos 152.680 vínculos, porque o SIGRA e o SIGAA publicam só o ano de ingresso (achado de qualidade do relatório da Semana 1). Esse grão é o mesmo que curso × turma.
+* **Curso × turma é viável pela privacidade** (só 0,11% suprimido), **mas não serve à decisão.** A taxa de evasão do mesmo curso varia, na mediana, 18 pontos percentuais entre as 7 turmas, e 33 dos 77 cursos com as 7 turmas variam 20 pontos ou mais. Com mediana de 90 vínculos por célula, boa parte dessa variação é ruído amostral. Um ranking de intervenção por turma trocaria de curso de um ano para o outro.
+* **O grão por turma expõe o viés de maturação dentro da janela madura.** A turma de 2016 ainda tem 9,3% de vínculos ativos (contra 0,1% na de 2010), e por isso a evasão dela parece menor (39,7% contra 43% a 47% nas anteriores). No grão do curso, esse efeito se dilui nas 7 turmas.
 
-| Coorte | Cursos com k ≥ 5 | Vínculos por curso (média) | Evasão média | Ainda ativos (média) |
+| Turma | Cursos com k ≥ 5 | Vínculos por curso (média) | Evasão média | Ainda ativos (média) |
 |---:|---:|---:|---:|---:|
 | 2010 | 80 | 112 | 42,9% | 0,1% |
 | 2011 | 82 | 125 | 46,5% | 0,3% |
@@ -186,4 +186,4 @@ O grão de decisão foi comparado com dois mais finos, sobre os mesmos vínculos
 | 2015 | 89 | 110 | 43,2% | 5,5% |
 | 2016 | 92 | 113 | 39,7% | 9,3% |
 
-**Decisão:** o fato de retenção fica no grão do curso, que é o grão da pergunta da E1 ("quais cursos apresentam os maiores índices de retenção?", `docs/challenge_canvas.md`). Uma linha por curso responde o ranking do IRC sem dupla agregação. O grão curso × coorte fica registrado como candidato a um segundo fato, para tendência entre coortes, e não para o ranking. A escolha da modelagem está no [ADR 0030](../adr/0030-modelagem-analitica-e-ferramentas.md), que mede quatro grãos.
+**Decisão:** o fato de retenção fica no grão do curso, que é o grão da pergunta da E1 ("quais cursos apresentam os maiores índices de retenção?", `docs/challenge_canvas.md`). Uma linha por curso responde o ranking do IRC sem dupla agregação. O grão curso × turma fica registrado como candidato a um segundo fato, para tendência entre turmas, e não para o ranking. A escolha da modelagem está no [ADR 0030](../adr/0030-modelagem-analitica-e-ferramentas.md), que mede quatro grãos.

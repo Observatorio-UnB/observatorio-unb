@@ -104,14 +104,14 @@ O veredito é `APROVADO` só se tudo passar, e o código de saída é 1 em qualq
 
 ---
 
-## 5. Manutenção de Frescor e Políticas de Keep-Alive
+## 5. Manutenção de Freshness e Políticas de Keep-Alive
 
 1. **Keep-Alive Diário (`.github/workflows/supabase-keepalive.yml`):**
    * O plano gratuito do Supabase suspende projetos inativos após 7 dias.
    * O workflow agendado executa diariamente às 12:00 UTC uma consulta na visão materializada analítica (`SELECT count(*) FROM gold.mv_dashboard_executivo;`), garantindo que a instância permaneça ativa.
-2. **Atualização Contínua de Frescor (Pipeline de Carga):**
+2. **Atualização Contínua de Freshness (Pipeline de Carga):**
    * A cada execução de `src/db/sincronizar_supabase.py`, o procedimento `CALL gold.atualizar_mv_dashboard_executivo()` é executado no Supabase, renovando os carimbos de `atualizado_em` e `gerado_em` da visão consumida pelo painel.
-   * A idade do dado e o cumprimento do SLA de 35 dias são conferidos por `src/db/frescor.py`, todo dia, contra o Supabase ([docs/frescor_sla.md](frescor_sla.md)).
+   * A idade do dado e o cumprimento do SLA de 35 dias são conferidos por `src/db/freshness.py`, todo dia, contra o Supabase ([docs/freshness_sla.md](freshness_sla.md)).
 
 ---
 

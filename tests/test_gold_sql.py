@@ -19,11 +19,11 @@ sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conectar
 from src.db.tabelas import ler
 from src.pipeline.build_gold import (
+    ANOS_MATURACAO_TURMA,
     CANONICAL_RULES_METADATA,
-    build_gold,
-    ANOS_MATURACAO_COORTE,
     EXCLUDED_GENERIC_COURSES,
     MIN_MATRICULAS_BENCHMARK,
+    build_gold,
     valor_bolsa_ic_vigente,
 )
 
@@ -155,7 +155,7 @@ class TestViewsAuxiliares(BancoComGold):
 
 class TestProcedureDaGold(BancoComGold):
 
-    ARGS = (ANOS_MATURACAO_COORTE, sorted(EXCLUDED_GENERIC_COURSES), MIN_MATRICULAS_BENCHMARK, valor_bolsa_ic_vigente())
+    ARGS = (ANOS_MATURACAO_TURMA, sorted(EXCLUDED_GENERIC_COURSES), MIN_MATRICULAS_BENCHMARK, valor_bolsa_ic_vigente())
     CALL = "CALL gold.atualizar_gold(%s::integer, %s::text[], %s::integer, %s::numeric)"
 
     def foto(self):
@@ -194,7 +194,7 @@ class TestProcedureDaGold(BancoComGold):
         estrutura = ler("silver.estrutura_curricular")
         regras = ler("gold.regras_harmonizacao_canonicas")
         discentes["curso"] = discentes["curso_norm"].replace(dict(zip(regras["origem_sigra"], regras["destino_estrutura"])))
-        corte = int(discentes["ano_ingresso"].max()) - ANOS_MATURACAO_COORTE
+        corte = int(discentes["ano_ingresso"].max()) - ANOS_MATURACAO_TURMA
         base = discentes.merge(estrutura, left_on="curso", right_on="nome_curso_norm")
         base = base[base["ano_ingresso"] <= corte]
         formado = base["tipo_saida_grupo"] == "FORMATURA"

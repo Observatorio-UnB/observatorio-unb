@@ -17,7 +17,7 @@ Cada arquivo registra uma decisão: o contexto que a motivou, o que foi decidido
 | 0011 | [Busca semântica com pgvector e embedding multilíngue local](0011-busca-semantica-pgvector.md) | 2026-09-24 |
 | 0012 | [SIGAA como fonte principal, unido ao SIGRA](0012-sigaa-uniao-com-sigra.md) | 2026-09-26 |
 | 0013 | [Evasão é toda saída do curso sem diploma](0013-evasao-saida-sem-diploma.md) | 2026-09-26 |
-| 0014 | [Só entram na análise coortes com 8 anos de acompanhamento](0014-janela-maturacao-8-anos.md) | 2026-09-26 |
+| 0014 | [Só entram na análise turmas com 8 anos de acompanhamento](0014-janela-maturacao-8-anos.md) | 2026-09-26 |
 | 0015 | [Semestre de conclusão do SIGAA estimado pela data do diploma](0015-semestre-de-saida-estimado.md) | 2026-09-26 |
 | 0016 | [Catálogo de cursos fixo na versão de 2022](0016-catalogo-cursos-fixo-2022.md) (substituída pela 0021) | 2026-09-26 |
 | 0017 | [Arquivos nominais do SIGAA ficam fora da ingestão](0017-arquivos-nominais-fora.md) | 2026-09-26 |
@@ -27,7 +27,7 @@ Cada arquivo registra uma decisão: o contexto que a motivou, o que foi decidido
 | 0021 | [Catálogo de cursos com todas as versões, a mais recente valendo](0021-catalogo-todas-as-versoes.md) | 2026-09-26 |
 | 0022 | [Cursos-tronco (ABI) fora das visões por curso](0022-cursos-tronco.md) | 2026-09-26 |
 | 0023 | [Valor da bolsa IC por uma tabela de vigências lida do CNPq](0023-valor-bolsa-ic-pela-tabela-do-cnpq.md) | 2026-09-26 |
-| 0024 | [Camada analítica em Delta Lake, Parquet com ZSTD e partição por quinquênio](0024-lago-delta-parquet-zstd.md) | 2026-10-10 |
+| 0024 | [Camada analítica em Delta Lake, Parquet com ZSTD e partição por quinquênio](0024-lake-delta-parquet-zstd.md) | 2026-10-10 |
 | 0025 | [Recarga periódica como mecanismo principal de ingestão, CDC como caminho opcional](0025-mecanismo-de-ingestao-recarga-e-cdc.md) | 2026-10-10 |
 | 0026 | [Dado atrasado aceito e registrado pela marca d'água, com reprocessamento só da janela alterada](0026-dado-atrasado-marca-dagua.md) | 2026-10-13 |
 | 0027 | [Agregações da Gold em SQL nativo no PostgreSQL, sem Pandas nem PySpark](0027-agregacoes-gold-em-sql-nativo.md) | 2026-10-29 |

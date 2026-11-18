@@ -20,7 +20,7 @@ Nenhum dado vai para API externa. A busca acerta tema, mas não filtra por núme
 Um conjunto de 20 consultas com o documento esperado (`tests/test_banco_busca.py`) mostrou três falhas da busca só vetorial:
 
 - **A documentação indexada era só a raiz de `docs/`:** 14 dos 54 `.md`, sem os ADRs nem `arquitetura/`. A documentação acertava 5 de 10 consultas no top 5.
-- **Sigla, número e termo técnico se perdem no embedding:** "ADR 0028" não trazia o ADR 0028, e "SLA de frescor" não trazia `frescor_sla.md`.
+- **Sigla, número e termo técnico se perdem no embedding:** "ADR 0028" não trazia o ADR 0028, e "SLA de freshness" não trazia `freshness_sla.md`.
 - **A similaridade de cosseno não separa acerto de ruído:** os documentos esperados ficaram entre 0,29 e 0,81, e consultas sem sentido ("lorem ipsum dolor", "o rato roeu a roupa do rei de roma") chegaram a 0,53. Como a busca sempre devolvia os k mais próximos, a consulta sem sentido recebia 5 resultados.
 
 **Decisão:**

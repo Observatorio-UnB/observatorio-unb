@@ -20,7 +20,7 @@
 | **ACHADO-08** | `bronze.sigra_discentes` | Todas | `data_nascimento + sexo + raca_cor + cota_ingresso + curso` | Presença de múltiplos quase-identificadores em alta granularidade permitindo reidentificação individual de discentes | Violação potencial de privacidade caso dados individuais sejam expostos no dashboard ou em apresentações públicas. | Garantir que a camada Gold e o produto final exponham apenas métricas agregadas por curso/departamento (k-anonimato >= 5 por agregação). |
 | **ACHADO-09** | `bronze.sigaa_discentes` | 2 | `status_aluno / data_registro_diploma / ano_ingresso` | O SIGAA não publica período nem motivo de saída, e grava o ano de ingresso com separador de milhar | Evasão não distingue abandono de mudança de curso, e o tempo de conclusão dos formados após 2020 precisa ser estimado pela data do diploma. | Evasão definida como saída sem diploma nas duas bases; semestre de conclusão estimado pela data do diploma (regra validada em 94,6% no SIGRA) e marcado em periodo_saida_estimado. |
 | **ACHADO-10** | `bronze.sigaa_discentes` | 56224, 93684 | `data_registro_diploma` | Datas de registro de diploma posteriores à publicação do arquivo (07/2024) | Sem tratamento, o semestre de conclusão estimado cai no futuro e distorce o tempo de formatura. | Datas depois da publicação do recurso no CKAN são descartadas antes da estimativa do semestre; o vínculo continua contado como formado. |
-| **ACHADO-11** | `bronze.sigaa_discentes` | Todas | `status_aluno` | O extrato do SIGAA mantém como ATIVO vínculos que já não estão na lista de ativos seguinte, sem virar CANCELADO | A evasão de coortes recentes fica subestimada no extrato: o cancelamento é registrado com atraso. | A Gold de retenção só usa coortes com 8 anos de acompanhamento. O retrato de ativos usa a lista de ativos do semestre mais recente, não o status do extrato. |
+| **ACHADO-11** | `bronze.sigaa_discentes` | Todas | `status_aluno` | O extrato do SIGAA mantém como ATIVO vínculos que já não estão na lista de ativos seguinte, sem virar CANCELADO | A evasão de turmas recentes fica subestimada no extrato: o cancelamento é registrado com atraso. | A Gold de retenção só usa turmas com 8 anos de acompanhamento. O retrato de ativos usa a lista de ativos do semestre mais recente, não o status do extrato. |
 | **ACHADO-12** | `bronze.estrutura_curricular` | N/A | `nome_curso` | A estrutura curricular publicada é de 10/2020 e não cobre todos os cursos do catálogo vigente | Sem prazos ideal e máximo, esses cursos ficam fora das métricas de atraso. | Cursos sem estrutura ficam de fora das tabelas por curso. |
 
 ---
@@ -100,9 +100,9 @@
 ### ACHADO-11: O extrato do SIGAA mantém como ATIVO vínculos que já não estão na lista de ativos seguinte, sem virar CANCELADO
 - **Origem**: `bronze.sigaa_discentes`
 - **Linha**: `Todas`
-- **Evidência no Dado Bruto**: `coorte de 2022: 8.530 ativos no extrato de 07/2024 contra 5.698 na lista de ativos de 06/2025. com 1.487 cancelados no extrato; coorte de 2023: 8.935 ativos no extrato de 07/2024 contra 7.011 na lista de ativos de 06/2025. com 525 cancelados no extrato. A queda em pouco tempo é grande demais para ser só formatura.`
-- **Impacto Direto**: A evasão de coortes recentes fica subestimada no extrato: o cancelamento é registrado com atraso.
-- **Tratamento Implementado no Pipeline**: A Gold de retenção só usa coortes com 8 anos de acompanhamento. O retrato de ativos usa a lista de ativos do semestre mais recente, não o status do extrato.
+- **Evidência no Dado Bruto**: `turma de 2022: 8.530 ativos no extrato de 07/2024 contra 5.772 na lista de ativos de 06/2025. com 1.487 cancelados no extrato; turma de 2023: 8.935 ativos no extrato de 07/2024 contra 7.785 na lista de ativos de 06/2025. com 525 cancelados no extrato. A queda em pouco tempo é grande demais para ser só formatura.`
+- **Impacto Direto**: A evasão de turmas recentes fica subestimada no extrato: o cancelamento é registrado com atraso.
+- **Tratamento Implementado no Pipeline**: A Gold de retenção só usa turmas com 8 anos de acompanhamento. O retrato de ativos usa a lista de ativos do semestre mais recente, não o status do extrato.
 
 ### ACHADO-12: A estrutura curricular publicada é de 10/2020 e não cobre todos os cursos do catálogo vigente
 - **Origem**: `bronze.estrutura_curricular`

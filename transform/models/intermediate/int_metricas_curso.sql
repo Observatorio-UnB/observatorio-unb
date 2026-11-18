@@ -14,7 +14,7 @@ with contagens as (
                            and semestres_permanencia_valida <= semestre_ideal) as formados_no_ideal,
         avg(semestres_permanencia_valida - semestre_ideal)
             filter (where tipo_saida_grupo = 'FORMATURA') as atraso
-    from {{ ref('int_coortes_maduras') }}
+    from {{ ref('int_turmas_maduras') }}
     group by nome_curso
     having count(*) >= {{ var('k_minimo') }}
 )

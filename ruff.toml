@@ -1,0 +1,11 @@
+# Regras mínimas: erros reais (pyflakes, pycodestyle E9/E7) e imports. Estilo fica fora, para não gerar ruído.
+line-length = 140
+target-version = "py312"
+extend-exclude = [".venv", ".cache", "transform", "docs"]
+
+[lint]
+select = ["E7", "E9", "F", "I001", "B006", "B008"]
+ignore = ["F401"]  # imports com efeito colateral e reexports
+
+[lint.per-file-ignores]
+"src/dashboard/app.py" = ["E402", "I001"]  # script Streamlit: imports no meio por causa do sys.path

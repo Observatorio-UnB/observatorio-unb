@@ -5,7 +5,7 @@
 
 ## Contexto
 
-A análise por coorte ([ADR 0014](0014-janela-maturacao-8-anos.md)) não mostra onde a retenção está se acumulando agora.
+A análise por turma ([ADR 0014](0014-janela-maturacao-8-anos.md)) não mostra onde a retenção está se acumulando agora.
 
 ## Decisão
 

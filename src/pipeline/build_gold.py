@@ -288,9 +288,9 @@ CANONICAL_RULES_METADATA = [
     },
     {
         "origem_sigra": "INTERPRETACAO TEATRAL",
-        "destino_estrutura": "ARTES CENICAS",
+        "destino_estrutura": "ARTES CENICAS - INTERPRETACAO TEATRAL",
         "categoria": "Artes",
-        "justificativa": "Habilitação de Interpretação Teatral vinculada à matriz de Artes Cênicas.",
+        "justificativa": "Bacharelado em Interpretação Teatral (código 5371 no SIGRA), curso distinto das licenciaturas em Artes Cênicas.",
     },
     {
         "origem_sigra": "LICENCIATURA EM ARTES VISUAIS",
@@ -327,12 +327,6 @@ CANONICAL_RULES_METADATA = [
         "destino_estrutura": "QUIMICA",
         "categoria": "Licenciatura",
         "justificativa": "Licenciatura vinculada à matriz correspondente de Química.",
-    },
-    {
-        "origem_sigra": "LICENCIATURA EM TEATRO",
-        "destino_estrutura": "ARTES CENICAS",
-        "categoria": "Licenciatura",
-        "justificativa": "Licenciatura em Teatro vinculada à matriz de Artes Cênicas.",
     },
     {
         "origem_sigra": "LICENCIATURA EM MUSICA",
@@ -488,11 +482,11 @@ EXCLUDED_GENERIC_COURSES = {"ENGENHARIA", "EDUCACAO FISICA - CICLO BASICO"}
 MIN_MATRICULAS_BENCHMARK = 50
 MIN_IES_BENCHMARK = 10
 
-# As taxas por curso só usam coortes que já tiveram tempo de concluir: ingresso até
-# (último ano de ingresso na base - ANOS_MATURACAO_COORTE). Coortes recentes, ainda quase
-# todas ativas, derrubariam artificialmente a formatura e a evasão. Com 6 anos a coorte de
+# As taxas por curso só usam turmas que já tiveram tempo de concluir: ingresso até
+# (último ano de ingresso na base - ANOS_MATURACAO_TURMA). Turmas recentes, ainda quase
+# todas ativas, derrubariam artificialmente a formatura e a evasão. Com 6 anos a turma de
 # 2018 ainda tinha 34% de ativos no extrato de 07/2024; com 8 anos a mais recente fica com 9%.
-ANOS_MATURACAO_COORTE = 8
+ANOS_MATURACAO_TURMA = 8
 
 
 
@@ -514,10 +508,10 @@ def build_gold() -> None:
             gravar_varias({"gold.regras_harmonizacao_canonicas": regras}, conn=conn)
             conn.execute(
                 "CALL gold.atualizar_gold(%s::integer, %s::text[], %s::integer, %s::numeric)",
-                (ANOS_MATURACAO_COORTE, sorted(EXCLUDED_GENERIC_COURSES),
+                (ANOS_MATURACAO_TURMA, sorted(EXCLUDED_GENERIC_COURSES),
                  MIN_MATRICULAS_BENCHMARK, valor_bolsa_ic_vigente()),
             )
-        for tabela in ("regras_harmonizacao_canonicas", "retencao_cursos_unb", "ativos_hoje_cursos_unb",
+        for tabela in ("regras_harmonizacao_canonicas", "retencao_cursos_unb", "retencao_cursos_turma", "ativos_hoje_cursos_unb",
                        "inep_benchmark_cursos_unb", "pibic_social_unb"):
             conn.execute(f"ANALYZE gold.{tabela}")
         retencao = conn.execute("SELECT count(*) FROM gold.retencao_cursos_unb").fetchone()[0]

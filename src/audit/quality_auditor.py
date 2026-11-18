@@ -254,11 +254,11 @@ def achados_sigaa_e_catalogo() -> List[Dict]:
 
         referencia = _publicado_em("sigaa_ativos")
         ano_extrato = int(publicado[:4]) if len(publicado) >= 4 else 2024
-        coortes = [str(a) for a in (ano_extrato - 2, ano_extrato - 1)]
+        turmas = [str(a) for a in (ano_extrato - 2, ano_extrato - 1)]
         evidencia = "; ".join(
-            f"coorte de {c}: {ativos_extrato[c]:,} ativos no extrato de {_mes_ano(publicado)} contra "
+            f"turma de {c}: {ativos_extrato[c]:,} ativos no extrato de {_mes_ano(publicado)} contra "
             f"{ativos_lista[c]:,} na lista de ativos de {_mes_ano(referencia)}, com {cancelados[c]:,} cancelados no extrato"
-            for c in coortes).replace(",", ".")
+            for c in turmas).replace(",", ".")
         findings.append({
             "id": "ACHADO-11",
             "campo": "status_aluno",
@@ -266,8 +266,8 @@ def achados_sigaa_e_catalogo() -> List[Dict]:
             "arquivo": "bronze.sigaa_discentes",
             "linha": "Todas",
             "evidencia": evidencia + ". A queda em pouco tempo é grande demais para ser só formatura.",
-            "impacto_gq": "A evasão de coortes recentes fica subestimada no extrato: o cancelamento é registrado com atraso.",
-            "decisao_tomada": "A Gold de retenção só usa coortes com 8 anos de acompanhamento. O retrato de ativos usa a lista de ativos do semestre mais recente, não o status do extrato.",
+            "impacto_gq": "A evasão de turmas recentes fica subestimada no extrato: o cancelamento é registrado com atraso.",
+            "decisao_tomada": "A Gold de retenção só usa turmas com 8 anos de acompanhamento. O retrato de ativos usa a lista de ativos do semestre mais recente, não o status do extrato.",
         })
 
     # 12. Cursos do catálogo vigente sem estrutura curricular (fora os cursos-tronco)
@@ -299,7 +299,7 @@ def achados_sigaa_e_catalogo() -> List[Dict]:
 def generate_markdown_report(findings: List[Dict]) -> str:
     """Gera o texto completo em Markdown para o Relatório de Qualidade e a Issue do CPD."""
     md = []
-    md.append("# Relatório de Auditoria de Qualidade de Dados (Dia 4 - Semana 1)")
+    md.append("# Relatório de Auditoria de Qualidade de Dados")
     md.append(
         "\n**Projeto**: Retenção, Tempo Real de Formatura e Evasão nos Cursos da UnB")
     md.append("**Portal Auditado**: [dados.unb.br](https://dados.unb.br)")

@@ -1,7 +1,7 @@
 """
 Testes unitários do destino da captura de mudanças (sem Kafka nem PostgreSQL).
 
-Eventos sintéticos no formato do Debezium são aplicados num lago temporário: confere a
+Eventos sintéticos no formato do Debezium são aplicados num lake temporário: confere a
 idempotência do MERGE pela posição no WAL, a marca de exclusão, o tratamento do TRUNCATE e a
 reconciliação no fim do snapshot. O consumidor roda com um Consumer do Kafka simulado: confere
 o offset confirmado só depois da gravação, o tópico ainda inexistente, o --do-inicio e a
@@ -22,14 +22,14 @@ from confluent_kafka import OFFSET_BEGINNING, KafkaError, TopicPartition
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
-from src.cdc import consumidor, lago  # noqa: E402
+from src.cdc import consumidor, lake  # noqa: E402
 
-CURSOS = lago.Tabela(
+CURSOS = lake.Tabela(
     "silver.cursos",
     colunas=(("id_curso", "integer"), ("nome_curso_norm", "text"), ("ativo", "boolean")),
     chave=("id_curso",),
 )
-VINCULOS = lago.Tabela(
+VINCULOS = lake.Tabela(
     "silver.movimentacoes_vinculos",
     colunas=(("id_vinculo", "bigint"), ("ano_ingresso", "smallint"), ("tipo_saida_grupo", "text")),
     chave=("id_vinculo", "ano_ingresso"),
@@ -49,14 +49,14 @@ def _mensagem(op, linha, commit, lsn):
 
 def _snapshot(linha, lsn, marca="true"):
     """Linha do snapshot: sequence sem commit, e source.snapshot marca a última da tabela."""
-    return lago.decodificar({
+    return lake.decodificar({
         "op": "r", "after": linha, "before": None,
         "source": {"ts_ms": 0, "lsn": lsn, "sequence": f'[null,"{lsn}"]', "snapshot": marca},
     })
 
 
 def _evento(op, linha, commit, lsn):
-    return lago.decodificar(_mensagem(op, linha, commit, lsn))
+    return lake.decodificar(_mensagem(op, linha, commit, lsn))
 
 
 def _curso(id_curso, nome, ativo=True):
@@ -73,7 +73,7 @@ class TestCdc(unittest.TestCase):
         self._tmp.cleanup()
 
     def _estado(self, tabela=CURSOS, com_excluidas=False):
-        dados = lago.ler(tabela, self.lake, com_excluidas=com_excluidas).to_pylist()
+        dados = lake.ler(tabela, self.lake, com_excluidas=com_excluidas).to_pylist()
         return sorted(dados, key=lambda r: tuple(r[c] for c in tabela.chave))
 
     def _nomes(self):
@@ -82,33 +82,33 @@ class TestCdc(unittest.TestCase):
     def test_decodifica_sequencia_do_debezium(self):
         e = _evento("u", _curso(1, "A"), 900, 950)
         self.assertEqual((e.op, e.commit_lsn, e.lsn), ("u", 900, 950))
-        snapshot = lago.decodificar({
+        snapshot = lake.decodificar({
             "op": "r", "after": _curso(1, "A"), "before": None,
             "source": {"ts_ms": 0, "lsn": 500, "sequence": "[null,\"500\"]"},
         })
         self.assertEqual(snapshot.posicao, (500, 500))
 
     def test_decodifica_sem_sequence(self):
-        e = lago.decodificar({"op": "c", "after": _curso(1, "A"), "before": None,
+        e = lake.decodificar({"op": "c", "after": _curso(1, "A"), "before": None,
                               "source": {"ts_ms": 0, "lsn": 700}})
         self.assertEqual(e.posicao, (700, 700))
         self.assertFalse(e.fim_snapshot)
 
-    def test_snapshot_refeito_passa_por_cima_do_lago_antigo(self):
-        lago.aplicar(CURSOS, [_evento("u", _curso(1, "ANTIGO"), 200, 201)], self.lake)
+    def test_snapshot_refeito_passa_por_cima_do_lake_antigo(self):
+        lake.aplicar(CURSOS, [_evento("u", _curso(1, "ANTIGO"), 200, 201)], self.lake)
         # Tópicos recriados: snapshot novo (sequence sem commit) num ponto do WAL posterior.
-        refeito = lago.decodificar({
+        refeito = lake.decodificar({
             "op": "r", "after": _curso(1, "ATUAL"), "before": None,
             "source": {"ts_ms": 0, "lsn": 900, "sequence": "[null,\"900\"]"},
         })
-        lago.aplicar(CURSOS, [refeito], self.lake)
+        lake.aplicar(CURSOS, [refeito], self.lake)
         self.assertEqual(self._nomes(), {1: "ATUAL"})
 
     def test_fim_do_snapshot_marca_as_chaves_ausentes(self):
-        lago.aplicar(CURSOS, [_evento("c", _curso(i, f"C{i}"), 100, 100 + i) for i in (1, 2, 3, 5)], self.lake)
-        lago.aplicar(CURSOS, [_evento("d", {"id_curso": 5}, 200, 201)], self.lake)
+        lake.aplicar(CURSOS, [_evento("c", _curso(i, f"C{i}"), 100, 100 + i) for i in (1, 2, 3, 5)], self.lake)
+        lake.aplicar(CURSOS, [_evento("d", {"id_curso": 5}, 200, 201)], self.lake)
         # Snapshot refeito depois de o curso 2 ser excluído com o fluxo interrompido.
-        resumo = lago.aplicar(CURSOS, [
+        resumo = lake.aplicar(CURSOS, [
             _snapshot(_curso(1, "C1"), 900, "first_in_data_collection"),
             _snapshot(_curso(3, "C3"), 900, "last_in_data_collection"),
             _evento("c", _curso(4, "C4"), 950, 951),
@@ -116,15 +116,15 @@ class TestCdc(unittest.TestCase):
         self.assertEqual(resumo["reconciliadas"], 1)  # o curso 2; o 5 já estava marcado
         self.assertEqual(self._nomes(), {1: "C1", 3: "C3", 4: "C4"})
         # Reprocessar o snapshot não marca o que veio depois dele.
-        lago.aplicar(CURSOS, [_snapshot(_curso(3, "C3"), 900, "last")], self.lake)
+        lake.aplicar(CURSOS, [_snapshot(_curso(3, "C3"), 900, "last")], self.lake)
         self.assertEqual(self._nomes(), {1: "C1", 3: "C3", 4: "C4"})
 
     def test_insert_update_delete(self):
-        lago.aplicar(CURSOS, [_evento("c", _curso(1, "ADMINISTRACAO"), 100, 101)], self.lake)
-        lago.aplicar(CURSOS, [_evento("u", _curso(1, "ADMINISTRACAO PUBLICA"), 200, 201)], self.lake)
+        lake.aplicar(CURSOS, [_evento("c", _curso(1, "ADMINISTRACAO"), 100, 101)], self.lake)
+        lake.aplicar(CURSOS, [_evento("u", _curso(1, "ADMINISTRACAO PUBLICA"), 200, 201)], self.lake)
         self.assertEqual(self._nomes(), {1: "ADMINISTRACAO PUBLICA"})
 
-        lago.aplicar(CURSOS, [_evento("d", {"id_curso": 1}, 300, 301)], self.lake)
+        lake.aplicar(CURSOS, [_evento("d", {"id_curso": 1}, 300, 301)], self.lake)
         self.assertEqual(self._nomes(), {})
         excluida = self._estado(com_excluidas=True)[0]
         self.assertTrue(excluida["_deletado"])
@@ -138,29 +138,30 @@ class TestCdc(unittest.TestCase):
             _evento("u", _curso(1, "A2"), 200, 201),
             _evento("d", {"id_curso": 2}, 300, 301),
         ]
-        lago.aplicar(CURSOS, topico, self.lake)
+        lake.aplicar(CURSOS, topico, self.lake)
         antes = self._estado(com_excluidas=True)
         # Do início, e de novo só a metade final (lote cujo offset não foi confirmado).
-        lago.aplicar(CURSOS, topico, self.lake)
-        lago.aplicar(CURSOS, topico[3:], self.lake)
+        lake.aplicar(CURSOS, topico, self.lake)
+        lake.aplicar(CURSOS, topico[3:], self.lake)
         depois = self._estado(com_excluidas=True)
-        sem_gravado_em = lambda linhas: [{k: v for k, v in r.items() if k != "_gravado_em"} for r in linhas]
+        def sem_gravado_em(linhas):
+            return [{k: v for k, v in r.items() if k != "_gravado_em"} for r in linhas]
         self.assertEqual(sem_gravado_em(depois), sem_gravado_em(antes))
         self.assertEqual(self._nomes(), {1: "A2", 3: "C"})
 
     def test_evento_antigo_nao_sobrescreve_o_novo(self):
-        lago.aplicar(CURSOS, [_evento("u", _curso(1, "NOVO"), 200, 201)], self.lake)
-        lago.aplicar(CURSOS, [_evento("c", _curso(1, "VELHO"), 100, 101)], self.lake)
+        lake.aplicar(CURSOS, [_evento("u", _curso(1, "NOVO"), 200, 201)], self.lake)
+        lake.aplicar(CURSOS, [_evento("c", _curso(1, "VELHO"), 100, 101)], self.lake)
         self.assertEqual(self._nomes(), {1: "NOVO"})
 
     def test_insert_antigo_nao_ressuscita_linha_excluida(self):
-        lago.aplicar(CURSOS, [_evento("c", _curso(1, "A"), 100, 101), _evento("d", {"id_curso": 1}, 200, 201)],
+        lake.aplicar(CURSOS, [_evento("c", _curso(1, "A"), 100, 101), _evento("d", {"id_curso": 1}, 200, 201)],
                      self.lake)
-        lago.aplicar(CURSOS, [_evento("c", _curso(1, "A"), 100, 101)], self.lake)
+        lake.aplicar(CURSOS, [_evento("c", _curso(1, "A"), 100, 101)], self.lake)
         self.assertEqual(self._nomes(), {})
 
     def test_varias_mudancas_da_mesma_chave_no_lote(self):
-        lago.aplicar(CURSOS, [
+        lake.aplicar(CURSOS, [
             _evento("c", _curso(1, "A"), 100, 101),
             _evento("u", _curso(1, "B"), 100, 102),
             _evento("u", _curso(1, "C"), 100, 103),
@@ -168,21 +169,21 @@ class TestCdc(unittest.TestCase):
         self.assertEqual(self._nomes(), {1: "C"})
 
     def test_truncate_seguido_de_recarga_na_mesma_transacao(self):
-        lago.aplicar(CURSOS, [_evento("c", _curso(i, f"C{i}"), 100, 100 + i) for i in (1, 2, 3)], self.lake)
+        lake.aplicar(CURSOS, [_evento("c", _curso(i, f"C{i}"), 100, 100 + i) for i in (1, 2, 3)], self.lake)
         # Recarga da Silver 3NF: TRUNCATE e INSERTs no mesmo commit, só os cursos 1 e 4 voltam.
         recarga = [
             _evento("t", None, 500, 501),
             _evento("c", _curso(1, "C1"), 500, 502),
             _evento("c", _curso(4, "C4"), 500, 503),
         ]
-        lago.aplicar(CURSOS, recarga, self.lake)
+        lake.aplicar(CURSOS, recarga, self.lake)
         self.assertEqual(self._nomes(), {1: "C1", 4: "C4"})
         # Reprocessar a recarga não marca como excluídas as linhas inseridas depois do TRUNCATE.
-        lago.aplicar(CURSOS, recarga, self.lake)
+        lake.aplicar(CURSOS, recarga, self.lake)
         self.assertEqual(self._nomes(), {1: "C1", 4: "C4"})
 
     def test_tabela_particionada_por_quinquenio(self):
-        lago.aplicar(VINCULOS, [
+        lake.aplicar(VINCULOS, [
             _evento("c", {"id_vinculo": 1, "ano_ingresso": 2012, "tipo_saida_grupo": "ATIVO"}, 100, 101),
             _evento("c", {"id_vinculo": 2, "ano_ingresso": 2021, "tipo_saida_grupo": "ATIVO"}, 100, 102),
             _evento("u", {"id_vinculo": 1, "ano_ingresso": 2012, "tipo_saida_grupo": "FORMATURA"}, 200, 201),
@@ -193,11 +194,11 @@ class TestCdc(unittest.TestCase):
 
     def test_manutencao_junta_arquivos_pequenos(self):
         for i in range(1, 6):
-            lago.aplicar(CURSOS, [_evento("c", _curso(i, f"C{i}"), 100 * i, 100 * i + 1)], self.lake)
-        delta = lago.DeltaTable(str(CURSOS.caminho(self.lake)))
+            lake.aplicar(CURSOS, [_evento("c", _curso(i, f"C{i}"), 100 * i, 100 * i + 1)], self.lake)
+        delta = lake.DeltaTable(str(CURSOS.caminho(self.lake)))
         self.assertGreater(len(delta.file_uris()), 1)
-        lago.manter(CURSOS, self.lake)
-        delta = lago.DeltaTable(str(CURSOS.caminho(self.lake)))
+        lake.manter(CURSOS, self.lake)
+        delta = lake.DeltaTable(str(CURSOS.caminho(self.lake)))
         self.assertEqual(len(delta.file_uris()), 1)
         self.assertEqual(len(self._nomes()), 5)
 
@@ -244,7 +245,7 @@ class TestConsumidor(unittest.TestCase):
         c = self._consumidor()
         ordem = []
         self.kafka.commit.side_effect = lambda **_: ordem.append("commit")
-        aplicar = lago.aplicar
+        aplicar = lake.aplicar
 
         def aplicar_e_registrar(*args, **kwargs):
             resumo = aplicar(*args, **kwargs)
@@ -252,15 +253,15 @@ class TestConsumidor(unittest.TestCase):
             return resumo
 
         self._lote(_Mensagem(self.TOPICO, _mensagem("c", _curso(1, "A"), 100, 101)))
-        with mock.patch.object(lago, "aplicar", side_effect=aplicar_e_registrar):
+        with mock.patch.object(lake, "aplicar", side_effect=aplicar_e_registrar):
             self.assertEqual(c.rodada(), 1)
         self.assertEqual(ordem, ["gravou", "commit"])
-        self.assertEqual(lago.ler(CURSOS, self.lake).column("nome_curso_norm").to_pylist(), ["A"])
+        self.assertEqual(lake.ler(CURSOS, self.lake).column("nome_curso_norm").to_pylist(), ["A"])
 
     def test_falha_na_gravacao_nao_confirma_o_offset(self):
         c = self._consumidor()
         self._lote(_Mensagem(self.TOPICO, _mensagem("c", _curso(1, "A"), 100, 101)))
-        with mock.patch.object(lago, "aplicar", side_effect=OSError("disco cheio")):
+        with mock.patch.object(lake, "aplicar", side_effect=OSError("disco cheio")):
             with self.assertRaises(OSError):
                 c.rodada()
         self.kafka.commit.assert_not_called()
@@ -271,7 +272,7 @@ class TestConsumidor(unittest.TestCase):
         self._lote(_Mensagem(self.TOPICO, _mensagem("c", _curso(1, "A"), 100, 101)))
         self.assertEqual(c.rodada(confirmar=False), 1)
         self.kafka.commit.assert_not_called()
-        self.assertEqual(lago.ler(CURSOS, self.lake).column("nome_curso_norm").to_pylist(), ["A"])
+        self.assertEqual(lake.ler(CURSOS, self.lake).column("nome_curso_norm").to_pylist(), ["A"])
 
     def test_gerenciador_de_contexto_fecha_o_consumer(self):
         with self._consumidor():
@@ -299,25 +300,25 @@ class TestConsumidor(unittest.TestCase):
         conn.__enter__.return_value.execute.return_value.fetchone.return_value = (lsn,)
         return mock.patch.object(consumidor, "conectar", return_value=conn)
 
-    def test_aborta_quando_o_banco_esta_atras_do_lago(self):
-        lago.aplicar(CURSOS, [_evento("c", _curso(1, "A"), 5_000, 5_001)], self.lake)
+    def test_aborta_quando_o_banco_esta_atras_do_lake(self):
+        lake.aplicar(CURSOS, [_evento("c", _curso(1, "A"), 5_000, 5_001)], self.lake)
         c = self._consumidor()
         self.assertEqual(c.maior_lsn, 5_001)
-        # Banco recriado: o WAL recomeçou abaixo do lago.
+        # Banco recriado: o WAL recomeçou abaixo do lake.
         self._lote(_Mensagem(self.TOPICO, _mensagem("c", _curso(1, "B"), 100, 101)))
         with self._com_wal_do_banco(200), self.assertRaises(consumidor.WalRegrediu):
             c.rodada()
         self.kafka.commit.assert_not_called()
 
     def test_reprocessamento_legitimo_passa_pela_guarda(self):
-        lago.aplicar(CURSOS, [_evento("c", _curso(1, "A"), 100, 101), _evento("u", _curso(1, "B"), 200, 201)],
+        lake.aplicar(CURSOS, [_evento("c", _curso(1, "A"), 100, 101), _evento("u", _curso(1, "B"), 200, 201)],
                      self.lake)
         c = self._consumidor()
         self._lote(_Mensagem(self.TOPICO, _mensagem("c", _curso(1, "A"), 100, 101)))
         with self._com_wal_do_banco(10_000):
             self.assertEqual(c.rodada(), 1)
         self.kafka.commit.assert_called_once()
-        self.assertEqual(lago.ler(CURSOS, self.lake).column("nome_curso_norm").to_pylist(), ["B"])
+        self.assertEqual(lake.ler(CURSOS, self.lake).column("nome_curso_norm").to_pylist(), ["B"])
 
 
 if __name__ == "__main__":

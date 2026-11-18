@@ -9,7 +9,7 @@
 > [!NOTE]
 > As seções 1 a 6 registram a primeira versão do projeto, das semanas 1 e 2 (só SIGRA, camadas em
 > CSV), e os números delas são daquela época. As seções 7 a 12 seguem o projeto de 2 em 2 semanas,
-> até a semana 14: PostgreSQL, SIGAA, 3NF e Star Schema, lago Delta com CDC (E2) e a camada analítica
+> até a semana 14: PostgreSQL, SIGAA, 3NF e Star Schema, data lake Delta com CDC (E2) e a camada analítica
 > em dbt orquestrada pelo Dagster (E3). Os valores atuais estão em [`docs/caderno_analise.md`](docs/caderno_analise.md)
 > e no [README](README.md#-3-principais-resultados-e-achados); o processo semana a semana, com as
 > medições, está no [diário de bordo](docs/diario/diario_de_bordo.md).
@@ -209,7 +209,7 @@ O produto final não é apenas um relatório estático; é um **painel interativ
 **O que foi feito**
 - **União do SIGAA com o SIGRA:** a base passou de 60.695 discentes (só SIGRA) para **152.680 vínculos**, 100% casados com a estrutura curricular ([ADR 0012](docs/adr/0012-sigaa-uniao-com-sigra.md)). Isso exigiu regras novas:
   - evasão é toda saída sem diploma registrado ([ADR 0013](docs/adr/0013-evasao-saida-sem-diploma.md));
-  - só entram coortes com 8 anos de acompanhamento, de 2010 a 2016 ([ADR 0014](docs/adr/0014-janela-maturacao-8-anos.md));
+  - só entram turmas com 8 anos de acompanhamento, de 2010 a 2016 ([ADR 0014](docs/adr/0014-janela-maturacao-8-anos.md));
   - no SIGAA, o semestre de saída é estimado pela data de registro do diploma ([ADR 0015](docs/adr/0015-semestre-de-saida-estimado.md));
   - arquivos com nome de discente ficam fora da ingestão ([ADR 0017](docs/adr/0017-arquivos-nominais-fora.md)).
 - **Alunos ativos hoje:** quem ainda está matriculado e já passou do prazo ideal ou do máximo ([ADR 0019](docs/adr/0019-ativos-hoje.md), [ADR 0020](docs/adr/0020-lista-de-ativos-com-minimizacao.md)).
@@ -222,7 +222,7 @@ O produto final não é apenas um relatório estático; é um **painel interativ
 
 ---
 
-## 9. Semanas 7 e 8 — Pipeline Direto no Banco e Lago em Formato Aberto
+## 9. Semanas 7 e 8 — Pipeline Direto no Banco e Data lake em Formato Aberto
 
 **O que foi feito**
 - **Carga da Silver 3NF e do Star Schema em SQL:** 152.680 vínculos, 158 cursos e 112 matrizes, em cerca de 46 s, sem arquivo intermediário. As restrições `CHECK` recusaram dado real na primeira carga (semestre de verão, mínimos zerados, turnos fora do domínio) e foram ajustadas ao domínio da fonte.
@@ -231,7 +231,7 @@ O produto final não é apenas um relatório estático; é um **painel interativ
 - **View do painel** atualizada com `REFRESH CONCURRENTLY`, numa etapa própria do pipeline.
 - **Censo do INEP lido em blocos de 50 mil linhas**, com staging e troca numa transação única.
 - **Partições futuras** dos vínculos criadas automaticamente por quinquênio.
-- **Lago Delta Lake sobre Parquet com ZSTD nível 3**, particionado por quinquênio de ingresso ([ADR 0024](docs/adr/0024-lago-delta-parquet-zstd.md)). O ZSTD empatou com o GZIP no tamanho (~1,4 MB) e escreveu 20 vezes mais rápido (173 ms contra 3.527 ms).
+- **Data lake em Delta Lake sobre Parquet com ZSTD nível 3**, particionado por quinquênio de ingresso ([ADR 0024](docs/adr/0024-lake-delta-parquet-zstd.md)). O ZSTD empatou com o GZIP no tamanho (~1,4 MB) e escreveu 20 vezes mais rápido (173 ms contra 3.527 ms).
 
 **Para o DEG:** os dados ficam num formato aberto, que DuckDB, Spark ou pandas leem sem o banco.
 
@@ -240,11 +240,11 @@ O produto final não é apenas um relatório estático; é um **painel interativ
 ## 10. Semanas 9 e 10 — Captura de Mudanças e Dado Atrasado (Entrega E2)
 
 **O que foi feito**
-- **CDC com Debezium e Kafka:** mudanças na Silver 3NF saem do WAL do PostgreSQL e chegam ao lago Delta em 0,25 s a 0,87 s.
-- **Semântica de entrega:** pelo menos uma vez no transporte, com o offset confirmado só depois da gravação, e exatamente uma vez no efeito, com `MERGE` idempotente pela posição no WAL. Os reprocessamentos forçados não mudaram nenhuma linha do lago.
+- **CDC com Debezium e Kafka:** mudanças na Silver 3NF saem do WAL do PostgreSQL e chegam ao data lake Delta em 0,25 s a 0,87 s.
+- **Semântica de entrega:** pelo menos uma vez no transporte, com o offset confirmado só depois da gravação, e exatamente uma vez no efeito, com `MERGE` idempotente pela posição no WAL. Os reprocessamentos forçados não mudaram nenhuma linha do data lake.
 - **Exclusão lógica:** um DELETE vira marca (`_deletado`), para que um INSERT reprocessado não ressuscite a linha. O `TRUNCATE` da recarga também é tratado.
 - **Recarga em lote como mecanismo principal e CDC como opcional**, com latência e custo medidos ([ADR 0025](docs/adr/0025-mecanismo-de-ingestao-recarga-e-cdc.md)).
-- **Dado atrasado:** o registro de diploma chega até 105 dias depois do fim do semestre (p99). A marca d'água com 4 meses de tolerância cobre 99,2% das conclusões. Cada carga é classificada em `NO_PRAZO`, `ATRASADA` ou `SEM_PERIODO`, nada é descartado, e o lago regrava só as janelas que mudaram ([ADR 0026](docs/adr/0026-dado-atrasado-marca-dagua.md)).
+- **Dado atrasado:** o registro de diploma chega até 105 dias depois do fim do semestre (p99). A marca d'água com 4 meses de tolerância cobre 99,2% das conclusões. Cada carga é classificada em `NO_PRAZO`, `ATRASADA` ou `SEM_PERIODO`, nada é descartado, e o data lake regrava só as janelas que mudaram ([ADR 0026](docs/adr/0026-dado-atrasado-marca-dagua.md)).
 - **Supabase:** um workflow diário evita que o banco remoto pause por inatividade.
 
 **Entrega E2:** tabela de aceite no [README](README.md) e [diário de bordo](docs/diario/diario_de_bordo.md) das semanas 1 a 10.
@@ -254,7 +254,7 @@ O produto final não é apenas um relatório estático; é um **painel interativ
 ## 11. Semanas 11 e 12 — Fechamento da E2
 
 **O que foi feito**
-- **Prova do exatamente uma vez:** `src/cdc/demonstrar_reprocessamento.py` derruba o consumidor antes de confirmar o offset, relê os tópicos desde o início e exclui os sentinelas. A impressão digital do lago não muda em nenhum dos reprocessamentos.
+- **Prova do exatamente uma vez:** `src/cdc/demonstrar_reprocessamento.py` derruba o consumidor antes de confirmar o offset, relê os tópicos desde o início e exclui os sentinelas. A impressão digital do data lake não muda em nenhum dos reprocessamentos.
 - **Revisão da E2:**
   - tabela de aceite da E2 no README;
   - testes unitários (`test_unit_*`) rodando no CI, sem banco nem Kafka;
@@ -283,8 +283,8 @@ O produto final não é apenas um relatório estático; é um **painel interativ
 - **Orquestração em Dagster** ([ADR 0030](docs/adr/0030-modelagem-analitica-e-ferramentas.md)): o pipeline virou um grafo de assets com retry por etapa e backfill por quinquênio. A execução mensal é disparada pelo GitHub Actions. As demonstrações estão em [`docs/orquestracao/evidencias/`](docs/orquestracao/evidencias/):
   - com o banco derrubado de propósito, a etapa foi repetida e passou quando ele voltou;
   - com a falha definitiva, as etapas dependentes não rodaram;
-  - o backfill recuperou uma janela apagada do lago sem duplicar.
-- **Frescor e SLA:** a view do painel tem SLA de 35 dias, conferido todo dia ([`docs/frescor_sla.md`](docs/frescor_sla.md)).
+  - o backfill recuperou uma janela apagada do data lake sem duplicar.
+- **Freshness e SLA:** a view do painel tem SLA de 35 dias, conferido todo dia ([`docs/freshness_sla.md`](docs/freshness_sla.md)).
 - **Resposta à pergunta da E1 no painel:** a Visão Executiva abre com a pergunta e com o ranking de cursos críticos lido do mart do dbt. Na carga de 03/11/2026, **23 cursos** estão em retenção crítica, e os primeiros da fila são Física Computacional, Computação e Ciência da Computação.
 - **Busca híbrida:** combina o embedding com a busca em texto completo e indexa toda a documentação. Ela é medida com 20 consultas de referência e recall@5 de ao menos 0,8.
 
