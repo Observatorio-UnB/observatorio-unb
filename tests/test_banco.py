@@ -212,7 +212,10 @@ class TestBuscaSemantica(unittest.TestCase):
 
     def test_um_documento_por_curso_da_gold(self):
         faltando = self.conn.execute(
-            "SELECT curso FROM gold.retencao_cursos_unb EXCEPT "
+            # Cursos-tronco ficam fora do índice (vetorizar.documentos_de_cursos).
+            "SELECT curso FROM gold.retencao_cursos_unb WHERE curso NOT IN ("
+            "  SELECT jsonb_array_elements_text(conteudo->'cursos_tronco') FROM gold.relatorios "
+            "  WHERE nome = 'metricas_gerais_unb') EXCEPT "
             "SELECT chave FROM busca.documentos WHERE tipo = 'curso'"
         ).fetchall()
         self.assertEqual(faltando, [])

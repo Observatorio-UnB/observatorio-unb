@@ -6,7 +6,6 @@ ALTER TABLE gold.retencao_cursos_turma RENAME COLUMN coorte_madura TO turma_madu
 ALTER TABLE silver.cargas_vinculos RENAME COLUMN ultima_coorte_madura TO ultima_turma_madura;
 ALTER VIEW silver.chegadas_por_carga RENAME COLUMN coorte_publicada TO turma_publicada;
 ALTER PROCEDURE gold.atualizar_retencao_coorte(integer) RENAME TO atualizar_retencao_turma;
-ALTER FUNCTION gold.vinculos_coortes_maduras(integer) RENAME TO vinculos_turmas_maduras;
 ALTER TABLE gold.retencao_cursos_turma RENAME CONSTRAINT retencao_cursos_coorte_pkey TO retencao_cursos_turma_pkey;
 
 -- Funções SQL são validadas na criação: sem isso, a ordem de recriação abaixo poderia falhar.
