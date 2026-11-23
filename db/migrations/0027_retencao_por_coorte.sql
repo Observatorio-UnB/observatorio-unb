@@ -3,7 +3,7 @@
 --
 -- gold.retencao_cursos_unb junta só as coortes com 8 anos de acompanhamento. Esta tabela abre o
 -- mesmo cálculo por ano de ingresso, com todas as coortes da Silver, para o painel mostrar uma
--- turma de cada vez. coorte_madura marca as que entram na tabela agregada; as outras ainda não
+-- coorte de cada vez. coorte_madura marca as que entram na tabela agregada; as outras ainda não
 -- tiveram tempo de se formar (ou de ter a evasão registrada), e o painel avisa.
 -- ============================================================================
 

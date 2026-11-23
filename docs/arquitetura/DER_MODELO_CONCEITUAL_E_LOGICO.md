@@ -205,7 +205,7 @@ No catálogo do PostgreSQL (`information_schema.tables` e `pg_class`), o schema 
 | `estruturas_curriculares`| Tabela Canônica 3NF        | Matrizes curriculares e prazos regulament.|
 | `movimentacoes_vinculos` | Tabela Lógica Particionada | Tabela-mãe declarativa (PARTITION BY RANGE)|
 | `movimentacoes_p2000_2015`| Partição Física Declarativa| Bucket físico para dados de 2000 a 2015   |
-| `movimentacoes_p2016_2020`| Partição Física Declarativa| Bucket físico para turmas maduras        |
+| `movimentacoes_p2016_2020`| Partição Física Declarativa| Bucket físico para coortes maduras        |
 | `movimentacoes_p2021_atual`| Partição Física Declarativa| Bucket físico para dados de 2021 a 2035  |
 | `movimentacoes_p_default`| Partição Física Declarativa| Bucket físico default para salvaguarda    |
 | `pibic_projetos`         | Tabela Canônica 3NF        | Relação normalizada de pesquisas de IC    |

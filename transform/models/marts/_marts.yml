@@ -46,7 +46,7 @@ models:
 
   - name: fct_retencao_curso
     description: >
-      Grão: um registro por curso canônico, agregando as turmas maduras (ingresso até o último ano
+      Grão: um registro por curso canônico, agregando as coortes maduras (ingresso até o último ano
       da base menos 8). Mesmas regras de gold.fato_retencao_curso, com a qual é reconciliada
       (tests/reconcilia_fato_retencao_com_a_gold.sql).
     config:
@@ -159,3 +159,5 @@ models:
         data_type: bigint
       - name: total_evadidos
         data_type: bigint
+      - name: na_fila_de_intervencao
+        data_type: boolean

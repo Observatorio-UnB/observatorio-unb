@@ -1,7 +1,7 @@
-name: Freshness do painel (SLA)
+name: Frescor do painel (SLA)
 
-# Confere todo dia se a view do painel no Supabase cumpre o SLA de freshness
-# (docs/freshness_sla.md) e se o portal publicou arquivo novo que o pipeline ainda não processou.
+# Confere todo dia se a view do painel no Supabase cumpre o SLA de frescor
+# (docs/frescor_sla.md) e se o portal publicou arquivo novo que o pipeline ainda não processou.
 # Falha quando o SLA é violado: o GitHub avisa por e-mail quem acompanha o repositório.
 
 on:
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  freshness:
+  frescor:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +25,7 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: "SLA de freshness da view do painel (Supabase)"
+      - name: "SLA de frescor da view do painel (Supabase)"
         env:
           SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
         run: |
@@ -33,4 +33,4 @@ jobs:
             echo "::warning::SUPABASE_DATABASE_URL não configurada: verificação pulada."
             exit 0
           fi
-          python src/db/freshness.py --banco "$SUPABASE_DATABASE_URL" --fonte
+          python src/db/frescor.py --banco "$SUPABASE_DATABASE_URL" --fonte

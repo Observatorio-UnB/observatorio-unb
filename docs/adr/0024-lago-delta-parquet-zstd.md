@@ -7,7 +7,7 @@
 
 Silver e gold só existiam no PostgreSQL (ADR 0009): para ler o dado, era preciso o banco no ar e o motor que o escreveu. A E2 pede uma camada analítica em formato aberto, Parquet com uma tabela Iceberg ou Delta por cima.
 
-O padrão de acesso é o de análise: varreduras de colunas inteiras agregadas por curso e turma (taxa de evasão por curso e quinquênio de ingresso, por exemplo), com escrita uma vez por mês (`atualiza-dados.yml`). A maior tabela é `silver.movimentacoes_vinculos`, com 152.680 vínculos em três quinquênios de ingresso (2010, 2015 e 2020). As demais têm de 4 a 286 linhas.
+O padrão de acesso é o de análise: varreduras de colunas inteiras agregadas por curso e coorte (taxa de evasão por curso e quinquênio de ingresso, por exemplo), com escrita uma vez por mês (`atualiza-dados.yml`). A maior tabela é `silver.movimentacoes_vinculos`, com 152.680 vínculos em três quinquênios de ingresso (2010, 2015 e 2020). As demais têm de 4 a 286 linhas.
 
 ## Decisão
 
@@ -16,10 +16,10 @@ O padrão de acesso é o de análise: varreduras de colunas inteiras agregadas p
   - **Overwrite com predicado.** `write_deltalake(mode="overwrite", predicate=...)` troca só as partições de uma janela numa transação. É o que o reprocessamento de janela precisa.
   - **Leitura.** DuckDB (`delta_scan`), Spark, Polars e pandas leem Delta. Os arquivos de dados são Parquet comum, que qualquer leitor de Parquet abre mesmo sem entender o log.
   - **O que se perde.** A evolução de esquema do Iceberg é mais rica (renomear e reordenar coluna por id de campo). Aqui o esquema vem das migrações do PostgreSQL (ADR 0009), e a mudança de esquema é rara e deliberada.
-- **Exportação por `src/db/exportar_lake.py`.** O script exporta `silver.cursos`, `silver.estruturas_curriculares`, `silver.movimentacoes_vinculos` e o Star Schema da gold para `data/lake/lote/<esquema>/<tabela>`. Os tipos de cada coluna saem do catálogo do PostgreSQL, e não do dado: uma coluna toda nula numa execução não muda o esquema do Delta. `silver.discentes` fica fora, porque guarda nascimento, sexo e raça/cor por pessoa.
-- **Idempotência.** Cada execução é um `overwrite` numa versão nova do log. Regravar dá as mesmas linhas e o mesmo número de arquivos ativos (`tests/test_unit_lake.py`).
+- **Exportação por `src/db/exportar_lago.py`.** O script exporta `silver.cursos`, `silver.estruturas_curriculares`, `silver.movimentacoes_vinculos` e o Star Schema da gold para `data/lake/lote/<esquema>/<tabela>`. Os tipos de cada coluna saem do catálogo do PostgreSQL, e não do dado: uma coluna toda nula numa execução não muda o esquema do Delta. `silver.discentes` fica fora, porque guarda nascimento, sexo e raça/cor por pessoa.
+- **Idempotência.** Cada execução é um `overwrite` numa versão nova do log. Regravar dá as mesmas linhas e o mesmo número de arquivos ativos (`tests/test_unit_lago.py`).
 - **Reprocessamento de janela.** `--quinquenio 2020` regrava só aquela partição dos vínculos. As outras não são tocadas, e seus arquivos continuam os mesmos. Se a janela vier vazia do banco, a partição fica vazia.
-- **Particionamento só dos vínculos, por quinquênio de ingresso.** É o mesmo corte das partições do PostgreSQL (migração 0019), e o filtro por turma é o mais comum nas consultas.
+- **Particionamento só dos vínculos, por quinquênio de ingresso.** É o mesmo corte das partições do PostgreSQL (migração 0019), e o filtro por coorte é o mais comum nas consultas.
   - Partição por ano daria cerca de 10 mil linhas, uns 100 KB por arquivo: muitos arquivos pequenos, cada um com seu rodapé e sua abertura de arquivo na leitura.
   - Por quinquênio, cada partição tem um arquivo de 370 a 560 KB.
   - As tabelas pequenas não são particionadas e ficam com um arquivo só.
@@ -39,6 +39,6 @@ O padrão de acesso é o de análise: varreduras de colunas inteiras agregadas p
 
 ## Consequências
 
-O data lake é derivado do banco e regravável a qualquer momento, então não precisa de backup. `data/` não é versionado, e o data lake com vínculos individuais (id sintético) fica só na máquina ou no runner que rodou o pipeline, como a silver no banco. A nova etapa entra em `scripts/rodar_pipeline.sh` depois do povoamento dimensional.
+O lago é derivado do banco e regravável a qualquer momento, então não precisa de backup. `data/` não é versionado, e o lago com vínculos individuais (id sintético) fica só na máquina ou no runner que rodou o pipeline, como a silver no banco. A nova etapa entra em `scripts/rodar_pipeline.sh` depois do povoamento dimensional.
 
-O data lake é carga em lote a partir do banco. A captura de mudanças (CDC) é outro caminho e tem decisão própria.
+O lago é carga em lote a partir do banco. A captura de mudanças (CDC) é outro caminho e tem decisão própria.

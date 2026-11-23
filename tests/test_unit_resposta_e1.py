@@ -14,7 +14,7 @@ import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR / "src" / "dashboard"))
-from resposta_e1 import COLUNAS, FONTE_DBT, FONTE_GOLD, FONTE_GOLD_MART_ANTIGO, SLA_DIAS, freshness, ranking_cursos_criticos  # noqa: E402
+from resposta_e1 import COLUNAS, FONTE_DBT, FONTE_GOLD, FONTE_GOLD_MART_ANTIGO, SLA_DIAS, frescor, ranking_cursos_criticos  # noqa: E402
 
 
 def linha_mart(posicao, curso, irc, classificacao="RETENÇÃO CRÍTICA"):
@@ -67,26 +67,26 @@ class TestRanking(unittest.TestCase):
         self.assertEqual(ranking_cursos_criticos({}, None), (None, FONTE_GOLD))
 
 
-class TestFreshness(unittest.TestCase):
+class TestFrescor(unittest.TestCase):
     CARGA = "2026-10-01T06:00:00+00:00"
 
     def agora_mais(self, **delta):
         return datetime.fromisoformat(self.CARGA) + timedelta(**delta)
 
     def test_01_dentro_do_sla_ate_o_ultimo_segundo(self):
-        _, dias, ok = freshness(self.CARGA, self.agora_mais(days=SLA_DIAS))
+        _, dias, ok = frescor(self.CARGA, self.agora_mais(days=SLA_DIAS))
         self.assertEqual((dias, ok), (SLA_DIAS, True))
 
     def test_02_fora_do_sla_logo_depois(self):
-        _, dias, ok = freshness(self.CARGA, self.agora_mais(days=SLA_DIAS, hours=1))
+        _, dias, ok = frescor(self.CARGA, self.agora_mais(days=SLA_DIAS, hours=1))
         self.assertEqual((dias, ok), (SLA_DIAS, False))
 
     def test_03_data_sem_fuso_vale_como_utc(self):
-        data, _, _ = freshness("2026-10-01T06:00:00", self.agora_mais(days=1))
+        data, _, _ = frescor("2026-10-01T06:00:00", self.agora_mais(days=1))
         self.assertEqual(data.tzinfo, timezone.utc)
 
     def test_04_sem_data_de_carga(self):
-        self.assertIsNone(freshness(None))
+        self.assertIsNone(frescor(None))
 
 
 if __name__ == "__main__":

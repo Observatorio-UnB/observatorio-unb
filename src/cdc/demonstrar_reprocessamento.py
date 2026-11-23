@@ -2,24 +2,24 @@
 Demonstra a semântica de entrega do fluxo CDC forçando reprocessamentos.
 
 Declarada: no mínimo uma vez no transporte (o offset só é confirmado no Kafka depois da gravação
-no lake) e efeito de exatamente uma vez no lake (o MERGE só aplica um evento mais novo, pela
-posição no WAL, que a linha do lake). Esta demonstração confere isso com o dado real:
+no lago) e efeito de exatamente uma vez no lago (o MERGE só aplica um evento mais novo, pela
+posição no WAL, que a linha do lago). Esta demonstração confere isso com o dado real:
 
   1. Um lote de mudanças no OLTP: cursos sentinela 990100 a 990149 em silver.cursos, cada um
      com um INSERT e um UPDATE (100 eventos).
-  2. Queda antes da confirmação: o consumidor grava os INSERTs no lake, o UPDATE só é feito
+  2. Queda antes da confirmação: o consumidor grava os INSERTs no lago, o UPDATE só é feito
      depois, numa transação própria, e é gravado por outro MERGE; aí o consumidor cai sem
-     confirmar o offset. Com o UPDATE noutro lote, ele só vence a linha do lake pelo commit da
+     confirmar o offset. Com o UPDATE noutro lote, ele só vence a linha do lago pelo commit da
      transação (source.sequence[0]), e não pelo desempate dentro do mesmo lote.
   3. Retomada: um consumidor novo do mesmo grupo recebe o lote de novo e o aplica outra vez.
   4. Reprocessamento completo: o grupo volta ao primeiro offset e relê os tópicos inteiros.
   5. Exclusão: os sentinelas são excluídos do banco, e a demonstração espera o DELETE chegar
-     ao lake (nenhum sentinela vivo).
+     ao lago (nenhum sentinela vivo).
   6. Reprocessamento depois da exclusão: o grupo relê os tópicos do primeiro offset, com os
      INSERTs antigos dos sentinelas, e nenhum deles pode ressuscitar.
 
-Depois de cada passo, calcula a impressão digital do lake (sha256 de todas as linhas, inclusive
-as marcadas como excluídas e a coluna _gravado_em). Confere que o lote mudou o lake, que os 50
+Depois de cada passo, calcula a impressão digital do lago (sha256 de todas as linhas, inclusive
+as marcadas como excluídas e a coluna _gravado_em). Confere que o lote mudou o lago, que os 50
 sentinelas chegaram com o valor do UPDATE (turno NOTURNO) e commit posterior ao do INSERT, que
 a retomada e o reprocessamento não mudaram nada, nem a hora de gravação de linha nenhuma, e que
 o reprocessamento depois da exclusão também não. Se falhar no meio, os sentinelas são excluídos do banco do mesmo jeito.
@@ -40,7 +40,7 @@ from typing import Callable, Dict, List, Tuple
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
-from src.cdc import lake  # noqa: E402
+from src.cdc import lago  # noqa: E402
 from src.cdc.consumidor import Consumidor, carregar_tabelas  # noqa: E402
 from src.db.conexao import conectar  # noqa: E402
 
@@ -50,22 +50,22 @@ SENTINELAS = range(990100, 990150)
 EVENTOS_DO_LOTE = 2 * len(SENTINELAS)
 PRAZO_S = 60
 TOPICO_CURSOS = "observatorio.silver.cursos"
-# Grupo próprio: no grupo do consumidor (observatorio-lake), rodando junto, o lote reentregue
+# Grupo próprio: no grupo do consumidor (observatorio-lago), rodando junto, o lote reentregue
 # poderia ir para o outro membro, e o reprocessamento do início moveria os offsets dele.
 GRUPO_REPROCESSAMENTO = "observatorio-reprocessamento"
 
-Tabelas = Dict[str, lake.Tabela]
+Tabelas = Dict[str, lago.Tabela]
 
 
 def impressao_digital(tabelas: Tabelas) -> Tuple[str, int]:
-    """sha256 do conteúdo do lake CDC e total de linhas (inclusive as marcadas como excluídas).
+    """sha256 do conteúdo do lago CDC e total de linhas (inclusive as marcadas como excluídas).
 
     Inclui _gravado_em: como o MERGE só aplica evento estritamente mais novo, uma entrega
     repetida não reescreve linha nenhuma, e a hora de gravação de cada uma não muda.
     """
     digest, total = hashlib.sha256(), 0
     for tabela in tabelas.values():
-        dados = lake.ler(tabela, com_excluidas=True)
+        dados = lago.ler(tabela, com_excluidas=True)
         dados = dados.sort_by([(c, "ascending") for c in tabela.chave])
         digest.update(dados.to_pandas().to_csv(index=False).encode())
         total += len(dados)
@@ -73,8 +73,8 @@ def impressao_digital(tabelas: Tabelas) -> Tuple[str, int]:
 
 
 def sentinelas(tabelas: Tabelas) -> List[Dict]:
-    """Linhas dos cursos sentinela no lake, inclusive as marcadas como excluídas."""
-    cursos = lake.ler(tabelas[TOPICO_CURSOS], com_excluidas=True).to_pylist()
+    """Linhas dos cursos sentinela no lago, inclusive as marcadas como excluídas."""
+    cursos = lago.ler(tabelas[TOPICO_CURSOS], com_excluidas=True).to_pylist()
     return [r for r in cursos if r["id_curso"] in SENTINELAS]
 
 
@@ -105,7 +105,7 @@ def com_turno(tabelas: Tabelas, turno: str) -> List[Dict]:
 
 
 def gravar_e_cair(tabelas: Tabelas) -> Tuple[int, int]:
-    """Grava os INSERTs no lake, faz o UPDATE, grava-o por outro MERGE e fecha sem confirmar o
+    """Grava os INSERTs no lago, faz o UPDATE, grava-o por outro MERGE e fecha sem confirmar o
     offset. Devolve as mensagens lidas e o maior _commit_lsn dos sentinelas depois dos INSERTs."""
     n = len(SENTINELAS)
     with Consumidor(grupo=GRUPO_REPROCESSAMENTO) as consumidor:
@@ -124,16 +124,16 @@ def esperar(consumidor: Consumidor, chegou: Callable[[], bool], o_que: str, conf
     lidas, inicio = 0, time.monotonic()
     while not chegou():
         if time.monotonic() - inicio > PRAZO_S:
-            raise TimeoutError(f"{o_que} não chegou ao lake em {PRAZO_S} s. O conector está no ar? (scripts/cdc.sh status)")
+            raise TimeoutError(f"{o_que} não chegou ao lago em {PRAZO_S} s. O conector está no ar? (scripts/cdc.sh status)")
         lidas += consumidor.rodada(timeout=0.5, confirmar=confirmar)
     return lidas
 
 
 def excluir_sentinelas(tabelas: Tabelas) -> int:
-    """Exclui os sentinelas do banco e espera o DELETE chegar ao lake. Devolve as mensagens lidas.
+    """Exclui os sentinelas do banco e espera o DELETE chegar ao lago. Devolve as mensagens lidas.
 
     Sem a espera, o consumidor poderia parar antes de o evento atravessar o Debezium e o Kafka,
-    e os sentinelas ficariam vivos no lake para quem filtra por NOT _deletado.
+    e os sentinelas ficariam vivos no lago para quem filtra por NOT _deletado.
     """
     with conectar() as conn:
         conn.execute("DELETE FROM silver.cursos WHERE id_curso BETWEEN %s AND %s",
@@ -181,14 +181,14 @@ def demonstrar() -> None:
     excluidos = registrar("sentinelas excluídos do banco", excluir_sentinelas(tabelas))
     depois = registrar("reprocessamento depois da exclusão", reprocessar_do_inicio())
 
-    print(f"\n{'cenário':<42}{'mensagens lidas':>16}{'linhas no lake':>16}{'sentinelas vivos':>18}   impressão digital")
+    print(f"\n{'cenário':<42}{'mensagens lidas':>16}{'linhas no lago':>16}{'sentinelas vivos':>18}   impressão digital")
     for linha in linhas:
         print(f"{linha['cenario']:<42}{linha['lidas']:>16,}{linha['total']:>16,}{linha['vivos']:>18}   {linha['digest']}")
 
     n = len(SENTINELAS)
     falhas = []
     if apos_lote["digest"] == inicial["digest"]:
-        falhas.append("o lote gravado não mudou o lake")
+        falhas.append("o lote gravado não mudou o lago")
     if apos_lote["vivos"] != n or apos_lote["noturnos"] != n:
         falhas.append(f"depois do lote, esperados {n} sentinelas vivos com turno NOTURNO; "
                       f"há {apos_lote['vivos']} vivos, {apos_lote['noturnos']} com NOTURNO")
@@ -198,12 +198,12 @@ def demonstrar() -> None:
     if retomada["lidas"] < EVENTOS_DO_LOTE:
         falhas.append(f"o Kafka não entregou o lote de novo depois da queda ({retomada['lidas']} mensagens)")
     if not apos_lote["digest"] == retomada["digest"] == completo["digest"]:
-        falhas.append("a retomada ou o reprocessamento mudou o lake")
+        falhas.append("a retomada ou o reprocessamento mudou o lago")
     if excluidos["vivos"] or excluidos["excluidos"] != n:
         falhas.append(f"depois da exclusão, esperados {n} sentinelas marcados como excluídos e nenhum vivo; "
                       f"há {excluidos['excluidos']} marcados e {excluidos['vivos']} vivos")
     if depois["vivos"] or depois["digest"] != excluidos["digest"]:
-        falhas.append("o reprocessamento depois da exclusão ressuscitou sentinelas ou mudou o lake")
+        falhas.append("o reprocessamento depois da exclusão ressuscitou sentinelas ou mudou o lago")
 
     print(
         f"\nO Kafka entregou o lote {'de novo' if retomada['lidas'] >= EVENTOS_DO_LOTE else 'só uma vez (?)'} "
@@ -214,10 +214,10 @@ def demonstrar() -> None:
         print("\nFALHOU:\n" + "\n".join(f"  - {f}" for f in falhas))
         sys.exit(1)
     print(
-        f"Lake depois da queda, da retomada e do reprocessamento: idêntico nos três ({apos_lote['digest']}), "
+        f"Lago depois da queda, da retomada e do reprocessamento: idêntico nos três ({apos_lote['digest']}), "
         f"com os {n} sentinelas em turno NOTURNO.\n"
         f"Depois da exclusão e de reler tudo do primeiro offset: nenhum sentinela vivo ({excluidos['digest']}).\n"
-        "Transporte no mínimo uma vez; efeito no lake de exatamente uma vez."
+        "Transporte no mínimo uma vez; efeito no lago de exatamente uma vez."
     )
 
 

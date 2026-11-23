@@ -1,4 +1,4 @@
--- Grão: um registro por curso canônico, agregando as turmas maduras. O campus é atributo do curso,
+-- Grão: um registro por curso canônico, agregando as coortes maduras. O campus é atributo do curso,
 -- não parte do grão. Contagens são aditivas entre cursos; taxas, % no tempo ideal, atraso e IRC
 -- não são (recalcular a partir das contagens). Só cursos com k >= k_minimo ingressantes.
 -- O fato é recriado a cada execução (o grão é um snapshot) e aponta para a versão vigente do curso

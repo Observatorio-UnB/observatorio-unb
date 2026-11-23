@@ -9,8 +9,8 @@ PostgreSQL (DuckDB, Spark, Polars, pandas). A escolha do Delta e da compressão 
   nova do log. Rodar duas vezes dá as mesmas linhas e o mesmo número de arquivos ativos.
 - Reprocessamento de janela: com --quinquenio, só as partições pedidas de
   silver.movimentacoes_vinculos são regravadas (overwrite com predicado); as demais ficam
-  intactas. Um quinquênio que ficou sem linhas no banco fica sem linhas no lake.
-- Só o que mudou: com --janelas-alteradas, cada tabela é comparada com o que já está no lake.
+  intactas. Um quinquênio que ficou sem linhas no banco fica sem linhas no lago.
+- Só o que mudou: com --janelas-alteradas, cada tabela é comparada com o que já está no lago.
   Dos vínculos, só os quinquênios que diferem do banco são regravados, como os que receberam
   dado atrasado (src/db/dado_atrasado.py); tabela sem mudança não ganha versão nova.
 - Particionamento: só a tabela de vínculos, por quinquênio de ingresso, como as partições do
@@ -22,9 +22,9 @@ silver.discentes não entra: guarda data de nascimento, sexo e raça/cor por pes
 levam só o id sintético do discente. data/ não é versionado.
 
 Uso:
-    python3 src/db/exportar_lake.py                                  # todas as tabelas
-    python3 src/db/exportar_lake.py --quinquenio 2020 --quinquenio 2025   # só essas janelas
-    python3 src/db/exportar_lake.py --janelas-alteradas              # só o que difere do lake
+    python3 src/db/exportar_lago.py                                  # todas as tabelas
+    python3 src/db/exportar_lago.py --quinquenio 2020 --quinquenio 2025   # só essas janelas
+    python3 src/db/exportar_lago.py --janelas-alteradas              # só o que difere do lago
 """
 
 import argparse
@@ -50,14 +50,14 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%H:%M:%S",
 )
-logger = logging.getLogger("exportar_lake")
+logger = logging.getLogger("exportar_lago")
 
-# LAKE_DIR no ambiente troca o destino (ex.: a demonstração do backfill, docs/orquestracao.md).
-LAKE_DIR = Path(os.environ.get("LAKE_DIR") or BASE_DIR / "data" / "lake" / "lote")
+# LAGO_DIR no ambiente troca o destino (ex.: a demonstração do backfill, docs/orquestracao.md).
+LAGO_DIR = Path(os.environ.get("LAGO_DIR") or BASE_DIR / "data" / "lake" / "lote")
 RETENCAO_HORAS = 7 * 24
 COLUNA_QUINQUENIO = "quinquenio_ingresso"
 
-# Leitura do lake é varredura analítica (DuckDB lendo colunas inteiras), escrita uma vez por mês.
+# Leitura do lago é varredura analítica (DuckDB lendo colunas inteiras), escrita uma vez por mês.
 # ZSTD 3 comprime mais que o Snappy padrão com descompressão na mesma ordem de velocidade (ADR 0024).
 PROPRIEDADES = WriterProperties(compression="ZSTD", compression_level=3)
 
@@ -79,7 +79,7 @@ TIPOS_ARROW = {
 
 
 @dataclass(frozen=True)
-class TabelaLake:
+class TabelaLago:
     origem: str
     particionada: bool = False
 
@@ -90,16 +90,16 @@ class TabelaLake:
 
 
 TABELAS = (
-    TabelaLake("silver.cursos"),
-    TabelaLake("silver.estruturas_curriculares"),
-    TabelaLake("silver.movimentacoes_vinculos", particionada=True),
-    TabelaLake("gold.dim_curso"),
-    TabelaLake("gold.dim_campus"),
-    TabelaLake("gold.dim_tempo"),
-    TabelaLake("gold.dim_perfil_social"),
-    TabelaLake("gold.fato_retencao_curso"),
-    TabelaLake("gold.fato_alunos_ativos"),
-    TabelaLake("gold.fato_pibic_perfil"),
+    TabelaLago("silver.cursos"),
+    TabelaLago("silver.estruturas_curriculares"),
+    TabelaLago("silver.movimentacoes_vinculos", particionada=True),
+    TabelaLago("gold.dim_curso"),
+    TabelaLago("gold.dim_campus"),
+    TabelaLago("gold.dim_tempo"),
+    TabelaLago("gold.dim_perfil_social"),
+    TabelaLago("gold.fato_retencao_curso"),
+    TabelaLago("gold.fato_alunos_ativos"),
+    TabelaLago("gold.fato_pibic_perfil"),
 )
 
 
@@ -144,7 +144,7 @@ def ler_do_banco(tabela: str, quinquenios: Optional[Iterable[int]] = None) -> tu
     return colunas, linhas
 
 
-def gravar_no_lake(
+def gravar_no_lago(
     tabela: pa.Table,
     destino: Path,
     particionada: bool = False,
@@ -163,7 +163,7 @@ def gravar_no_lake(
         mode="overwrite",
         partition_by=[COLUNA_QUINQUENIO] if particionada else None,
         predicate=predicado,
-        # Regravação inteira acompanha as colunas do banco; a de janelas mantém o esquema do lake.
+        # Regravação inteira acompanha as colunas do banco; a de janelas mantém o esquema do lago.
         schema_mode="overwrite" if predicado is None else None,
         writer_properties=PROPRIEDADES,
     )
@@ -174,16 +174,16 @@ def gravar_no_lake(
 
 def _colunas_mudaram(tabela: pa.Table, destino: Path) -> bool:
     """O banco ganhou ou perdeu colunas desde a última exportação (ex.: a vigência da SCD da dim_curso)."""
-    no_lake = DeltaTable(str(destino)).schema().to_arrow().names
-    return set(no_lake) != set(tabela.schema.names)
+    no_lago = DeltaTable(str(destino)).schema().to_arrow().names
+    return set(no_lago) != set(tabela.schema.names)
 
 
 def _ordenada(tabela: pa.Table) -> pa.Table:
     return tabela.sort_by([(nome, "ascending") for nome in tabela.column_names])
 
 
-def _ler_do_lake(destino: Path, esquema: pa.Schema) -> pa.Table:
-    """A versão atual da tabela no lake, com as colunas e os tipos de `esquema`."""
+def _ler_do_lago(destino: Path, esquema: pa.Schema) -> pa.Table:
+    """A versão atual da tabela no lago, com as colunas e os tipos de `esquema`."""
     return DeltaTable(str(destino)).to_pyarrow_table().select(esquema.names).cast(esquema)
 
 
@@ -192,36 +192,36 @@ def _janela(tabela: pa.Table, quinquenio: int) -> pa.Table:
 
 
 def janelas_alteradas(tabela: pa.Table, destino: Path) -> List[int]:
-    """Quinquênios em que `tabela` (o banco) difere do lake: as janelas a reprocessar.
+    """Quinquênios em que `tabela` (o banco) difere do lago: as janelas a reprocessar.
 
     A comparação é linha a linha, em todas as colunas: entra a janela que ganhou, perdeu ou
     mudou vínculos (o dado atrasado) e a que teve os ids renumerados pela recarga. Quinquênio
-    que só existe no lake também entra, para ser esvaziado. Sem tabela no lake, todos entram.
+    que só existe no lago também entra, para ser esvaziado. Sem tabela no lago, todos entram.
     """
     novos = set(pc.unique(tabela[COLUNA_QUINQUENIO]).to_pylist())
     if not DeltaTable.is_deltatable(str(destino)):
         return sorted(novos)
-    atual = _ler_do_lake(destino, tabela.schema)
+    atual = _ler_do_lago(destino, tabela.schema)
     todos = novos | set(pc.unique(atual[COLUNA_QUINQUENIO]).to_pylist())
     return sorted(q for q in todos if not _janela(tabela, q).equals(_janela(atual, q)))
 
 
 def tabela_alterada(tabela: pa.Table, destino: Path) -> bool:
-    """A tabela difere da versão no lake (ou ainda não está nele, ou mudou de colunas)."""
+    """A tabela difere da versão no lago (ou ainda não está nele, ou mudou de colunas)."""
     if not DeltaTable.is_deltatable(str(destino)) or _colunas_mudaram(tabela, destino):
         return True
-    return not _ordenada(tabela).equals(_ordenada(_ler_do_lake(destino, tabela.schema)))
+    return not _ordenada(tabela).equals(_ordenada(_ler_do_lago(destino, tabela.schema)))
 
 
 def exportar(
-    lake_dir: Path = LAKE_DIR,
-    tabelas: Iterable[TabelaLake] = TABELAS,
+    lago_dir: Path = LAGO_DIR,
+    tabelas: Iterable[TabelaLago] = TABELAS,
     quinquenios: Optional[List[int]] = None,
     so_alteradas: bool = False,
 ) -> Dict[str, int]:
-    """Exporta as tabelas do banco para o lake e devolve as linhas gravadas por tabela.
+    """Exporta as tabelas do banco para o lago e devolve as linhas gravadas por tabela.
 
-    Com `so_alteradas`, tabela igual à do lake não é gravada (0 linhas), e da tabela particionada
+    Com `so_alteradas`, tabela igual à do lago não é gravada (0 linhas), e da tabela particionada
     só as janelas alteradas são regravadas.
     """
     if quinquenios is not None and so_alteradas:
@@ -233,9 +233,9 @@ def exportar(
     for t in tabelas:
         colunas, linhas = ler_do_banco(t.origem, quinquenios)
         tabela = montar_tabela_arrow(colunas, linhas, t.particionada)
-        destino = lake_dir / t.caminho
+        destino = lago_dir / t.caminho
         janelas = quinquenios
-        # Tabela que ainda não está no lake é gravada inteira.
+        # Tabela que ainda não está no lago é gravada inteira.
         if so_alteradas and DeltaTable.is_deltatable(str(destino)):
             if t.particionada:
                 janelas = janelas_alteradas(tabela, destino)
@@ -245,9 +245,9 @@ def exportar(
                 mudou = tabela_alterada(tabela, destino)
             if not mudou:
                 contagens[t.origem] = 0
-                logger.info(f"{t.origem}: igual ao lake, nada gravado.")
+                logger.info(f"{t.origem}: igual ao lago, nada gravado.")
                 continue
-        delta = gravar_no_lake(tabela, destino, particionada=t.particionada, quinquenios=janelas)
+        delta = gravar_no_lago(tabela, destino, particionada=t.particionada, quinquenios=janelas)
         contagens[t.origem] = tabela.num_rows
         logger.info(
             f"{t.origem}: {tabela.num_rows:,} linhas -> {t.caminho}"
@@ -266,7 +266,7 @@ if __name__ == "__main__":
     )
     janela.add_argument(
         "--janelas-alteradas", action="store_true",
-        help="Regrava só as tabelas e os quinquênios que diferem do que está no lake.",
+        help="Regrava só as tabelas e os quinquênios que diferem do que está no lago.",
     )
     args = parser.parse_args()
     exportar(

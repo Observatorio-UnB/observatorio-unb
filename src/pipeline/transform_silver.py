@@ -216,7 +216,7 @@ def process_discentes() -> pd.DataFrame:
     """Une SIGRA e SIGAA numa base única de vínculos de graduação.
 
     As bases se complementam: o SIGRA só tem vínculos encerrados até 2020/1, e o SIGAA os
-    que estavam ativos na migração ou começaram depois. Somadas, cada turma de ingresso
+    que estavam ativos na migração ou começaram depois. Somadas, cada coorte de ingresso
     2010-2020 fica com 9 a 13 mil discentes, sem salto na virada entre os sistemas.
     """
     df_sig = process_sigra()
@@ -335,7 +335,7 @@ def consolidar_versoes_catalogo(df: pd.DataFrame) -> pd.DataFrame:
 
     Campo vazio na versão nova (ex.: unidade_responsavel, que saiu do arquivo em 2023) fica
     com o da última versão que o tinha. Curso que sumiu do catálogo vigente (extinto) continua,
-    com no_catalogo_vigente = False: ainda tem alunos nas turmas analisadas.
+    com no_catalogo_vigente = False: ainda tem alunos nas coortes analisadas.
     """
     df = df.replace({"NULL": np.nan, "": np.nan})
     if "publicado_em" in df.columns:
@@ -427,8 +427,8 @@ def process_inep_censo() -> pd.DataFrame:
     df["is_unb"] = df["CO_IES"] == CO_IES_UNB
 
     # Taxas do próprio Censo: a situação da matrícula é apurada no ano-censo, e não pelo
-    # acompanhamento da turma de ingresso - por isso estas taxas não são comparáveis com a
-    # taxa de evasão da tabela de retenção (construída sobre as turmas de SIGRA + SIGAA).
+    # acompanhamento da coorte de ingresso - por isso estas taxas não são comparáveis com a
+    # taxa de evasão da tabela de retenção (construída sobre as coortes de SIGRA + SIGAA).
     matriculas = df["QT_MAT"].replace(0, np.nan)
     df["taxa_trancamento_pct"] = (
         df["QT_SIT_TRANCADA"] / matriculas * 100).round(2)

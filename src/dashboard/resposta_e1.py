@@ -5,7 +5,7 @@ O ranking vem de dbt_marts.painel_cursos_criticos, a tabela de consumo da camada
 (transform/, ADR 0029). Sem ela (banco sem as camadas do dbt, ou export antigo), o ranking sai de
 gold.retencao_cursos_unb, com o mesmo IRC. O mart também é descartado quando não bate com a gold da
 carga atual: se o pipeline rodou sem o dbt, o mart que ficou no banco é de uma carga anterior, e a
-data de freshness exibida (a da gold) não valeria para ele.
+data de frescor exibida (a da gold) não valeria para ele.
 
 Fica num módulo próprio para ser testado sem subir o painel (tests/test_unit_resposta_e1.py) e
 para rodar igual no GitHub Pages, onde o stlite carrega este arquivo junto com o app.py.
@@ -21,7 +21,7 @@ PERGUNTA_E1 = (
     "demandando intervenções institucionais prioritárias?"
 )
 
-# Mesmo SLA de freshness do pipeline: atualização no dia 1 de cada mês e 4 dias de folga.
+# Mesmo SLA de frescor do pipeline: atualização no dia 1 de cada mês e 4 dias de folga.
 SLA_DIAS = 35
 
 FONTE_DBT = "dbt_marts.painel_cursos_criticos (camada transformada, dbt)"
@@ -77,7 +77,7 @@ def _mesma_carga(painel: pd.DataFrame, df_gold: pd.DataFrame, cursos_tronco: Ite
         irc(terminais["curso"], terminais["indice_retencao_critica"])
 
 
-def freshness(carregado_em: Optional[str], agora: Optional[datetime] = None) -> Optional[Tuple[datetime, int, bool]]:
+def frescor(carregado_em: Optional[str], agora: Optional[datetime] = None) -> Optional[Tuple[datetime, int, bool]]:
     """(data da carga, idade em dias, dentro do SLA). A idade conta até agora, e não até o export.
 
     carregado_em vem de gold.relatorios._carregado_em, um timestamptz, então a string já traz o fuso.

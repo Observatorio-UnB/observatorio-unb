@@ -1,6 +1,7 @@
 -- Tabela de consumo do painel: responde à pergunta da E1, "quais cursos têm a retenção mais
 -- crítica e devem ser priorizados para intervenção". Um registro por curso terminal (sem os
--- cursos-tronco, ADR 0022), na ordem do IRC: posicao 1 é o mais crítico.
+-- cursos-tronco, ADR 0022), na ordem do IRC: posicao 1 é o mais crítico. na_fila_de_intervencao
+-- marca os cursos com 30+ ingressantes: amostra menor oscila demais para liderar a fila (ADR 0006).
 select
     rank() over (order by f.indice_retencao_critica desc) as posicao,
     c.nome_curso,
@@ -15,7 +16,8 @@ select
     f.formados_tempo_ideal_pct,
     f.total_ingressantes,
     f.total_formados,
-    f.total_evadidos
+    f.total_evadidos,
+    f.total_ingressantes >= 30 as na_fila_de_intervencao
 from {{ ref('fct_retencao_curso') }} f
 join {{ ref('dim_curso') }} c using (sk_curso)
 join {{ ref('dim_campus') }} camp using (sk_campus)

@@ -6,7 +6,7 @@ Povoamento do Star Schema da gold a partir da Silver 3NF, dentro do PostgreSQL.
   3. gold.dim_curso         <- silver.estruturas_curriculares + silver.cursos (SCD tipo 2 por nome_curso)
   4. gold.dim_tempo         <- anos de ingresso de silver.movimentacoes_vinculos até o ano corrente
   5. gold.dim_perfil_social <- silver.pibic_projetos
-  6. gold.fato_retencao_curso <- silver.movimentacoes_vinculos (turmas maduras: contagens, taxas,
+  6. gold.fato_retencao_curso <- silver.movimentacoes_vinculos (coortes maduras: contagens, taxas,
                                  % no tempo ideal, atraso médio, IRC e classificação)
   7. gold.fato_alunos_ativos  <- gold.ativos_hoje_cursos_unb
   8. gold.fato_pibic_perfil   <- silver.pibic_projetos (por curso e perfil social)
@@ -143,7 +143,7 @@ FROM silver.pibic_projetos
 ON CONFLICT ON CONSTRAINT uk_dim_perfil_social DO NOTHING
 """
 
-# A regra de retenção (turmas maduras, k >= 5, IRC e quartis) mora em gold.atualizar_retencao
+# A regra de retenção (coortes maduras, k >= 5, IRC e quartis) mora em gold.atualizar_retencao
 # (db/migrations/0022): o fato lê a gold.retencao_cursos_unb já calculada, sem repetir o cálculo.
 SQL_FATO_RETENCAO = """
 INSERT INTO gold.fato_retencao_curso (

@@ -1,4 +1,4 @@
--- Distribuição de semestres até a formatura de um curso canônico, nas turmas maduras
+-- Distribuição de semestres até a formatura de um curso canônico, nas coortes maduras
 -- (2010 a 2016). É o detalhamento por curso do painel e do caso de uso de orientação ao
 -- calouro: "em quantos semestres os formados deste curso de fato se formam?".
 --

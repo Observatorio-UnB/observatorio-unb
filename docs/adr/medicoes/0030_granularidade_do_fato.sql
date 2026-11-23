@@ -1,5 +1,5 @@
 -- Medição dos níveis de grão do fato de retenção (ADR 0030, Decisão 2).
--- Turmas maduras (ingresso até o último ano da base menos 8), k-anonimato com k = 5 (ADR 0005).
+-- Coortes maduras (ingresso até o último ano da base menos 8), k-anonimato com k = 5 (ADR 0005).
 --   docker compose exec -T db psql -U observatorio -d observatorio < docs/adr/medicoes/0030_granularidade_do_fato.sql
 CREATE TEMP TABLE base AS
 SELECT e.nome_curso_canonico AS curso, m.ano_ingresso, m.semestre_ingresso, m.tipo_saida_grupo, m.ano_saida, m.semestre_saida
@@ -9,7 +9,7 @@ WHERE m.ano_ingresso <= (SELECT max(ano_ingresso) - 8 FROM silver.movimentacoes_
 
 CREATE TEMP TABLE g_vinculo AS SELECT * FROM base;
 CREATE TEMP TABLE g_curso AS SELECT curso, count(*) AS n FROM base GROUP BY 1;
-CREATE TEMP TABLE g_turma AS SELECT curso, ano_ingresso, count(*) AS n FROM base GROUP BY 1, 2;
+CREATE TEMP TABLE g_coorte AS SELECT curso, ano_ingresso, count(*) AS n FROM base GROUP BY 1, 2;
 CREATE TEMP TABLE g_saida AS
 SELECT curso, ano_ingresso, semestre_ingresso, tipo_saida_grupo, ano_saida, semestre_saida, count(*) AS n
 FROM base GROUP BY 1, 2, 3, 4, 5, 6;
@@ -28,11 +28,11 @@ FROM (
            pg_total_relation_size('g_curso')
     FROM g_curso
     UNION ALL
-    SELECT 'curso x turma', count(*), count(*) FILTER (WHERE n < 5), coalesce(sum(n) FILTER (WHERE n < 5), 0), sum(n),
-           pg_total_relation_size('g_turma')
-    FROM g_turma
+    SELECT 'curso x coorte', count(*), count(*) FILTER (WHERE n < 5), coalesce(sum(n) FILTER (WHERE n < 5), 0), sum(n),
+           pg_total_relation_size('g_coorte')
+    FROM g_coorte
     UNION ALL
-    SELECT 'curso x turma x desfecho x semestre de saída', count(*), count(*) FILTER (WHERE n < 5),
+    SELECT 'curso x coorte x desfecho x semestre de saída', count(*), count(*) FILTER (WHERE n < 5),
            coalesce(sum(n) FILTER (WHERE n < 5), 0), sum(n), pg_total_relation_size('g_saida')
     FROM g_saida
 ) t;

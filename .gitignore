@@ -42,3 +42,7 @@ export/
 
 # Instância temporária do Dagster criada pelo `dagster dev` (orquestracao/)
 .tmp_dagster_home*/
+
+# Cobertura
+.coverage
+htmlcov/

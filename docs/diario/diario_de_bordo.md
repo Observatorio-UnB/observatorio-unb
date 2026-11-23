@@ -117,7 +117,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 - Índice HNSW no `pgvector`: 438 documentos vetorizados (cursos, planos PIBIC e documentação) com modelo local multilíngue `paraphrase-multilingual-MiniLM-L12-v2` (384 dimensões).
 - Latência de busca por similaridade de cosseno: $< 5$ ms para consultas em linguagem natural no PostgreSQL.
 - Base unificada SIGRA + SIGAA: expansão para 152.680 vínculos discentes (100% casados com matriz curricular).
-- Janela de maturação estatística: corte de 8 anos fixado em 2016 (turmas com tempo suficiente para consolidação do desfecho).
+- Janela de maturação estatística: corte de 8 anos fixado em 2016 (coortes com tempo suficiente para consolidação do desfecho).
 
 **O que surpreendeu**
 
@@ -129,7 +129,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 - Unificar SIGAA e SIGRA como fontes oficiais, adotando o SIGAA como fonte primária. Registrado no [ADR 0012](../adr/0012-sigaa-uniao-com-sigra.md).
 - Estimar o semestre de conclusão no SIGAA a partir da data de registro do diploma. Registrado no [ADR 0015](../adr/0015-semestre-de-saida-estimado.md).
 - Definir evasão estritamente como qualquer saída do curso sem diploma registrado. Registrado no [ADR 0013](../adr/0013-evasao-saida-sem-diploma.md).
-- Estabelecer janela de maturação mínima de 8 anos para análise de turmas na Gold. Registrado no [ADR 0014](../adr/0014-janela-maturacao-8-anos.md).
+- Estabelecer janela de maturação mínima de 8 anos para análise de coortes na Gold. Registrado no [ADR 0014](../adr/0014-janela-maturacao-8-anos.md).
 - Excluir sumariamente arquivos com identificação nominal da esteira de ingestão. Registrado no [ADR 0017](../adr/0017-arquivos-nominais-fora.md).
 - Implementar busca semântica com extensão `pgvector`. Registrado no [ADR 0011](../adr/0011-busca-semantica-pgvector.md).
 
@@ -218,15 +218,15 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 
 **O que foi decidido**
 
-- Adotar **Delta Lake sobre Parquet com compressão ZSTD nível 3**, particionado exclusivamente por quinquênio de ingresso nos vínculos. Registrado no [ADR 0024](../adr/0024-lake-delta-parquet-zstd.md).
-- Implementar procedure para provisionamento dinâmico de partições futuras no PostgreSQL (`silver.provisionar_particoes_movimentacoes`), automatizando a partição de vínculos da [ADR 0024](../adr/0024-lake-delta-parquet-zstd.md).
-- Configurar retenção de 7 dias para o `VACUUM` do Delta Lake para viabilizar auditoria temporal (*time travel*), conforme definido no [ADR 0024](../adr/0024-lake-delta-parquet-zstd.md).
+- Adotar **Delta Lake sobre Parquet com compressão ZSTD nível 3**, particionado exclusivamente por quinquênio de ingresso nos vínculos. Registrado no [ADR 0024](../adr/0024-lago-delta-parquet-zstd.md).
+- Implementar procedure para provisionamento dinâmico de partições futuras no PostgreSQL (`silver.provisionar_particoes_movimentacoes`), automatizando a partição de vínculos da [ADR 0024](../adr/0024-lago-delta-parquet-zstd.md).
+- Configurar retenção de 7 dias para o `VACUUM` do Delta Lake para viabilizar auditoria temporal (*time travel*), conforme definido no [ADR 0024](../adr/0024-lago-delta-parquet-zstd.md).
 
 **Pendências para a Semana seguinte**
 
 - [x] Subir infraestrutura de captura de mudanças via WAL (CDC com Debezium e Kafka).
 - [x] Implementar consumidor com escrita idempotente no Delta Lake.
-- [x] Formalizar e testar a semântica de entrega do transporte e do efeito no data lake.
+- [x] Formalizar e testar a semântica de entrega do transporte e do efeito no lago.
 
 ---
 
@@ -269,7 +269,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
   - Percentil 99 ($p99$): 105 dias após o encerramento.
   - Acima de 4 meses: 0,8% do total de formados.
 - Assimetria observada no SIGAA de 15/07/2024: 4.176 formaturas consolidadas no semestre 2023/1 e apenas 651 formaturas no semestre 2024/1 (semestre ainda aberto recebendo registros tardios).
-- Reprocessamento granular no Delta Lake: `exportar_lake.py --janelas-alteradas` regrava unicamente o arquivo do quinquênio afetado em ~1,8 s, sem gerar novas versões de arquivo para as partições inalteradas.
+- Reprocessamento granular no Delta Lake: `exportar_lago.py --janelas-alteradas` regrava unicamente o arquivo do quinquênio afetado em ~1,8 s, sem gerar novas versões de arquivo para as partições inalteradas.
 
 **O que surpreendeu**
 
@@ -280,7 +280,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 
 - Fixar a marca d'água com tolerância de 4 meses a partir da data de publicação do arquivo de vínculos, cobrindo 99,2% das conclusões. Registrado no [ADR 0026](../adr/0026-dado-atrasado-marca-dagua.md).
 - Criar a migração `0021_dado_atrasado.sql` com tabelas `silver.cargas_vinculos`, `silver.cargas_vinculos_retrato` (549 contagens agregadas por carga) e a view de classificação `silver.chegadas_por_carga` (`NO_PRAZO`, `ATRASADA`, `SEM_PERIODO`).
-- Manter dados atrasados na base sem descarte, recalculando a camada Gold e sinalizando em log revisões em turmas já consolidadas.
+- Manter dados atrasados na base sem descarte, recalculando a camada Gold e sinalizando em log revisões em coortes já consolidadas.
 - Adicionar o workflow `.github/workflows/supabase-keepalive.yml` executando `select 1` diário via `psql` às 12:00 UTC para contornar a pausa automática de 7 dias do plano gratuito.
 
 **Pendências para a Semana seguinte**
@@ -295,12 +295,12 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 
 **O que foi medido**
 
-- Semântica de entrega de ponta a ponta (`src/cdc/demonstrar_reprocessamento.py`): um lote de 100 mudanças gravado com queda antes de confirmar o offset, reentregue pelo Kafka, e duas releituras completas dos tópicos (766.353 e 766.403 mensagens). O data lake ficou com 153.001 linhas e a mesma impressão digital (sha256 de todas as linhas) em cada fase.
+- Semântica de entrega de ponta a ponta (`src/cdc/demonstrar_reprocessamento.py`): um lote de 100 mudanças gravado com queda antes de confirmar o offset, reentregue pelo Kafka, e duas releituras completas dos tópicos (766.353 e 766.403 mensagens). O lago ficou com 153.001 linhas e a mesma impressão digital (sha256 de todas as linhas) em cada fase.
 - Exclusão sob reprocessamento: os 50 sentinelas excluídos do banco não ressuscitaram na releitura com os INSERTs antigos.
 
 **O que surpreendeu**
 
-- A impressão digital do data lake inclui a hora da gravação (`_gravado_em`), então ela só é comparável dentro de uma execução da demonstração, e não entre execuções.
+- A impressão digital do lago inclui a hora da gravação (`_gravado_em`), então ela só é comparável dentro de uma execução da demonstração, e não entre execuções.
 
 **O que foi decidido**
 
@@ -322,7 +322,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 
 **Pendências para a Semana seguinte**
 
-- [x] Iniciar a E3: consulta otimizada, grão do fato, dimensão de variação lenta, transformação declarativa, testes de dados, orquestração e freshness.
+- [x] Iniciar a E3: consulta otimizada, grão do fato, dimensão de variação lenta, transformação declarativa, testes de dados, orquestração e frescor.
 
 ---
 
@@ -331,10 +331,10 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 **O que foi medido**
 
 - Consulta otimizada pelo plano (`EXPLAIN (ANALYZE, BUFFERS)`, em [`docs/explain/`](../explain/)): o detalhamento de um curso na Silver 3NF caiu de 1.566 para 14 buffers e de 35,6 ms para 0,42 ms com o índice `(id_estrutura, tipo_saida_grupo, ano_ingresso) INCLUDE (semestres_permanencia_valida)` (migração 0024).
-- Grão do fato de retenção, sobre as turmas maduras (68.339 vínculos): o grão do curso tem 101 linhas e perde 0,0% dos vínculos para o k-anonimato; curso × turma, 633 linhas e 0,1%; curso × turma × desfecho × semestre de saída, 14.359 linhas e 28,1% ([ADR 0030](../adr/0030-modelagem-analitica-e-ferramentas.md)).
+- Grão do fato de retenção, sobre as coortes maduras (68.339 vínculos): o grão do curso tem 101 linhas e perde 0,0% dos vínculos para o k-anonimato; curso × coorte, 633 linhas e 0,1%; curso × coorte × desfecho × semestre de saída, 14.359 linhas e 28,1% ([ADR 0030](../adr/0030-modelagem-analitica-e-ferramentas.md)).
 - Retry com o banco derrubado de propósito: a carga do star schema falhou duas vezes, esperou 10 s e 30 s, e passou na terceira tentativa quando o banco voltou. Com o banco fora de vez, falhou nas 4 tentativas e as etapas dependentes não rodaram ([evidências](../orquestracao/evidencias/)).
-- Backfill: as 6 partições do data lake (quinquênios de 2000 a 2025) regravadas numa execução, recuperando a janela de 2015 apagada (152.680 vínculos, sem duplicar).
-- Freshness: a view do painel em 0,0 de 35 dias na carga de 11/2026.
+- Backfill: as 6 partições do lago (quinquênios de 2000 a 2025) regravadas numa execução, recuperando a janela de 2015 apagada (152.680 vínculos, sem duplicar).
+- Frescor: a view do painel em 0,0 de 35 dias na carga de 11/2026.
 - Busca híbrida: 20 consultas de referência, com recall@5 de ao menos 0,8 por tipo.
 
 **O que surpreendeu**
@@ -350,7 +350,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 - `gold.dim_curso` como SCD tipo 2, com `vigente_de`, `vigente_ate` e `is_atual` (migração 0025). Registrado no [ADR 0028](../adr/0028-dim-curso-scd-tipo-2.md).
 - Transformações em dbt, em staging, intermediate e marts, com testes de esquema, volume, unicidade, integridade, distribuição e domínio, e a prova por injeção de dado ruim. Registrado no [ADR 0029](../adr/0029-transformacoes-em-dbt.md).
 - Estrela no grão do curso, dbt e Dagster, com a opção nula avaliada. Registrado no [ADR 0030](../adr/0030-modelagem-analitica-e-ferramentas.md).
-- SLA de freshness de 35 dias para a view do painel ([`docs/freshness_sla.md`](../freshness_sla.md)).
+- SLA de frescor de 35 dias para a view do painel ([`docs/frescor_sla.md`](../frescor_sla.md)).
 - A Visão Executiva do painel abre com a pergunta da E1 e o ranking de `dbt_marts.painel_cursos_criticos`.
 
 **Pendências para a Semana seguinte**

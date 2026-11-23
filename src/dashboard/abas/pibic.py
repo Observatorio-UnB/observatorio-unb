@@ -10,7 +10,7 @@ from formatacao import br, dec, grafico, mostrar_tabela
 
 def renderizar(g):
     """g: namespace com o que o app.py carregou (dados, metadados e helpers)."""
-    _TURMAS = g._TURMAS
+    _COORTES = g._COORTES
     df_gold = g.df_gold
     df_pibic = g.df_pibic
     mostrar_escopo = g.mostrar_escopo
@@ -153,7 +153,7 @@ def renderizar(g):
             "##### 🎓 Projetos de IC em Relação ao Tamanho da Área")
         st.caption(
             f"Projetos de IC de {periodo_pibic.strip(' ()') or '2018–2023'} divididos pelos alunos que ingressaram em "
-            f"{_TURMAS} na área. São períodos diferentes: leia como intensidade de IC por área, e não como a "
+            f"{_COORTES} na área. São períodos diferentes: leia como intensidade de IC por área, e não como a "
             "parcela de alunos que fez IC.")
         df_area_part = df_area[df_area["area_conhecimento"] != "OUTRA"]
         fig_participacao = px.bar(
@@ -177,7 +177,7 @@ def renderizar(g):
         st.markdown(
             "Cruzamento entre o Observatório de Retenção e a base de Iniciação Científica "
             f"({n_pibic_evasao} cursos com ao menos um projeto de IC; projetos de {periodo_pibic.strip(' ()') or '2018–2023'}, "
-            f"evasão dos ingressantes de {_TURMAS}). "
+            f"evasão dos ingressantes de {_COORTES}). "
             f"**Correlação encontrada: r = {r_pibic_evasao_txt}**"
             + (" (cursos com mais projetos de IC por 100 alunos tendem a ter menor evasão)."
                if r_pibic_evasao is not None and r_pibic_evasao < 0 else ".")

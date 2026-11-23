@@ -217,11 +217,11 @@ except LookupError:
 # dbt e a data da carga entram no snapshot, mas não nas tabelas que o resto do painel usa.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from faixas import FAIXAS, faixas_exclusivas  # noqa: E402
-from resposta_e1 import COLUNAS as COLUNAS_E1, PERGUNTA_E1, SLA_DIAS, freshness, ranking_cursos_criticos  # noqa: E402
+from resposta_e1 import COLUNAS as COLUNAS_E1, PERGUNTA_E1, SLA_DIAS, frescor, ranking_cursos_criticos  # noqa: E402
 
 
 def _graficos_do_curso(row, chave: str):
-    """Faixas de tempo dos formados e desfecho dos alunos de uma linha (curso inteiro ou uma turma)."""
+    """Faixas de tempo dos formados e desfecho dos alunos de uma linha (curso inteiro ou uma coorte)."""
     c_chart1, c_chart2 = st.columns(2)
     with c_chart1:
         st.markdown("##### ⏱️ Distribuição de Tempo dos Formados")
@@ -267,8 +267,8 @@ def _graficos_do_curso(row, chave: str):
 
 
 @st.cache_data
-def load_turmas(versao: str):
-    return (_snapshot(versao) or {}).get("tabelas", {}).get("retencao_cursos_turma") or []
+def load_coortes(versao: str):
+    return (_snapshot(versao) or {}).get("tabelas", {}).get("retencao_cursos_coorte") or []
 
 
 @st.cache_data
@@ -301,12 +301,12 @@ r_pibic_evasao_txt = "indisponível" if r_pibic_evasao is None else f"{dec(r_pib
 
 
 @st.cache_data(ttl=3600)
-def load_freshness_da_view():
-    """Atualização da view do painel e SLA (docs/freshness_sla.md), fora do cache da gold: uma
+def load_frescor_da_view():
+    """Atualização da view do painel e SLA (docs/frescor_sla.md), fora do cache da gold: uma
     sincronização sem dado novo atualiza a view, mas não muda a versão da gold."""
     try:
         from src.db.conexao import conexao_do_pool
-        from src.db.freshness import resumo_para_o_painel
+        from src.db.frescor import resumo_para_o_painel
 
         with conexao_do_pool() as conn:
             resumo = resumo_para_o_painel(conn)
@@ -315,11 +315,11 @@ def load_freshness_da_view():
     except ERROS_DE_FONTE:
         pass  # sem psycopg (stlite) ou banco fora do ar
     if EXPORT_PATH.exists():
-        return json.loads(EXPORT_PATH.read_text(encoding="utf-8")).get("freshness")
+        return json.loads(EXPORT_PATH.read_text(encoding="utf-8")).get("frescor")
     return None
 
 
-freshness_da_view = load_freshness_da_view()
+frescor_da_view = load_frescor_da_view()
 # Cursos-tronco (Engenharia, ABI de Educação Física): definidos em build_gold.py e publicados na Gold.
 EXCLUDED_GENERIC_COURSES = set((global_meta or {}).get("cursos_tronco", []))
 # Um só filtro para todas as abas: os cursos-tronco não são cursos terminais e distorciam totais,
@@ -330,24 +330,24 @@ if df_gold is not None:
     r_pibic_evasao_txt = "indisponível" if r_pibic_evasao is None else f"{dec(r_pibic_evasao, 2)}".replace(
         ".", ",")
 
-_TURMAS = (global_meta or {}).get("turmas_ingresso_analisadas", "n/d")
+_COORTES = (global_meta or {}).get("coortes_ingresso_analisadas", "n/d")
 _REF_ATIVOS = (global_meta or {}).get("ativos_hoje_referencia", "n/d")
 # Recorte e fonte de cada aba, mostrados no topo dela: o mesmo nome ("alunos", "evasão") muda de
 # universo entre as abas, e o usuário precisa saber qual está lendo.
 ESCOPO = {
-    "exec": f"ingressantes de {_TURMAS} (turmas com 8+ anos de acompanhamento), cursos com 5+ alunos, sem os "
+    "exec": f"ingressantes de {_COORTES} (turmas de ingresso com 8+ anos de acompanhamento), cursos com 5+ alunos, sem os "
     "cursos-tronco. Fontes: SIGRA (até 2020/1) e SIGAA (situação em 07/2024), do portal dados.unb.br.",
-    "detalhe": f"ingressantes de {_TURMAS} no curso escolhido; a seção por turma mostra também as turmas "
+    "detalhe": f"ingressantes de {_COORTES} no curso escolhido; a seção por turma de ingresso mostra também as turmas de ingresso "
     "recentes, ainda sem desfecho. Fontes: SIGRA e SIGAA (dados.unb.br).",
     "ativos": f"alunos ativos na lista do SIGAA de {_REF_ATIVOS}, de todas as turmas de ingresso, sem os "
-    "cursos-tronco. Não é o mesmo universo das outras abas (turmas antigas).",
-    "turnos": f"ingressantes de {_TURMAS}, sem os cursos-tronco; taxas ponderadas pelo número de alunos "
+    "cursos-tronco. Não é o mesmo universo das outras abas (turmas de ingresso antigas).",
+    "turnos": f"ingressantes de {_COORTES}, sem os cursos-tronco; taxas ponderadas pelo número de alunos "
     "de cada curso. Fontes: SIGRA e SIGAA (dados.unb.br).",
     "pibic": "projetos de IC de 2018 a 2023 (dados.unb.br), cruzados com os cursos pelo nome. Os alunos "
-             f"das taxas de evasão ingressaram em {_TURMAS}: são populações de períodos diferentes.",
+             f"das taxas de evasão ingressaram em {_COORTES}: são populações de períodos diferentes.",
     "inep": "Censo da Educação Superior 2019 (INEP/MEC), por nome de curso, comparando a UnB com as demais "
             "federais. Não é a mesma medida de evasão das outras abas.",
-    "simulador": f"o cenário parte dos números de {_TURMAS} e usa hipóteses fixas do simulador. É um exercício "
+    "simulador": f"o cenário parte dos números de {_COORTES} e usa hipóteses fixas do simulador. É um exercício "
     "de cenário, não uma previsão.",
 }
 
@@ -391,7 +391,7 @@ def agregar_ponderado(df, chave):
 
 
 def _anos_do_intervalo(texto: str) -> int:
-    """'2010-2016' -> 7 anos de turmas."""
+    """'2010-2016' -> 7 anos de coortes."""
     try:
         a, b = str(texto).split("-")
         return int(b) - int(a) + 1
@@ -405,14 +405,14 @@ Não é uma taxa: sempre cerca de 25% dos cursos caem na faixa "crítica", mesmo
 IRC 100 = o pior grupo depois de limitar os extremos (percentis 5 e 95); IRC 0 = curso sem atraso e com evasão
 baixa, ou com atraso negativo: não significa "sem problema". Cursos pequenos oscilam mais.
 
-**Evasão:** aluno da turma que saiu sem se formar (desligado, cancelado ou mudou de curso). Os dados não
+**Evasão:** aluno da turma de ingresso que saiu sem se formar (desligado, cancelado ou mudou de curso). Os dados não
 dizem o motivo.
 
 **DEG:** Decanato de Ensino de Graduação. **E1:** primeira entrega do projeto, que fixou a pergunta de gestão
 do topo da Visão Executiva. **NDE:** Núcleo Docente Estruturante do curso. **ABI:** Área Básica de Ingresso
 (ingresso comum a vários cursos, como Engenharia).
 
-**Evasão / evadidos / desligados:** o mesmo conceito nas telas de turma e de curso. **Desvinculação**, do Censo
+**Evasão / evadidos / desligados:** o mesmo conceito nas telas de turma de ingresso e de curso. **Desvinculação**, do Censo
 do INEP, é uma medida de outro tipo (ver aba INEP).
 
 **Outros (pizza do curso):** registros anulados, falecimentos e alunos não cadastrados: quem não é formado,
@@ -424,15 +424,15 @@ evadido nem ativo.
 
 **Tempo mínimo / ideal / máximo:** prazos da matriz do curso. "Até o prazo ideal" inclui quem fechou no mínimo.
 
-**Turma (madura):** alunos que ingressaram no mesmo ano. Madura = já passaram 8 anos desde o ingresso.
+**Turma de ingresso (madura):** alunos que ingressaram no mesmo ano. Madura = já passaram 8 anos desde o ingresso.
 
-**Ativo:** na lista do SIGAA de hoje (aba Alunos Ativos). "Ainda ativo" nas turmas antigas é outra contagem.
+**Ativo:** na lista do SIGAA de hoje (aba Alunos Ativos). "Ainda ativo" nas turmas de ingresso antigas é outra contagem.
 
 **Curso-tronco:** ingresso comum (ex.: Engenharia); não é curso terminal e fica de fora.
 
-**k-anonimato:** cursos ou turmas com menos de 5 alunos não aparecem.
+**k-anonimato:** cursos ou turmas de ingresso com menos de 5 alunos não aparecem.
 
-**Desvinculação (INEP):** medida do Censo 2019 num ano; não é a evasão da turma.
+**Desvinculação (INEP):** medida do Censo 2019 num ano; não é a evasão da turma de ingresso.
 
 **SIGRA / SIGAA:** sistemas acadêmicos antigo e atual da UnB. **PIBIC / PIVIC:** iniciação científica com
 bolsa / voluntária. **PPI:** pretos, pardos e indígenas.
@@ -446,7 +446,7 @@ else:
         "https://dados.unb.br/uploads/group/2019-11-01-175835.512234iconensino.png", width=180)
 st.sidebar.title("Painel UnB")
 st.sidebar.markdown("**Projeto**: Retenção e Formatura nos Cursos da UnB")
-_carga = freshness(carregado_em)
+_carga = frescor(carregado_em)
 st.sidebar.caption(
     "Fontes: dados abertos da UnB (dados.unb.br), Censo INEP e valor da bolsa do CNPq. "
     f"**Datas dos dados:** {FONTES_DATAS}.")
@@ -470,20 +470,20 @@ tab_choice = st.sidebar.radio(
 
 st.sidebar.markdown("---")
 
-# Freshness da view do painel contra o SLA (docs/freshness_sla.md). A idade é calculada aqui, fora do
+# Frescor da view do painel contra o SLA (docs/frescor_sla.md). A idade é calculada aqui, fora do
 # cache, para a versão estática do GitHub Pages também mostrar quando o export envelheceu.
-if freshness_da_view:
-    atualizada_em = datetime.fromisoformat(freshness_da_view["atualizada_em"])
+if frescor_da_view:
+    atualizada_em = datetime.fromisoformat(frescor_da_view["atualizada_em"])
     idade = datetime.now(timezone.utc) - atualizada_em
     idade_dias = idade.days
     # Mede a rotina de carga, e não a data dos dados (acima): por isso sem selo verde de "dados atuais".
-    texto_freshness = f"Pipeline executado em {atualizada_em:%d/%m/%Y}."
-    if idade <= timedelta(days=freshness_da_view["sla_dias"]):
-        st.sidebar.caption(f"⚙️ {texto_freshness}")
+    texto_frescor = f"Pipeline executado em {atualizada_em:%d/%m/%Y}."
+    if idade <= timedelta(days=frescor_da_view["sla_dias"]):
+        st.sidebar.caption(f"⚙️ {texto_frescor}")
     else:
         st.sidebar.warning(
-            f"Carga fora do SLA de freshness: {texto_freshness} Já faz {idade_dias} dias, "
-            f"e o limite é {freshness_da_view['sla_dias']}.")
+            f"Carga fora do SLA de frescor: {texto_frescor} Já faz {idade_dias} dias, "
+            f"e o limite é {frescor_da_view['sla_dias']}.")
 
 if df_gold is not None:
     # Header Principal

@@ -135,8 +135,8 @@ O PostgreSQL gerencia tabelas particionadas criando relações físicas filhas n
 | `estruturas_curriculares`| Tabela Base Canônica  | Relação 3NF de matrizes pedagógicas  |
 | `movimentacoes_vinculos` | Tabela Particionada   | Tabela-mãe declarativa (Lógica)      |
 | `movimentacoes_p2000_2015`| Partição Física Filha | Bucket de dados históricos (2000-2015)|
-| `movimentacoes_p2016_2020`| Partição Física Filha | Bucket de turmas maduras (2016-2020)|
-| `movimentacoes_p2021_atual`| Partição Física Filha| Bucket de turmas recentes (2021-2035)|
+| `movimentacoes_p2016_2020`| Partição Física Filha | Bucket de coortes maduras (2016-2020)|
+| `movimentacoes_p2021_atual`| Partição Física Filha| Bucket de coortes recentes (2021-2035)|
 | `movimentacoes_p_default`| Partição Física Filha | Bucket default de salvaguarda        |
 | `pibic_projetos`         | Tabela Base Canônica  | Relação 3NF de projetos de pesquisa  |
 | `cursos_graduacao`       | Staging / Origem      | Catálogo bruto de cursos             |
@@ -214,8 +214,8 @@ O PostgreSQL gerencia tabelas particionadas criando relações físicas filhas n
 ---
 
 ### 4.5 Tabela Fato `gold.fato_retencao_curso`
-* **Tipo**: Fato de *Snapshot de Turmas Maduras*.
-* **Grão Físico**: Um registro por curso canônico, sobre as turmas maduras. O campus (`sk_campus`) é atributo do curso (MULTICAMPUS quando o nome é oferecido em mais de um campus) e não entra no grão (migração 0023).
+* **Tipo**: Fato de *Snapshot de Coortes Maduras*.
+* **Grão Físico**: Um registro por curso canônico, sobre as coortes maduras. O campus (`sk_campus`) é atributo do curso (MULTICAMPUS quando o nome é oferecido em mais de um campus) e não entra no grão (migração 0023).
 * **Privacidade e LGPD**: Constraint declarativa de $k$-anonimato estrito (`CHECK (total_ingressantes >= 5)`).
 
 | Coluna | Tipo Físico | Nulo? | Padrão / Restrição | Descrição Semântica |
@@ -223,12 +223,12 @@ O PostgreSQL gerencia tabelas particionadas criando relações físicas filhas n
 | `id_fato` | `BIGINT` | **NÃO** | **PK** (`GENERATED ALWAYS AS IDENTITY`) | Identificador primário do registro de fato. |
 | `sk_curso` | `INTEGER` | **NÃO** | **FK** $\rightarrow$ `gold.dim_curso` | Chave substituta para o curso em análise. |
 | `sk_campus` | `INTEGER` | **NÃO** | **FK** $\rightarrow$ `gold.dim_campus` | Campus de oferta do curso. Atributo do curso, e não parte do grão. |
-| `total_ingressantes` | `INTEGER` | **NÃO** | `CHECK (total_ingressantes >= 5)` | **Métrica Aditiva**: Total de discentes ingressantes na turma madura ($k \ge 5$). |
+| `total_ingressantes` | `INTEGER` | **NÃO** | `CHECK (total_ingressantes >= 5)` | **Métrica Aditiva**: Total de discentes ingressantes na coorte madura ($k \ge 5$). |
 | `total_formados` | `INTEGER` | **NÃO** | `CHECK (total_formados >= 0)` | **Métrica Aditiva**: Total de discentes diplomados. |
 | `total_evadidos` | `INTEGER` | **NÃO** | `CHECK (total_evadidos >= 0)` | **Métrica Aditiva**: Total de discentes evadidos/desligados sem diploma. |
 | `total_ainda_ativos`| `INTEGER` | **NÃO** | `DEFAULT 0 CHECK (total_ainda_ativos >= 0)` | **Métrica Aditiva**: Discentes retidos cursando além do prazo normal. |
-| `taxa_formatura_pct`| `NUMERIC(5,2)`| SIM | `CHECK (BETWEEN 0 AND 100)` | **Métrica Não-Aditiva**: Percentual de conclusão da turma. |
-| `taxa_evasao_pct` | `NUMERIC(5,2)`| SIM | `CHECK (BETWEEN 0 AND 100)` | **Métrica Não-Aditiva**: Percentual de evasão da turma. |
+| `taxa_formatura_pct`| `NUMERIC(5,2)`| SIM | `CHECK (BETWEEN 0 AND 100)` | **Métrica Não-Aditiva**: Percentual de conclusão da coorte. |
+| `taxa_evasao_pct` | `NUMERIC(5,2)`| SIM | `CHECK (BETWEEN 0 AND 100)` | **Métrica Não-Aditiva**: Percentual de evasão da coorte. |
 | `formados_tempo_ideal_pct`| `NUMERIC(5,2)`| SIM | `CHECK (BETWEEN 0 AND 100)` | **Métrica Não-Aditiva**: Percentual de formados dentro do prazo ideal. |
 | `atraso_medio_semestres`| `NUMERIC(5,2)`| SIM | - | **Métrica Não-Aditiva**: Média de semestres extras para integralização. |
 | `indice_retencao_critica`| `NUMERIC(4,1)`| SIM | `CHECK (BETWEEN 0 AND 100)` | **Métrica Calculada (IRC)**: Indicador ponderado de retenção crítica (0 a 100). |

@@ -13,4 +13,4 @@ Usar os microdados do Censo (INEP), recortados para cursos presenciais de univer
 
 ## Consequências
 
-Comparação pelo nome do curso, numa fotografia de um ano, e com taxas que medem outra coisa que a evasão por turma. O servidor do INEP cai com frequência; o CI segue com o CSV já versionado.
+Comparação pelo nome do curso, numa fotografia de um ano, e com taxas que medem outra coisa que a evasão por coorte. O servidor do INEP cai com frequência; o CI segue com o CSV já versionado.

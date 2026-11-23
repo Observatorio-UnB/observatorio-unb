@@ -19,7 +19,7 @@ sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conectar
 from src.db.migrar import MIGRATIONS_DIR
 from src.db.tabelas import Coluna, ErroDeContrato, gravar, ler, preparar
-from src.pipeline.build_gold import ANOS_MATURACAO_TURMA
+from src.pipeline.build_gold import ANOS_MATURACAO_COORTE
 
 
 class TestContratoDeCarga(unittest.TestCase):
@@ -130,7 +130,7 @@ class TestBanco(unittest.TestCase):
                OR a.formados IS DISTINCT FROM g.total_formados
                OR a.ativos IS DISTINCT FROM g.total_ainda_ativos
             """,
-            (ANOS_MATURACAO_TURMA,),
+            (ANOS_MATURACAO_COORTE,),
         ).fetchall()
         self.assertEqual(divergentes, [], "Cursos da gold que não batem com a silver")
 

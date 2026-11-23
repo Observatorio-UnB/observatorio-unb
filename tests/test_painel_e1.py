@@ -52,7 +52,7 @@ class TestPainelE1(unittest.TestCase):
         legenda = next(c.value for c in self.app.caption if c.value.startswith("Ranking completo"))
         self.assertIn("dbt_marts.painel_cursos_criticos", legenda)
         self.assertIn(f"{self.total} cursos", legenda)
-        self.assertIn("SLA de freshness", legenda)
+        self.assertIn("SLA de frescor", legenda)
 
 
 if __name__ == "__main__":

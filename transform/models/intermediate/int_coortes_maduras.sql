@@ -1,4 +1,4 @@
--- Vínculos das turmas maduras: ingresso até o último ano da base menos anos_maturacao (ADR 0014),
+-- Vínculos das coortes maduras: ingresso até o último ano da base menos anos_maturacao (ADR 0014),
 -- com o prazo ideal da matriz do vínculo.
 with corte as (
     select max(ano_ingresso) - {{ var('anos_maturacao') }} as ultimo_ano

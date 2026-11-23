@@ -12,7 +12,7 @@ def renderizar(g):
     _versao_dos_dados = g._versao_dos_dados
     df_gold = g.df_gold
     global_meta = g.global_meta
-    load_turmas = g.load_turmas
+    load_coortes = g.load_coortes
     mostrar_escopo = g.mostrar_escopo
 
     st.subheader("🔍 Raio-X Acadêmico por Curso")
@@ -27,10 +27,10 @@ def renderizar(g):
     )
 
     row_course = df_gold[df_gold["curso"] == selected_course].iloc[0]
-    turmas = (global_meta or {}).get("turmas_ingresso_analisadas", "n/d")
+    coortes = (global_meta or {}).get("coortes_ingresso_analisadas", "n/d")
     st.markdown(
         f"**{br(int(row_course['total_discentes_registrados']))} alunos** ingressaram em "
-        f"**{selected_course}** nas turmas de **{turmas}** (ano de ingresso): "
+        f"**{selected_course}** nas turmas de **{coortes}** (ano de ingresso): "
         f"{br(int(row_course['total_formados']))} se formaram, "
         f"{br(int(row_course['total_evadidos_desligados']))} evadiram ou foram desligados e "
         f"{br(int(row_course['total_ainda_ativos']))} ainda estão ativos. "
@@ -74,63 +74,63 @@ def renderizar(g):
 
     st.markdown("---")
     st.subheader("🎓 Por turma de ingresso")
-    todas_turmas = pd.DataFrame(load_turmas(_versao_dos_dados()))
-    df_turmas = todas_turmas[todas_turmas["curso"] ==
-                             selected_course] if not todas_turmas.empty else todas_turmas
-    if todas_turmas.empty:
+    todas_coortes = pd.DataFrame(load_coortes(_versao_dos_dados()))
+    df_coortes = todas_coortes[todas_coortes["curso"] ==
+                             selected_course] if not todas_coortes.empty else todas_coortes
+    if todas_coortes.empty:
         st.warning(
             "Os dados por turma não vieram na carga que o painel está lendo (tabela "
-            "`gold.retencao_cursos_turma` vazia ou ausente). Rode as migrações e o pipeline, ou "
+            "`gold.retencao_cursos_coorte` vazia ou ausente). Rode as migrações e o pipeline, ou "
             "gere o export novo (`python3 src/db/exportar_gold.py`)."
         )
-    elif df_turmas.empty:
+    elif df_coortes.empty:
         st.info(f"Sem turmas com 5 ou mais alunos em {selected_course}.")
     else:
-        df_turmas = df_turmas.sort_values("ano_ingresso")
-        anos = [int(a) for a in df_turmas["ano_ingresso"]]
-        maduras = [i for i, m in enumerate(df_turmas["turma_madura"]) if m]
-        # Abre na última turma madura: a mais recente ainda não tem desfecho e confunde o primeiro número visto.
+        df_coortes = df_coortes.sort_values("ano_ingresso")
+        anos = [int(a) for a in df_coortes["ano_ingresso"]]
+        maduras = [i for i, m in enumerate(df_coortes["coorte_madura"]) if m]
+        # Abre na última coorte madura: a mais recente ainda não tem desfecho e confunde o primeiro número visto.
         ano_sel = st.selectbox("Turma (ano de ingresso):", anos,
-                               index=maduras[-1] if maduras else len(anos) - 1, key="turma_sel")
-        row_turma = df_turmas[df_turmas["ano_ingresso"] == ano_sel].iloc[0]
-        if not row_turma["turma_madura"]:
+                               index=maduras[-1] if maduras else len(anos) - 1, key="coorte_sel")
+        row_coorte = df_coortes[df_coortes["ano_ingresso"] == ano_sel].iloc[0]
+        if not row_coorte["coorte_madura"]:
             st.warning(
                 f"A turma de {ano_sel} ainda não tem 8 anos de acompanhamento: muitos alunos seguem "
                 "ativos, a evasão é registrada com atraso e o tempo de formatura só conta quem já "
                 "se formou (parece menor do que será). Não entra nos números do topo da página."
             )
-        _pct_ativos = row_turma["total_ainda_ativos"] / \
-            row_turma["total_discentes_registrados"] * 100
-        if row_turma["turma_madura"] and _pct_ativos >= 5:
+        _pct_ativos = row_coorte["total_ainda_ativos"] / \
+            row_coorte["total_discentes_registrados"] * 100
+        if row_coorte["coorte_madura"] and _pct_ativos >= 5:
             st.info(f"A turma de {ano_sel} já passou de 8 anos, mas ainda tem {dec(_pct_ativos, 0)}% de alunos ativos: "
                     "formatura e evasão ainda podem mudar um pouco.")
         st.markdown(
-            f"**{br(int(row_turma['total_discentes_registrados']))} alunos** ingressaram em {ano_sel}: "
-            f"{br(int(row_turma['total_formados']))} formados "
-            f"({dec(row_turma['taxa_formatura_pct'], 1)}%), "
-            f"{br(int(row_turma['total_evadidos_desligados']))} evadidos ou desligados "
-            f"({dec(row_turma['taxa_evasao_pct'], 1)}%) e "
-            f"{br(int(row_turma['total_ainda_ativos']))} ainda ativos."
+            f"**{br(int(row_coorte['total_discentes_registrados']))} alunos** ingressaram em {ano_sel}: "
+            f"{br(int(row_coorte['total_formados']))} formados "
+            f"({dec(row_coorte['taxa_formatura_pct'], 1)}%), "
+            f"{br(int(row_coorte['total_evadidos_desligados']))} evadidos ou desligados "
+            f"({dec(row_coorte['taxa_evasao_pct'], 1)}%) e "
+            f"{br(int(row_coorte['total_ainda_ativos']))} ainda ativos."
         )
-        _graficos_do_curso(row_turma, f"turma{ano_sel}")
+        _graficos_do_curso(row_coorte, f"coorte{ano_sel}")
 
         st.caption("Turmas com menos de 5 alunos não aparecem, por isso a soma das turmas pode ficar um pouco "
                    "abaixo do total do curso.")
         st.markdown("##### 📈 Todas as turmas")
         st.caption("Turmas recentes (sem 8 anos de acompanhamento) têm formatura baixa e evasão "
                    "subestimada só porque o tempo ainda não passou. Marcadas com ⚠️.")
-        df_evol = df_turmas.assign(
-            turma=[f"{int(a)}" + ("" if m else " ⚠️") for a, m in
-                   zip(df_turmas["ano_ingresso"], df_turmas["turma_madura"])]
-        ).melt(id_vars="turma", value_vars=["taxa_formatura_pct", "taxa_evasao_pct"],
+        df_evol = df_coortes.assign(
+            coorte=[f"{int(a)}" + ("" if m else " ⚠️") for a, m in
+                   zip(df_coortes["ano_ingresso"], df_coortes["coorte_madura"])]
+        ).melt(id_vars="coorte", value_vars=["taxa_formatura_pct", "taxa_evasao_pct"],
                var_name="Indicador", value_name="Percentual")
         df_evol["Indicador"] = df_evol["Indicador"].map(
             {"taxa_formatura_pct": "Formatura", "taxa_evasao_pct": "Evasão / Desligamento"})
-        fig_evol = px.line(df_evol, x="turma", y="Percentual", color="Indicador", markers=True,
+        fig_evol = px.line(df_evol, x="coorte", y="Percentual", color="Indicador", markers=True,
                            color_discrete_map={
                                "Formatura": "#10B981", "Evasão / Desligamento": "#DC2626"},
                            height=320)
         fig_evol.update_traces(
             hovertemplate="Turma %{x}<br>%{y:.1f}% dos alunos<extra></extra>")
         fig_evol.update_xaxes(type="category", title="Ano de ingresso")
-        grafico(fig_evol, width="stretch", key="turma_evolucao")
+        grafico(fig_evol, width="stretch", key="coorte_evolucao")

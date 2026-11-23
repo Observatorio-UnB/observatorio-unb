@@ -2,7 +2,7 @@
 # reconstrói as tabelas de consumo em três camadas, cada uma no seu esquema:
 #
 #   staging       (dbt_staging, views)      uma view por tabela da silver: só renomeia e tipa
-#   intermediate  (dbt_intermediate, views)  regras de negócio: atributos do curso, turmas, IRC
+#   intermediate  (dbt_intermediate, views)  regras de negócio: atributos do curso, coortes, IRC
 #   marts         (dbt_marts, tabelas)       star schema e a tabela do painel, agregadas (k >= 5)
 #
 # E o snapshot (dbt_snapshots) com o histórico dos atributos do curso, de onde a dim_curso tira as
@@ -22,14 +22,14 @@ target-path: target
 clean-targets: ["target", "dbt_packages", "logs"]
 
 vars:
-  # Mesmos parâmetros do pipeline: src/pipeline/build_gold.py (ANOS_MATURACAO_TURMA) e ADR 0005.
+  # Mesmos parâmetros do pipeline: src/pipeline/build_gold.py (ANOS_MATURACAO_COORTE) e ADR 0005.
   anos_maturacao: 8
   k_minimo: 5
   # Limites dos testes de distribuição (tests/distribuicao_*.sql), medidos na base de 10/2026. Revisar
   # quando a base mudar de patamar: ver "Quando revisar os limites" em docs/testes_de_dados.md.
-  salto_maximo_entre_turmas: 0.30
-  evasao_por_turma: [30, 60]
-  formatura_por_turma: [35, 70]
+  salto_maximo_entre_coortes: 0.30
+  evasao_por_coorte: [30, 60]
+  formatura_por_coorte: [35, 70]
   mediana_evasao_por_curso: [30, 60]
   ingressantes_curso_que_some: 80
 

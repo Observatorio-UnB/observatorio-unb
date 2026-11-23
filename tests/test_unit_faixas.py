@@ -16,7 +16,7 @@ sys.path.insert(0, str(BASE_DIR / "src" / "dashboard"))
 sys.path.insert(0, str(BASE_DIR))
 from faixas import faixas_exclusivas  # noqa: E402
 
-from src.pipeline.build_gold import ANOS_MATURACAO_TURMA  # noqa: E402
+from src.pipeline.build_gold import ANOS_MATURACAO_COORTE  # noqa: E402
 
 
 class FaixasExclusivas(unittest.TestCase):
@@ -36,11 +36,11 @@ class ColunasDaGold(unittest.TestCase):
             cls.conn = conectar(connect_timeout=3)
         except psycopg.OperationalError as erro:
             raise unittest.SkipTest(f"Banco indisponível ({erro})")
-        existe = cls.conn.execute("SELECT to_regclass('gold.retencao_cursos_turma')").fetchone()[0]
+        existe = cls.conn.execute("SELECT to_regclass('gold.retencao_cursos_coorte')").fetchone()[0]
         if existe is None or not cls.conn.execute(
-                "SELECT EXISTS (SELECT 1 FROM gold.retencao_cursos_turma)").fetchone()[0]:
+                "SELECT EXISTS (SELECT 1 FROM gold.retencao_cursos_coorte)").fetchone()[0]:
             cls.conn.close()
-            raise unittest.SkipTest("Gold por turma não calculada. Rode: bash scripts/rodar_pipeline.sh")
+            raise unittest.SkipTest("Gold por coorte não calculada. Rode: bash scripts/rodar_pipeline.sh")
 
     @classmethod
     def tearDownClass(cls):
@@ -61,7 +61,7 @@ class ColunasDaGold(unittest.TestCase):
         self.assertEqual(self.faixa(9, 6, 10, 10), "IDEAL")
 
     def test_faixas_somam_100(self):
-        for tabela in ("gold.retencao_cursos_unb", "gold.retencao_cursos_turma"):
+        for tabela in ("gold.retencao_cursos_unb", "gold.retencao_cursos_coorte"):
             ruins = self.conn.execute(f"""
                 SELECT count(*) FROM {tabela}
                 WHERE faixa_minimo_pct IS NULL
@@ -70,7 +70,7 @@ class ColunasDaGold(unittest.TestCase):
             self.assertEqual(ruins, 0, tabela)
 
     def test_faixas_batem_com_calculo_independente_em_pandas(self):
-        """Refaz as faixas em Pandas a partir da Silver e exige igualdade curso a curso e turma a turma."""
+        """Refaz as faixas em Pandas a partir da Silver e exige igualdade curso a curso e coorte a coorte."""
         import numpy as np
         import pandas as pd
 
@@ -93,24 +93,24 @@ class ColunasDaGold(unittest.TestCase):
             t = pd.crosstab([b[c] for c in chaves], b["faixa"]).reindex(columns=list(colunas), fill_value=0)
             return (t.div(t.sum(axis=1), axis=0) * 100).round(2).rename(columns=colunas)
 
-        corte = int(d["ano_ingresso"].max()) - ANOS_MATURACAO_TURMA
+        corte = int(d["ano_ingresso"].max()) - ANOS_MATURACAO_COORTE
         por_curso = ler("gold.retencao_cursos_unb").set_index("curso")
         exp = esperado(["curso"], lambda b: b["ano_ingresso"] <= corte).reindex(por_curso.index).fillna(0)
         for col in colunas.values():
             pd.testing.assert_series_equal(exp[col], por_curso[col].astype(float), check_names=False, atol=0.011)
 
-        por_turma = ler("gold.retencao_cursos_turma").set_index(["curso", "ano_ingresso"])
-        exp = esperado(["curso", "ano_ingresso"]).reindex(por_turma.index).fillna(0)
+        por_coorte = ler("gold.retencao_cursos_coorte").set_index(["curso", "ano_ingresso"])
+        exp = esperado(["curso", "ano_ingresso"]).reindex(por_coorte.index).fillna(0)
         for col in colunas.values():
-            pd.testing.assert_series_equal(exp[col], por_turma[col].astype(float), check_names=False, atol=0.011)
+            pd.testing.assert_series_equal(exp[col], por_coorte[col].astype(float), check_names=False, atol=0.011)
 
-    def test_turmas_nao_passam_do_total_do_curso(self):
-        # Turmas com menos de 5 alunos ficam de fora (k-anonimato): a soma nunca passa do total do curso.
+    def test_coortes_nao_passam_do_total_do_curso(self):
+        # Coortes com menos de 5 alunos ficam de fora (k-anonimato): a soma nunca passa do total do curso.
         linhas = self.conn.execute("""
             SELECT r.total_discentes_registrados, c.n
             FROM gold.retencao_cursos_unb r
             JOIN (SELECT curso, sum(total_discentes_registrados) AS n
-                  FROM gold.retencao_cursos_turma WHERE turma_madura GROUP BY curso) c USING (curso)
+                  FROM gold.retencao_cursos_coorte WHERE coorte_madura GROUP BY curso) c USING (curso)
         """).fetchall()
         self.assertTrue(all(c <= total for total, c in linhas))
         self.assertTrue(any(c == total for total, c in linhas))

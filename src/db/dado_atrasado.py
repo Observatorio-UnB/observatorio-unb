@@ -17,8 +17,8 @@ por ano de ingresso, desfecho e período de saída. A view silver.chegadas_por_c
 - SEM_PERIODO: vínculo sem período de saída (ativo, cancelado no SIGAA, formado sem diploma).
 
 O dado atrasado não é descartado. A fonte é a referência, então a carga o aceita e a gold é
-recalculada. A chegada atrasada fica registrada, com aviso quando revisa uma turma que a gold
-já publicava. No lake, a janela que a recebeu é reprocessada (exportar_lake.py
+recalculada. A chegada atrasada fica registrada, com aviso quando revisa uma coorte que a gold
+já publicava. No lago, a janela que a recebeu é reprocessada (exportar_lago.py
 --janelas-alteradas). Decisão no ADR 0026.
 
 Uso:
@@ -41,7 +41,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conectar  # noqa: E402
 from src.ingestion.ckan_client import DATASETS_CONFIG  # noqa: E402
-from src.pipeline.build_gold import ANOS_MATURACAO_TURMA  # noqa: E402
+from src.pipeline.build_gold import ANOS_MATURACAO_COORTE  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -96,7 +96,7 @@ WHERE i.tabela = ANY(%s)
 """
 
 SQL_CARGA = """
-INSERT INTO silver.cargas_vinculos (publicada_em, marca_dagua, ultima_turma_madura, total_vinculos)
+INSERT INTO silver.cargas_vinculos (publicada_em, marca_dagua, ultima_coorte_madura, total_vinculos)
 SELECT %(publicada_em)s, %(marca_dagua)s, max(ano_ingresso) - %(anos_maturacao)s, count(*)
 FROM silver.movimentacoes_vinculos
 RETURNING id_carga
@@ -113,7 +113,7 @@ SQL_RESUMO = """
 SELECT quinquenio_ingresso, chegada,
        coalesce(sum(diferenca) FILTER (WHERE diferenca > 0), 0)::int AS a_mais,
        coalesce(-sum(diferenca) FILTER (WHERE diferenca < 0), 0)::int AS a_menos,
-       count(DISTINCT ano_ingresso) FILTER (WHERE turma_publicada)::int AS turmas_publicadas
+       count(DISTINCT ano_ingresso) FILTER (WHERE coorte_publicada)::int AS coortes_publicadas
 FROM silver.chegadas_por_carga
 WHERE id_carga = %s
 GROUP BY quinquenio_ingresso, chegada
@@ -144,7 +144,7 @@ def publicacao_dos_vinculos(conn: psycopg.Connection) -> Optional[date]:
 
 
 def resumo(conn: psycopg.Connection, id_carga: int) -> List[Tuple[int, str, int, int, int]]:
-    """(quinquênio, chegada, vínculos a mais, a menos, turmas publicadas revisadas) da carga."""
+    """(quinquênio, chegada, vínculos a mais, a menos, coortes publicadas revisadas) da carga."""
     return conn.execute(SQL_RESUMO, (id_carga,)).fetchall()
 
 
@@ -157,7 +157,7 @@ def registrar_carga(conn: psycopg.Connection, publicada_em: Optional[date] = Non
     publicada_em = publicada_em or publicacao_dos_vinculos(conn) or date.today()
     marca = marca_dagua(publicada_em)
     id_carga = conn.execute(SQL_CARGA, {
-        "publicada_em": publicada_em, "marca_dagua": marca, "anos_maturacao": ANOS_MATURACAO_TURMA,
+        "publicada_em": publicada_em, "marca_dagua": marca, "anos_maturacao": ANOS_MATURACAO_COORTE,
     }).fetchone()[0]
     conn.execute(SQL_RETRATO, {"id_carga": id_carga})
     _registrar_no_log(conn, id_carga, publicada_em, marca)
@@ -172,10 +172,10 @@ def _registrar_no_log(conn: psycopg.Connection, id_carga: int, publicada_em: dat
     linhas = resumo(conn, id_carga)
     if not linhas:
         logger.info("Nenhuma janela mudou desde a carga anterior.")
-    for quinquenio, chegada, a_mais, a_menos, turmas in linhas:
+    for quinquenio, chegada, a_mais, a_menos, coortes in linhas:
         mensagem = f"Quinquênio {quinquenio}, {chegada}: +{a_mais:,} / -{a_menos:,} vínculos"
-        if chegada == "ATRASADA" and turmas:
-            logger.warning(f"{mensagem}; revisa {turmas} turma(s) já publicada(s) na gold.")
+        if chegada == "ATRASADA" and coortes:
+            logger.warning(f"{mensagem}; revisa {coortes} coorte(s) já publicada(s) na gold.")
         else:
             logger.info(f"{mensagem}.")
 
@@ -225,9 +225,9 @@ def main() -> None:
         if not linhas:
             print("Nada mudou em relação à carga anterior (ou é a primeira carga).")
             return
-        print(f"{'quinquênio':<12}{'chegada':<13}{'a mais':>8}{'a menos':>9}{'turmas publicadas':>20}")
-        for quinquenio, chegada, a_mais, a_menos, turmas in linhas:
-            print(f"{quinquenio:<12}{chegada:<13}{a_mais:>8,}{a_menos:>9,}{turmas:>20}")
+        print(f"{'quinquênio':<12}{'chegada':<13}{'a mais':>8}{'a menos':>9}{'coortes publicadas':>20}")
+        for quinquenio, chegada, a_mais, a_menos, coortes in linhas:
+            print(f"{quinquenio:<12}{chegada:<13}{a_mais:>8,}{a_menos:>9,}{coortes:>20}")
 
 
 if __name__ == "__main__":

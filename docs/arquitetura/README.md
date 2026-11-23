@@ -79,7 +79,7 @@ Este diretório consolida a especificação técnica formal e os artefatos de en
 
 O diagrama acima é o núcleo relacional. Em volta dele, o projeto ganhou:
 
-- **Data lake em formato aberto (E2):** a Silver 3NF e o Star Schema exportados para Delta Lake sobre Parquet com ZSTD, particionados por quinquênio de ingresso, em `data/lake/lote/` ([ADR 0024](../adr/0024-lake-delta-parquet-zstd.md)). Um segundo caminho opcional leva as mudanças do WAL ao data lake por CDC, com Debezium e Kafka ([ADR 0025](../adr/0025-mecanismo-de-ingestao-recarga-e-cdc.md)).
+- **Lago em formato aberto (E2):** a Silver 3NF e o Star Schema exportados para Delta Lake sobre Parquet com ZSTD, particionados por quinquênio de ingresso, em `data/lake/lote/` ([ADR 0024](../adr/0024-lago-delta-parquet-zstd.md)). Um segundo caminho opcional leva as mudanças do WAL ao lago por CDC, com Debezium e Kafka ([ADR 0025](../adr/0025-mecanismo-de-ingestao-recarga-e-cdc.md)).
 - **Camada transformada em dbt (E3):** `transform/` reconstrói a camada de consumo a partir da Silver 3NF em quatro esquemas: `dbt_staging`, `dbt_intermediate`, `dbt_marts` (fato, dimensões e `painel_cursos_criticos`) e `dbt_snapshots` (histórico da `dim_curso`). Ver o [ADR 0029](../adr/0029-transformacoes-em-dbt.md) e [`docs/testes_de_dados.md`](../testes_de_dados.md).
 - **Orquestração (E3):** um grafo de assets do Dagster com retry e backfill ([`docs/orquestracao.md`](../orquestracao.md), [ADR 0030](../adr/0030-modelagem-analitica-e-ferramentas.md)).
-- **Freshness:** SLA de 35 dias para a view do painel ([`docs/freshness_sla.md`](../freshness_sla.md)).
+- **Frescor:** SLA de 35 dias para a view do painel ([`docs/frescor_sla.md`](../frescor_sla.md)).

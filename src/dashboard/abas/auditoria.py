@@ -8,7 +8,7 @@ from formatacao import br, dec, mostrar_tabela
 def renderizar(g):
     """g: namespace com o que o app.py carregou (dados, metadados e helpers)."""
     DOCS_DIR = g.DOCS_DIR
-    _TURMAS = g._TURMAS
+    _COORTES = g._COORTES
     df_ativos = g.df_ativos
     df_gold = g.df_gold
     df_inep = g.df_inep
@@ -24,7 +24,7 @@ def renderizar(g):
     _n_ativos = int(df_ativos["total_ativos_hoje"].sum()) if df_ativos is not None and len(df_ativos) else 0
     _universos = pd.DataFrame([
         ("Vínculos de graduação lidos (SIGRA e SIGAA, todas as turmas)", _n_vinc, "base bruta; nenhuma tela mostra esse total"),
-        (f"Ingressantes de {_TURMAS} nos cursos do painel", int(df_gold["total_discentes_registrados"].sum()),
+        (f"Ingressantes de {_COORTES} nos cursos do painel", int(df_gold["total_discentes_registrados"].sum()),
          "Visão Executiva, Detalhe, Turnos, Simulador"),
         ("Alunos ativos hoje (todas as turmas)", _n_ativos, "Alunos Ativos"),
         ("Planos de iniciação científica (2018-2023)", int(pibic_meta["total_projetos_ic"]) if pibic_meta else 0, "PIBIC"),

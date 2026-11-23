@@ -1,5 +1,5 @@
--- Distribuição: curso que some numa turma. Curso com ingressantes_curso_que_some (80, em
--- dbt_project.yml) ou mais ingressantes na turma anterior e na seguinte não pode ter zero na do meio.
+-- Distribuição: curso que some numa coorte. Curso com ingressantes_curso_que_some (80, em
+-- dbt_project.yml) ou mais ingressantes na coorte anterior e na seguinte não pode ter zero na do meio.
 -- Cursos com entrada alternada existem (Educação do Campo pula anos com 56 a 66 ingressantes ao lado),
 -- por isso o limite. O que se quer pegar é o curso grande que perdeu a matriz na harmonização e saiu
 -- da série sem erro. Ponto cego: curso menor que o limite pode sumir sem ser acusado.
@@ -11,7 +11,7 @@ with por_curso as (
 ),
 
 anos as (
-    -- a última turma pode estar incompleta: fica de fora como turma do meio e como vizinha
+    -- a última coorte pode estar incompleta: fica de fora como coorte do meio e como vizinha
     select generate_series(min(ano_ingresso) + 1, max(ano_ingresso) - 2) as ano
     from {{ ref('stg_vinculos') }}
 )

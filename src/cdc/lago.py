@@ -13,7 +13,7 @@ um) marca todas as linhas anteriores a ele.
 
 O fim do snapshot de uma tabela também marca as linhas anteriores a ele. Um snapshot refeito
 (slot recriado, tópicos perdidos) só traz as linhas que ainda existem: sem essa reconciliação,
-uma linha excluída enquanto o fluxo estava interrompido ficaria viva no lake.
+uma linha excluída enquanto o fluxo estava interrompido ficaria viva no lago.
 
 Sem Kafka nem PostgreSQL aqui: o consumidor (src/cdc/consumidor.py) entrega os eventos já
 decodificados, e os testes (tests/test_unit_cdc.py) usam eventos sintéticos.
@@ -29,7 +29,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 from deltalake import DeltaTable, write_deltalake
 
-from src.db.exportar_lake import (
+from src.db.exportar_lago import (
     COLUNA_QUINQUENIO,
     PROPRIEDADES,
     RETENCAO_HORAS,
@@ -47,7 +47,7 @@ COLUNAS_CONTROLE = [
     pa.field("_gravado_em", pa.timestamp("us", tz="UTC")),
 ]
 
-# Um evento só altera a linha do lake se vier depois, no WAL, da última mudança aplicada nela.
+# Um evento só altera a linha do lago se vier depois, no WAL, da última mudança aplicada nela.
 MAIS_NOVO = "(s._commit_lsn > t._commit_lsn OR (s._commit_lsn = t._commit_lsn AND s._lsn > t._lsn))"
 
 
@@ -94,7 +94,7 @@ def decodificar(valor: Dict) -> Evento:
     cresce de uma transação para a seguinte, na ordem de commit. Ele vem nulo no snapshot e na
     primeira transação depois de um slot novo; aí vale o lsn do próprio evento. O lsn do snapshot
     é o ponto consistente do slot, posterior a todo commit anterior a ele: um snapshot refeito
-    (tópicos recriados) passa por cima do que o lake tinha, e não fica para trás.
+    (tópicos recriados) passa por cima do que o lago tinha, e não fica para trás.
 
     Limite: uma transação aberta antes do ponto do snapshot e confirmada depois pode ter lsn
     menor que o dele e perder para o valor do snapshot. O caso só existe durante o snapshot.
@@ -204,7 +204,7 @@ def aplicar(tabela: Tabela, eventos: Iterable[Evento], lake_dir: Path = LAKE_DIR
             pendentes.append(e)
             if e.fim_snapshot:
                 # Toda linha que existia no ponto do snapshot já está nele: as que sobram de
-                # antes dele foram excluídas sem que o DELETE chegasse ao lake.
+                # antes dele foram excluídas sem que o DELETE chegasse ao lago.
                 resumo["linhas"] += _merge(delta, tabela, pendentes)
                 pendentes = []
                 resumo["reconciliadas"] += _truncar(delta, e)
@@ -232,7 +232,7 @@ def _ler_delta(destino: str, colunas: Optional[List[str]] = None) -> pa.Table:
 
 
 def maior_lsn(tabela: Tabela, lake_dir: Path = LAKE_DIR) -> int:
-    """Maior posição no WAL já gravada na tabela do lake (0 se a tabela ainda não existe)."""
+    """Maior posição no WAL já gravada na tabela do lago (0 se a tabela ainda não existe)."""
     destino = str(tabela.caminho(lake_dir))
     if not DeltaTable.is_deltatable(destino):
         return 0
@@ -240,7 +240,7 @@ def maior_lsn(tabela: Tabela, lake_dir: Path = LAKE_DIR) -> int:
 
 
 def ler(tabela: Tabela, lake_dir: Path = LAKE_DIR, com_excluidas: bool = False) -> pa.Table:
-    """Estado atual da tabela no lake, por padrão sem as linhas marcadas como excluídas."""
+    """Estado atual da tabela no lago, por padrão sem as linhas marcadas como excluídas."""
     dados = _ler_delta(str(tabela.caminho(lake_dir)))
     if com_excluidas:
         return dados

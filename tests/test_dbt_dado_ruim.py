@@ -57,15 +57,15 @@ CASOS = {
         [f"UPDATE {MOV} SET id_estrutura = -1 WHERE id_vinculo IN (SELECT id_vinculo FROM {MOV} LIMIT 3)"],
         "relationships_stg_vinculos_id_estrutura__id_estrutura__ref_stg_estruturas_curriculares_",
     ),
-    "distribuição: salto de série (turma de 2013 pela metade)": (
+    "distribuição: salto de série (coorte de 2013 pela metade)": (
         [f"DELETE FROM {MOV} WHERE ano_ingresso = 2013 AND id_vinculo % 2 = 0"],
-        "distribuicao_salto_de_serie_entre_turmas",
+        "distribuicao_salto_de_serie_entre_coortes",
     ),
     "distribuição: evasão de 2012 virou OUTROS": (
         [f"UPDATE {MOV} SET tipo_saida_grupo = 'OUTROS' WHERE tipo_saida_grupo = 'EVASAO' AND ano_ingresso = 2012"],
-        "distribuicao_desfechos_por_turma",
+        "distribuicao_desfechos_por_coorte",
     ),
-    "distribuição: MEDICINA some da turma de 2014": (
+    "distribuição: MEDICINA some da coorte de 2014": (
         [f"DELETE FROM {MOV} WHERE ano_ingresso = 2014 AND id_estrutura = "
          f"(SELECT id_estrutura FROM {EST} WHERE nome_curso_canonico = 'MEDICINA')"],
         "distribuicao_curso_que_some",

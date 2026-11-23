@@ -93,7 +93,7 @@ ORDER BY aluno, id DESC
 
 # O ORDER BY fixa a ordem em que o id_vinculo é atribuído. Sem ele, a ordem segue o plano da
 # junção, que muda entre execuções, e a mesma silver ganharia ids diferentes a cada recarga: o
-# lake acharia todas as janelas alteradas (exportar_lake.py --janelas-alteradas).
+# lago acharia todas as janelas alteradas (exportar_lago.py --janelas-alteradas).
 SQL_MOVIMENTACOES = """
 INSERT INTO silver.movimentacoes_vinculos (
     id_discente, id_curso, id_estrutura, ano_ingresso, forma_saida, tipo_saida_grupo, ano_saida,

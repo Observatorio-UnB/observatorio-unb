@@ -9,7 +9,7 @@ from formatacao import br, dec, grafico, reducao
 def renderizar(g):
     """g: namespace com o que o app.py carregou (dados, metadados e helpers)."""
     UNB_GREEN = g.UNB_GREEN
-    _TURMAS = g._TURMAS
+    _COORTES = g._COORTES
     _anos_do_intervalo = g._anos_do_intervalo
     df_gold = g.df_gold
     global_meta = g.global_meta
@@ -154,11 +154,11 @@ def renderizar(g):
     valor_evasao_evitada_reais = discentes_salvos * custo_anual_aluno
 
     # 4. Investimento Adicional em Novas Bolsas de Iniciação Científica: 12 meses do valor vigente no CNPq
-    # O custo cobre os mesmos anos de turmas do benefício (ingressantes de _TURMAS), para somar janelas iguais.
+    # O custo cobre os mesmos anos de ingresso do benefício (ingressantes de _COORTES), para somar janelas iguais.
     custo_ampliacao_pibic = float(
         novas_bolsas_pibic * 12 *
         (pibic_meta or {}).get("valor_bolsa_ic_mensal_vigente", 700.0)
-        * _anos_do_intervalo(_TURMAS))
+        * _anos_do_intervalo(_COORTES))
 
     # 5. Benefício Público Total e Saldo Líquido
     beneficio_total_reais = economia_retencao_reais + valor_evasao_evitada_reais
@@ -288,7 +288,7 @@ def renderizar(g):
 ---
 
 ### 1. Diagnóstico da Situação Atual
-* **Alunos que ingressaram nas turmas analisadas ({_TURMAS})**: {br(total_discentes)}
+* **Alunos que ingressaram nas turmas de ingresso analisadas ({_COORTES})**: {br(total_discentes)}
 * **Tempo Ideal Previsto na Matriz Curricular**: {dec(sem_ideal, 1)} semestres
 * **Tempo Médio Real Observado na Formatura**: {dec(tempo_real_atual, 2)} semestres
 * **Atraso Médio de Conclusão**: {dec(desvio_medio_atual, 2)} semestres além da matriz

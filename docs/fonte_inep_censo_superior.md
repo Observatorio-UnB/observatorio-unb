@@ -59,7 +59,7 @@ As taxas do Censo **não são a mesma coisa** que a taxa de evasão da tabela de
 | | Taxa de evasão (tabela de retenção) | Taxas do Censo (INEP) |
 |---|---|---|
 | Base | Histórico do SIGRA + SIGAA | Censo da Educação Superior |
-| Método | Acompanha a turma de ingresso até a saída | Fotografa a situação das matrículas no ano-censo |
+| Método | Acompanha a coorte de ingresso até a saída | Fotografa a situação das matrículas no ano-censo |
 | Responde | "Dos que entraram, quantos saíram sem concluir?" | "Das matrículas ativas neste ano, quantas foram trancadas/desvinculadas?" |
 
 Os dois números são corretos, medem coisas diferentes e não devem ser somados nem comparados

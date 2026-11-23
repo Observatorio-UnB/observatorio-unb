@@ -10,29 +10,29 @@ Os testes ficam no projeto dbt (`transform/`) e rodam a cada `dbt build`: no CI 
 | **Volume** | `volume_entre` em `stg_cursos` (100 a 300), `stg_estruturas_curriculares` (80 a 200), `stg_vinculos` (100 mil a 300 mil), `dim_curso` (80 a 200 versões atuais), `fct_retencao_curso` e `painel_cursos_criticos` (60 a 150) | Carga parcial, arquivo truncado, duplicação em massa |
 | **Unicidade** | `unique` nas chaves de todos os modelos e no nome canônico | Vínculo ou curso duplicado, que conta duas vezes no fato |
 | **Integridade referencial** | `relationships` do vínculo para a matriz, da matriz para o curso, e do fato para as duas dimensões | Vínculo sem matriz, fato apontando para curso que não está na dimensão |
-| **Distribuição** | `distribuicao_salto_de_serie_entre_turmas`, `distribuicao_desfechos_por_turma`, `distribuicao_curso_que_some`, `distribuicao_mediana_evasao_por_curso` | O erro silencioso: todos os valores válidos, e o resultado errado |
+| **Distribuição** | `distribuicao_salto_de_serie_entre_coortes`, `distribuicao_desfechos_por_coorte`, `distribuicao_curso_que_some`, `distribuicao_mediana_evasao_por_curso` | O erro silencioso: todos os valores válidos, e o resultado errado |
 | **Domínio (o que o dado tem de sujo)** | Permanência entre 1 e 35 semestres; prazo ideal entre 4 e 16; ano de ingresso plausível; saída antes do ingresso; desfechos que somam mais que os ingressantes; taxas e IRC entre 0 e 100; k ≥ 5 no fato | Valor negativo onde não cabe, saída antes de entrar, contagem dupla na junção |
 | **Histórico (SCD tipo 2)** | `scd_dim_curso_uma_versao_atual`, `scd_dim_curso_vigencias_encadeadas`, `scd_fato_aponta_versao_atual` | Dimensão sobrescrita ou versão apagada, que reescreve a série para trás; curso duplicado no fato; painel com a classificação antiga |
 | **Reconciliação** | `reconcilia_fato_retencao_com_a_gold` | O fato do dbt diverge, em qualquer curso ou medida, do fato do pipeline Python |
 
 ## Distribuição: os limites e de onde vêm
 
-Os limites foram medidos na base de 10/2026 (152.680 vínculos; turmas maduras de 2010 a 2016) e têm folga para a variação normal entre cargas:
+Os limites foram medidos na base de 10/2026 (152.680 vínculos; coortes maduras de 2010 a 2016) e têm folga para a variação normal entre cargas:
 
 | Teste | Regra (variável em `transform/dbt_project.yml`) | Na base atual |
 |---|---|---|
-| Salto de série | O volume de uma turma madura não varia mais de 30% em relação à anterior (`salto_maximo_entre_turmas`) | Maior variação: 15% (2013 para 2014) |
-| Desfechos por turma | Evasão entre 30% e 60% (`evasao_por_turma`) e formatura entre 35% e 70% (`formatura_por_turma`), em cada turma madura | Evasão de 40% a 47%; formatura de 47% a 57% |
-| Curso que some | Curso com 80 ou mais ingressantes na turma anterior e na seguinte não pode ter zero na do meio (`ingressantes_curso_que_some`) | Os buracos reais são de cursos com entrada alternada, com no máximo 66 ingressantes ao lado (Educação do Campo) |
+| Salto de série | O volume de uma coorte madura não varia mais de 30% em relação à anterior (`salto_maximo_entre_coortes`) | Maior variação: 15% (2013 para 2014) |
+| Desfechos por coorte | Evasão entre 30% e 60% (`evasao_por_coorte`) e formatura entre 35% e 70% (`formatura_por_coorte`), em cada coorte madura | Evasão de 40% a 47%; formatura de 47% a 57% |
+| Curso que some | Curso com 80 ou mais ingressantes na coorte anterior e na seguinte não pode ter zero na do meio (`ingressantes_curso_que_some`) | Os buracos reais são de cursos com entrada alternada, com no máximo 66 ingressantes ao lado (Educação do Campo) |
 | Mediana da evasão por curso | Entre 30% e 60% (`mediana_evasao_por_curso`) | 44,2% |
 
-**Ponto cego do "curso que some".** O teste só olha cursos com 80 ou mais ingressantes nas duas turmas vizinhas. Abaixo disso, a entrada alternada real (Educação do Campo, Teatro, Música) daria alarme falso. Um curso pequeno que some não é acusado.
+**Ponto cego do "curso que some".** O teste só olha cursos com 80 ou mais ingressantes nas duas coortes vizinhas. Abaixo disso, a entrada alternada real (Educação do Campo, Teatro, Música) daria alarme falso. Um curso pequeno que some não é acusado.
 
 ### Quando revisar os limites
 
 Os limites são números fixos, medidos numa base: quando ela mudar de patamar, um teste pode falhar sem que o dado esteja errado. Revisar:
 
-- **A cada nova turma madura** (todo ano, quando o corte de 8 anos avança): rodar as consultas dos testes de distribuição sem o filtro e conferir se os valores novos cabem nas faixas.
+- **A cada nova coorte madura** (todo ano, quando o corte de 8 anos avança): rodar as consultas dos testes de distribuição sem o filtro e conferir se os valores novos cabem nas faixas.
 - **Quando um teste de distribuição ou de volume falhar:** antes de mudar o limite, conferir se é erro de dado (carga parcial, mapeamento quebrado). Só mude o limite se o valor novo estiver certo, e registre o motivo aqui.
 - **Onde mudar:** os limites de distribuição são `vars` em `transform/dbt_project.yml`. As faixas de volume ficam nos `_staging.yml` e `_marts.yml`, porque o nome dos testes genéricos, usado pela prova de injeção, sai dos argumentos.
 
@@ -48,10 +48,10 @@ Os limites são números fixos, medidos numa base: quando ela mudar de patamar, 
 | Metade dos vínculos não veio | `volume_entre` de `stg_vinculos` |
 | Um vínculo duplicado | `unique` de `stg_vinculos.id_vinculo` |
 | Três vínculos apontando para matriz inexistente | `relationships` do vínculo para a matriz |
-| Turma de 2013 pela metade | `distribuicao_salto_de_serie_entre_turmas` |
-| Evasão de 2012 classificada como OUTROS | `distribuicao_desfechos_por_turma` |
-| MEDICINA some da turma de 2014 | `distribuicao_curso_que_some` |
-| Formados contados como evadidos | `distribuicao_mediana_evasao_por_curso` (com o staging pulado: no `build`, o teste por turma pega antes) |
+| Coorte de 2013 pela metade | `distribuicao_salto_de_serie_entre_coortes` |
+| Evasão de 2012 classificada como OUTROS | `distribuicao_desfechos_por_coorte` |
+| MEDICINA some da coorte de 2014 | `distribuicao_curso_que_some` |
+| Formados contados como evadidos | `distribuicao_mediana_evasao_por_curso` (com o staging pulado: no `build`, o teste por coorte pega antes) |
 | Permanência de −3 semestres | `entre` de `semestres_permanencia_valida` |
 | Saída dois anos antes do ingresso, com período publicado | `dominio_saida_antes_do_ingresso` |
 | Prazo ideal zerado numa matriz | `entre` de `semestre_ideal` |

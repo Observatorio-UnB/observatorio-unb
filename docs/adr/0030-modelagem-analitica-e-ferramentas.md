@@ -57,20 +57,20 @@ Cada uma das quatro escolhas abaixo compara as alternativas numa tabela e termin
 
 **Alternativas (medidas):**
 
-Para medir os grãos, calculei cada nível sobre as turmas maduras da base atual (consulta em [`medicoes/0030_granularidade_do_fato.sql`](medicoes/0030_granularidade_do_fato.sql)): ingresso de 2010 a 2016, 68.339 vínculos, 101 cursos. Os grupos com menos de 5 vínculos são suprimidos (k-anonimato, ADR 0005):
+Para medir os grãos, calculei cada nível sobre as coortes maduras da base atual (consulta em [`medicoes/0030_granularidade_do_fato.sql`](medicoes/0030_granularidade_do_fato.sql)): ingresso de 2010 a 2016, 68.339 vínculos, 101 cursos. Os grupos com menos de 5 vínculos são suprimidos (k-anonimato, ADR 0005):
 
 | Grão | Linhas | Grupos com k < 5 | Vínculos perdidos | Tamanho | Responde à E1? |
 |---|---:|---:|---:|---:|---|
 | Vínculo (fato transacional) | 68.339 (universo bruto; o painel usa 67.063) | 100% | 100% | 4,5 MB | Não pode ser publicado |
 | **Curso** | **101** | 5,9% | **0,0%** (12) | 16 kB | **Sim: ranking por curso** |
-| Curso × turma (ano de ingresso) | 633 | 5,7% | 0,1% (76) | 72 kB | Sim, e mostra a tendência entre turmas |
-| Curso × turma × desfecho × semestre de saída | 14.359 | 67,6% | **28,1%** (19.196) | 1,5 MB | Não: perde um vínculo em cada quatro |
+| Curso × coorte (ano de ingresso) | 633 | 5,7% | 0,1% (76) | 72 kB | Sim, e mostra a tendência entre coortes |
+| Curso × coorte × desfecho × semestre de saída | 14.359 | 67,6% | **28,1%** (19.196) | 1,5 MB | Não: perde um vínculo em cada quatro |
 
 **Decisão:** o fato de retenção fica no grão do curso, declarado e imposto pela chave `UNIQUE (sk_curso)` (PR #48). A pergunta da E1 é um ranking de cursos, e esse grão a responde sem perder vínculo.
 
-- **Curso × turma é a extensão viável** quando o DEG quiser saber se um curso está piorando. Perde só 0,1% dos vínculos, mas hoje só há 7 turmas maduras. Fica registrado como o próximo fato, e não como substituto.
+- **Curso × coorte é a extensão viável** quando o DEG quiser saber se um curso está piorando. Perde só 0,1% dos vínculos, mas hoje só há 7 coortes maduras. Fica registrado como o próximo fato, e não como substituto.
 - **O grão fino demais estoura a supressão:** a granularidade por semestre de saída perde 28% dos vínculos para o k-anonimato.
-- **O grão do vínculo serve à transformação, não ao consumo.** Ele já existe na Silver 3NF e no data lake Delta, fora do alcance público.
+- **O grão do vínculo serve à transformação, não ao consumo.** Ele já existe na Silver 3NF e no lago Delta, fora do alcance público.
 
 ### 3. Transformação: dbt
 
@@ -96,7 +96,7 @@ Para medir os grãos, calculei cada nível sobre as turmas maduras da base atual
 | Infraestrutura | Agendador, webserver e banco de metadados sempre no ar | Biblioteca Python; a UI e o daemon são opcionais | Nenhuma (já existe) |
 | Grafo | DAG de tarefas | Grafo de assets; os modelos dbt viram assets (`dagster-dbt`) | Linear, na ordem do script |
 | Retry | Por tarefa | Por asset (`RetryPolicy`) | Só por job inteiro, ou laço manual no shell |
-| Backfill | Por intervalo de execução | Por partição (ex.: quinquênio de ingresso, a partição do data lake) | Escrito à mão (`workflow_dispatch` com parâmetros) |
+| Backfill | Por intervalo de execução | Por partição (ex.: quinquênio de ingresso, a partição do lago) | Escrito à mão (`workflow_dispatch` com parâmetros) |
 | Execução no CI | Exige um servidor | `dagster asset materialize` roda dentro do job | Nativa |
 
 - **A opção nula falha num ponto concreto.** Para ter grafo no GitHub Actions, cada etapa precisaria ser um job com `needs:`. Mas cada job tem o seu próprio container de Postgres, então as etapas não compartilham o banco. O pipeline teria de ficar num job só, com as etapas em fila. O retry viraria laço de shell e o backfill, parâmetro escrito à mão.
@@ -108,6 +108,6 @@ Para medir os grãos, calculei cada nível sobre as turmas maduras da base atual
 
 - O modelo não muda de forma: a estrela da E2 continua. O que muda é o grão declarado no catálogo (PR #48), o histórico na `dim_curso` (ADR 0028) e o lugar da transformação (dbt, ADR 0029). No dbt, o histórico vem do snapshot `snap_atributos_curso` (PR #64).
 - O painel lê o mart do dbt, `painel_cursos_criticos`, que é a OBT de consumo (issue #44, `src/dashboard/resposta_e1.py`). O export do GitHub Pages leva essa tabela, e o painel só volta para a `gold.retencao_cursos_unb` quando o mart falta ou não bate com a carga da gold.
-- O fato curso × turma fica medido e documentado como próximo passo. Ele entra quando a pergunta de tendência for feita e houver mais turmas maduras.
+- O fato curso × coorte fica medido e documentado como próximo passo. Ele entra quando a pergunta de tendência for feita e houver mais coortes maduras.
 - Novas dependências: `dagster` e `dagster-dbt`, em `requirements-orquestracao.txt`. O agendamento continua no GitHub Actions, sem servidor novo.
 - As medições de grão foram feitas sobre a base de 10/10/2026 (silver local). Com uma carga nova, os números mudam, mas a ordem de grandeza da supressão não.

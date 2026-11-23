@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pipeline completo, do portal ao banco. Cada etapa lê a camada anterior do
 # PostgreSQL e grava a sua nele: migrações -> bronze (CKAN e INEP) -> silver -> gold
-# -> auditoria -> privacidade -> Silver 3NF e Star Schema -> camadas dbt -> lake Delta -> vetorização
+# -> auditoria -> privacidade -> Silver 3NF e Star Schema -> camadas dbt -> lago Delta -> vetorização
 # -> dicionário do banco.
 #
 # A ordem que vale é a do grafo do Dagster (orquestracao/definicoes.py), que roda no agendamento
@@ -65,8 +65,8 @@ fi
 
 # Só as tabelas e as janelas (quinquênios de ingresso) que mudaram desde a última exportação, como
 # as que receberam dado atrasado. A carga anterior já registrou o que chegou (src/db/dado_atrasado.py).
-etapa "Lake: Silver 3NF e Star Schema em Delta Lake"
-"$PYTHON" src/db/exportar_lake.py --janelas-alteradas
+etapa "Lago: Silver 3NF e Star Schema em Delta Lake"
+"$PYTHON" src/db/exportar_lago.py --janelas-alteradas
 
 etapa "Busca semântica: vetorização"
 "$PYTHON" src/busca/vetorizar.py

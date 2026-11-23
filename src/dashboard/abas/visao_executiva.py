@@ -4,14 +4,14 @@ import plotly.express as px
 import streamlit as st
 from formatacao import br, dec, grafico, mostrar_tabela
 from resposta_e1 import COLUNAS as COLUNAS_E1
-from resposta_e1 import PERGUNTA_E1, SLA_DIAS, freshness, ranking_cursos_criticos
+from resposta_e1 import PERGUNTA_E1, SLA_DIAS, frescor, ranking_cursos_criticos
 
 
 def renderizar(g):
     """g: namespace com o que o app.py carregou (dados, metadados e helpers)."""
     EXCLUDED_GENERIC_COURSES = g.EXCLUDED_GENERIC_COURSES
     N_MIN_RANKING = g.N_MIN_RANKING
-    _TURMAS = g._TURMAS
+    _COORTES = g._COORTES
     _media_ponderada = g._media_ponderada
     carregado_em = g.carregado_em
     df_gold = g.df_gold
@@ -26,7 +26,7 @@ def renderizar(g):
         st.metric(
             label="Alunos que ingressaram (turmas analisadas)",
             value=f"{br(int(df_gold['total_discentes_registrados'].sum()))}",
-            help=(f"Ingressantes de {_TURMAS} nos cursos com 5+ alunos, sem cursos-tronco. É uma parte dos "
+            help=(f"Ingressantes de {_COORTES} nos cursos com 5+ alunos, sem cursos-tronco. É uma parte dos "
                   "vínculos de graduação auditados (aba Auditoria), que somam todas as turmas."),
         )
     with c2:
@@ -59,7 +59,7 @@ def renderizar(g):
     g1, g2, g3, g4 = st.columns(4)
     g1.metric("Formatura (turmas analisadas)",
               f"{dec(df_gold['total_formados'].sum() / _tot * 100, 1)}%".replace(".", ","),
-              help="Formados ÷ alunos que ingressaram em " + str(_TURMAS) + ".")
+              help="Formados ÷ alunos que ingressaram em " + str(_COORTES) + ".")
     g2.metric("Evasão (turmas analisadas)",
               f"{dec(df_gold['total_evadidos_desligados'].sum() / _tot * 100, 1)}%".replace(
                   ".", ","),
@@ -139,7 +139,7 @@ def renderizar(g):
     ranking_e1, fonte_e1 = ranking_cursos_criticos(
         {"painel_cursos_criticos": painel_e1}, df_gold, EXCLUDED_GENERIC_COURSES)
     st.subheader(
-        "❓ Pergunta de gestão (E1): em quais cursos intervir primeiro?")
+        "❓ Pergunta da E1: em quais cursos intervir primeiro?")
     st.markdown(f"> *{PERGUNTA_E1}*")
     if ranking_e1 is not None:
         n_criticos_e1 = (
@@ -175,17 +175,17 @@ def renderizar(g):
         if _todos_no_mesmo_quartil:
             _legenda_q = "Todos os cursos da tabela estão no quartil mais alto do IRC. " + _legenda_q
         st.caption(_legenda_q)
-        legenda = (f"Ranking completo: {len(ranking_e1)} cursos. Dados abertos do portal dados.unb.br "
-                   "(datas das fontes na barra lateral).")
-        dados_freshness = freshness(carregado_em)
-        if dados_freshness:
-            data_carga, idade_dias, dentro_do_sla = dados_freshness
-            legenda += f" Pipeline executado em {data_carga:%d/%m/%Y}."
+        legenda = (f"Ranking completo: {len(ranking_e1)} cursos. Fonte: `{fonte_e1}`. "
+                   "Dados abertos do portal dados.unb.br (datas das fontes na barra lateral).")
+        dados_frescor = frescor(carregado_em)
+        if dados_frescor:
+            data_carga, idade_dias, dentro_do_sla = dados_frescor
+            legenda += f" Dados da carga de {data_carga:%d/%m/%Y} (há {idade_dias} dia(s); SLA de frescor: {SLA_DIAS} dias)."
             if not dentro_do_sla:
                 st.warning(f"A carga tem {idade_dias} dias, acima do SLA de {SLA_DIAS} dias: "
                            "o ranking pode não refletir a publicação mais recente do portal.")
         st.caption(legenda)
-            
+
     st.markdown("---")
 
     # Rankings: à esquerda os 25 piores, à direita os 25 melhores, na mesma ordem de tema.

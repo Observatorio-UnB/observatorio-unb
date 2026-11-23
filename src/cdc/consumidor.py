@@ -1,24 +1,24 @@
 """
-Consome os tópicos do Debezium e aplica as mudanças da Silver 3NF no lake CDC (src/cdc/lake.py).
+Consome os tópicos do Debezium e aplica as mudanças da Silver 3NF no lago CDC (src/cdc/lago.py).
 
 Fluxo: PostgreSQL (WAL, publicação observatorio_cdc) -> Debezium -> Kafka (um tópico por
 tabela) -> este consumidor -> Delta Lake em data/lake/cdc/.
 
-Semântica de entrega: o offset só é confirmado no Kafka depois que o lote foi gravado no lake.
+Semântica de entrega: o offset só é confirmado no Kafka depois que o lote foi gravado no lago.
 Se o consumidor cair entre a gravação e a confirmação, o lote volta: entrega no mínimo uma vez.
-Como o MERGE do lake é idempotente pela posição no WAL, o lote repetido não muda nada, e o
-efeito no lake é o de uma entrega só.
+Como o MERGE do lago é idempotente pela posição no WAL, o lote repetido não muda nada, e o
+efeito no lago é o de uma entrega só.
 
 Guarda contra o WAL que volta para trás: um banco recriado ou restaurado recomeça o WAL numa
-posição menor que a do lake, e os eventos novos perderiam o MERGE para as linhas antigas sem
+posição menor que a do lago, e os eventos novos perderiam o MERGE para as linhas antigas sem
 aviso. Quando um lote chega com posição abaixo da maior já gravada (o que também acontece num
-reprocessamento legítimo), o consumidor compara o lake com a posição atual do WAL no banco e
-aborta se o lake estiver à frente. Aí o lake CDC tem de ser recriado (apagar data/lake/cdc/).
+reprocessamento legítimo), o consumidor compara o lago com a posição atual do WAL no banco e
+aborta se o lago estiver à frente. Aí o lago CDC tem de ser recriado (apagar data/lake/cdc/).
 
 Mudança de esquema não é tratada: colunas e chave são lidas só na subida. Alterou as colunas de
 uma tabela da Silver publicada? Apague data/lake/cdc/ e reprocesse (--do-inicio).
 
-Colunas e chave primária de cada tabela vêm do catálogo do PostgreSQL, como no lake em lote.
+Colunas e chave primária de cada tabela vêm do catálogo do PostgreSQL, como no lago em lote.
 
 Uso:
     python3 src/cdc/consumidor.py                    # consome continuamente (Ctrl+C para parar)
@@ -40,7 +40,7 @@ from confluent_kafka import OFFSET_BEGINNING, Consumer, KafkaError, KafkaExcepti
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
-from src.cdc import lake  # noqa: E402
+from src.cdc import lago  # noqa: E402
 from src.db.conexao import conectar, ler_variavel  # noqa: E402
 from src.db.tabelas import colunas_da_tabela  # noqa: E402
 
@@ -53,15 +53,15 @@ logger = logging.getLogger("consumidor_cdc")
 
 
 class WalRegrediu(RuntimeError):
-    """O lake está à frente do WAL do banco: o banco foi recriado ou restaurado."""
+    """O lago está à frente do WAL do banco: o banco foi recriado ou restaurado."""
 
 PREFIXO_TOPICOS = "observatorio"
-GRUPO = "observatorio-lake"
+GRUPO = "observatorio-lago"
 MENSAGENS_POR_LOTE = 5_000
 # Cada MERGE grava arquivos novos: a cada tantos lotes, a manutenção junta os pequenos.
 MANTER_A_CADA_LOTES = 50
 
-# Tabela de origem -> particionada no lake (mesmo critério do lake em lote).
+# Tabela de origem -> particionada no lago (mesmo critério do lago em lote).
 TABELAS_CDC = {
     "silver.cursos": False,
     "silver.estruturas_curriculares": False,
@@ -73,8 +73,8 @@ def bootstrap_servers() -> str:
     return ler_variavel("KAFKA_BOOTSTRAP_SERVERS") or "localhost:9092"
 
 
-def carregar_tabelas() -> Dict[str, lake.Tabela]:
-    """Tabelas do lake CDC por tópico, com colunas e chave primária lidas do banco."""
+def carregar_tabelas() -> Dict[str, lago.Tabela]:
+    """Tabelas do lago CDC por tópico, com colunas e chave primária lidas do banco."""
     tabelas = {}
     with conectar() as conn:
         for nome, particionada in TABELAS_CDC.items():
@@ -89,19 +89,19 @@ def carregar_tabelas() -> Dict[str, lake.Tabela]:
                 """,
                 (nome,),
             ).fetchall())
-            tabelas[f"{PREFIXO_TOPICOS}.{nome}"] = lake.Tabela(nome, colunas, chave, particionada)
+            tabelas[f"{PREFIXO_TOPICOS}.{nome}"] = lago.Tabela(nome, colunas, chave, particionada)
     return tabelas
 
 
 class Consumidor:
-    """Lê lotes dos tópicos, aplica no lake e só então confirma os offsets."""
+    """Lê lotes dos tópicos, aplica no lago e só então confirma os offsets."""
 
-    def __init__(self, lake_dir: Path = lake.LAKE_DIR, grupo: str = GRUPO, do_inicio: bool = False,
+    def __init__(self, lake_dir: Path = lago.LAKE_DIR, grupo: str = GRUPO, do_inicio: bool = False,
                  sem_offset: str = "earliest"):
         """sem_offset: onde começa uma partição sem offset confirmado no grupo (earliest ou latest)."""
         self.lake_dir = lake_dir
         self.tabelas = carregar_tabelas()
-        self.maior_lsn = max((lake.maior_lsn(t, lake_dir) for t in self.tabelas.values()), default=0)
+        self.maior_lsn = max((lago.maior_lsn(t, lake_dir) for t in self.tabelas.values()), default=0)
         self.lotes = 0
         self.consumer = Consumer({
             "bootstrap.servers": bootstrap_servers(),
@@ -126,7 +126,7 @@ class Consumidor:
     def rodada(self, timeout: float = 1.0, confirmar: bool = True) -> int:
         """Processa um lote e devolve o número de mensagens lidas (0 se nada chegou).
 
-        confirmar=False grava no lake e não confirma o offset: simula o consumidor caindo entre
+        confirmar=False grava no lago e não confirma o offset: simula o consumidor caindo entre
         a gravação e a confirmação (src/cdc/demonstrar_reprocessamento.py).
         """
         mensagens = self.consumer.consume(MENSAGENS_POR_LOTE, timeout=timeout)
@@ -139,7 +139,7 @@ class Consumidor:
                 raise KafkaException(m.error())
             if m.value() is None:
                 continue
-            eventos[m.topic()].append(lake.decodificar(json.loads(m.value())))
+            eventos[m.topic()].append(lago.decodificar(json.loads(m.value())))
         if not eventos:
             return 0
         maior_do_lote = max(e.lsn for lista in eventos.values() for e in lista)
@@ -149,7 +149,7 @@ class Consumidor:
         agora = datetime.now(timezone.utc)
         for topico, lista in eventos.items():
             tabela = self.tabelas[topico]
-            resumo = lake.aplicar(tabela, lista, self.lake_dir)
+            resumo = lago.aplicar(tabela, lista, self.lake_dir)
             atraso = max((agora - e.origem_em).total_seconds() for e in lista)
             truncates = f", {resumo['truncates']} truncate(s)" if resumo["truncates"] else ""
             if resumo["reconciliadas"]:
@@ -168,12 +168,12 @@ class Consumidor:
         return len(mensagens)
 
     def conferir_wal(self) -> None:
-        """Aborta se o lake tem posição mais nova que o WAL atual do banco."""
+        """Aborta se o lago tem posição mais nova que o WAL atual do banco."""
         with conectar() as conn:
             atual = int(conn.execute("SELECT pg_current_wal_lsn() - '0/0'::pg_lsn").fetchone()[0])
         if atual < self.maior_lsn:
             mensagem = (
-                f"O lake CDC está à frente do WAL do banco (lake {self.maior_lsn}, banco {atual}): "
+                f"O lago CDC está à frente do WAL do banco (lago {self.maior_lsn}, banco {atual}): "
                 f"o banco foi recriado ou restaurado, e os eventos novos perderiam para as linhas "
                 f"antigas. Apague {self.lake_dir} e reprocesse os tópicos."
             )
@@ -182,8 +182,8 @@ class Consumidor:
 
     def manter(self) -> None:
         for tabela in self.tabelas.values():
-            if lake.DeltaTable.is_deltatable(str(tabela.caminho(self.lake_dir))):
-                lake.manter(tabela, self.lake_dir)
+            if lago.DeltaTable.is_deltatable(str(tabela.caminho(self.lake_dir))):
+                lago.manter(tabela, self.lake_dir)
 
     def esvaziar(self, ociosidade_s: float = 5.0) -> int:
         """Consome até passar `ociosidade_s` sem mensagem nova; devolve o total de mensagens."""

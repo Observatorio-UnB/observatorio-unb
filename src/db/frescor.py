@@ -1,5 +1,5 @@
 """
-Freshness e SLA da tabela de consumo do painel, gold.mv_dashboard_executivo.
+Frescor e SLA da tabela de consumo do painel, gold.mv_dashboard_executivo.
 
 Duas verificações, com o mesmo SLA de 35 dias: a atualização mensal roda no dia 1 de cada mês
 (.github/workflows/atualiza-dados.yml), e os 4 dias a mais são o prazo para corrigir uma falha.
@@ -16,9 +16,9 @@ A idade do dado na origem não entra no SLA: o portal publica raramente (o extra
 Sai com código 1 quando alguma verificação viola o SLA.
 
 Uso:
-    python3 src/db/freshness.py                                   # banco local (DATABASE_URL)
-    python3 src/db/freshness.py --fonte                           # e as publicações do portal
-    python3 src/db/freshness.py --banco "$SUPABASE_DATABASE_URL" --fonte
+    python3 src/db/frescor.py                                   # banco local (DATABASE_URL)
+    python3 src/db/frescor.py --fonte                           # e as publicações do portal
+    python3 src/db/frescor.py --banco "$SUPABASE_DATABASE_URL" --fonte
 """
 
 import argparse
@@ -40,7 +40,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%H:%M:%S",
 )
-logger = logging.getLogger("freshness")
+logger = logging.getLogger("frescor")
 
 TABELA = "gold.mv_dashboard_executivo"
 SLA_DIAS = 35
@@ -154,9 +154,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         logger.log(nivel, f"{'OK  ' if v.ok else 'VIOLADO'} {v.nome}: {v.dias:.1f} de {v.limite_dias} dias ({v.detalhe})")
     violadas = [v for v in verificacoes if not v.ok]
     if violadas:
-        logger.error(f"SLA de freshness violado em {len(violadas)} verificação(ões). Ver docs/freshness_sla.md.")
+        logger.error(f"SLA de frescor violado em {len(violadas)} verificação(ões). Ver docs/frescor_sla.md.")
         return 1
-    logger.info(f"SLA de freshness cumprido ({len(verificacoes)} verificação(ões)).")
+    logger.info(f"SLA de frescor cumprido ({len(verificacoes)} verificação(ões)).")
     return 0
 
 
