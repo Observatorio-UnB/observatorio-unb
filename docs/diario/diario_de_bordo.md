@@ -310,7 +310,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 
 **Pendências para a Semana seguinte**
 
-- [ ] Criar a tag `e2`.
+- [x] Criar a tag `e2` (feita em 22/11/2026: ver a Semana 14).
 
 ---
 
@@ -380,6 +380,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 
 **Pendências para a Semana seguinte**
 
-- [ ] Criar as tags `e2` e `e3`.
+- [x] Criar a tag `e3` (11/11/2026, no commit `020c993`).
+- [x] Criar a tag `e2` (22/11/2026, no commit `1ac366c`, o mesmo da release `v1.0.0-r2`).
 - [x] Regenerar `docs/dicionario_dados_banco.md` com a migração 0026 (coluna `texto_busca` da busca híbrida), a partir de uma carga do zero num banco limpo.
 
