@@ -91,6 +91,12 @@ observatorio-unb/
 | ADR de modelagem analítica e ferramentas | [ADR 0030](docs/adr/0030-modelagem-analitica-e-ferramentas.md): estrela contra Data Vault e OBT, quatro grãos medidos, dbt e Dagster contra a opção nula |
 | Painel que responde à pergunta da E1 | Visão Executiva do painel, a partir de `dbt_marts.painel_cursos_criticos` (roteiro na seção D abaixo) |
 
+## 🧾 Entrega E4 — Plataforma completa, governada e defendida (em andamento)
+
+| Item do checklist | Evidência |
+|---|---|
+| Controle de acesso por linha e por coluna, com privilégio mínimo | Papel `secretaria_campus` (migração 0028): RLS por campus lotado e `id_discente` fora do grant de colunas em `silver.movimentacoes_vinculos`. Demonstração em `src/db/demonstrar_controle_de_acesso.py`, explicação em [docs/controle_de_acesso.md](docs/controle_de_acesso.md), atualização do [ADR 0010](docs/adr/0010-controle-de-acesso-leitura.md) |
+
 ---
 
 ## 🚀 2. Como Reproduzir o Projeto do Zero
