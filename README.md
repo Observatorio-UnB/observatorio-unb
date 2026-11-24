@@ -62,6 +62,19 @@ observatorio-unb/
 
 ---
 
+## 🧾 Entrega E1 — Fonte transacional modelada e populada
+
+| Item do checklist | Evidência |
+|---|---|
+| Domínio de dados abertos e pergunta de gestão em uma frase | Vínculos de graduação da UnB (dados.unb.br). *"Em quais cursos a taxa de retenção e atraso na integralização curricular é mais crítica, demandando intervenções institucionais prioritárias?"* ([challenge_canvas.md](docs/challenge_canvas.md)) |
+| Esquema físico versionado, migrações executáveis do zero em ordem | `db/migrations/NNNN_*.sql`, aplicadas em ordem por `src/db/migrar.py`, com checksum ([ADR 0009](docs/adr/0009-postgres-migracoes-contrato.md)). OLTP na migração 0011: chaves, FKs, `CHECK` e partições |
+| Carga reprodutível com um comando | `docker compose up --build` ou `bash scripts/rodar_pipeline.sh`: download pela API do CKAN, sem passo manual |
+| Volume mínimo | 152.680 vínculos, 125.154 alunos, 205 MB no banco ([caracterização](docs/caracterizacao_da_carga.md)) |
+| Caracterização da carga (passo 1: volume, escrita, leitura, acesso, latência) | [docs/caracterizacao_da_carga.md](docs/caracterizacao_da_carga.md) |
+| Como a origem trata histórico (CRUD ou insert-only) | [docs/historico_da_origem.md](docs/historico_da_origem.md): sobrescreve a cada carga; o que isso permite e não permite perguntar |
+| ADR sobre a modelagem do sistema de origem | [ADR 0032](docs/adr/0032-modelagem-do-sistema-de-origem.md): 3NF contra tabela larga e insert-only, histórico e carimbos de tempo |
+| README para subir tudo com Docker Compose | [Atalho: tudo com Docker](#atalho-tudo-com-docker-um-comando) |
+
 ## 🧾 Entrega E2 — Ingestão em lote e captura de mudanças
 
 | Item do checklist | Evidência |
