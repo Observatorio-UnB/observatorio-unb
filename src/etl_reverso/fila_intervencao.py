@@ -6,7 +6,9 @@ que faz com o dado: abre a linha do seu curso, registra o responsável e o plano
 status (NOVO -> EM_ANALISE -> PLANO_EM_EXECUCAO -> CONCLUIDO). O DEG acompanha quais cursos críticos
 ainda estão sem plano e se os que tiveram plano saíram da fila nos ciclos seguintes.
 
-Origem: dbt_marts.painel_cursos_criticos, a mesma tabela de onde o painel tira o ranking. O número que
+Origem: dbt_marts.painel_cursos_criticos, a mesma tabela de onde o painel tira o ranking. Entram os
+cursos em RETENÇÃO CRÍTICA com na_fila_de_intervencao, a regra do mart (30+ ingressantes, ADR 0006): a
+mesma fila cujos primeiros a Visão Executiva aponta. O número que
 a coordenação vê na fila é o mesmo do painel, calculado pelas mesmas macros da camada semântica
 (transform/macros/metricas.sql), e cada linha leva a versão da definição de cada métrica
 (dbt_marts.metricas_definicoes). Nenhuma fórmula é refeita aqui.
@@ -53,7 +55,7 @@ from src.db.conexao import conectar, database_url, ler_variavel  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
 logger = logging.getLogger("etl_reverso")
 
-MIGRACAO_DESTINO = BASE_DIR / "db" / "migrations" / "0027_fila_intervencao.sql"
+MIGRACAO_DESTINO = BASE_DIR / "db" / "migrations" / "0029_fila_intervencao.sql"
 CLASSIFICACAO_DA_FILA = "RETENÇÃO CRÍTICA"
 ESPERAS_S = (2, 4, 8)
 
@@ -71,7 +73,7 @@ METRICAS_GRAVADAS = (
 SQL_ORIGEM = f"""
     SELECT nome_curso, {", ".join(COLUNAS_METRICA)}
     FROM dbt_marts.painel_cursos_criticos
-    WHERE classificacao_retencao = %s
+    WHERE classificacao_retencao = %s AND na_fila_de_intervencao
     ORDER BY posicao, nome_curso
 """
 
@@ -122,7 +124,8 @@ def ler_origem(conn: psycopg.Connection) -> tuple:
                       cur.execute("SELECT metrica, versao FROM dbt_marts.metricas_definicoes").fetchall()}
         ciclo = cur.execute("SELECT max(_carregado_em) AS ciclo FROM gold.relatorios").fetchone()["ciclo"]
     if not cursos:
-        raise OrigemInvalida("Nenhum curso em RETENÇÃO CRÍTICA na origem: o dbt rodou? Destino não alterado.")
+        raise OrigemInvalida("Nenhum curso em RETENÇÃO CRÍTICA na fila de intervenção da origem: o dbt rodou? "
+                             "Destino não alterado.")
     if ciclo is None:
         raise OrigemInvalida("gold.relatorios sem carga: sem ciclo de dados para gravar. Destino não alterado.")
     return cursos, versao_metricas(definicoes), ciclo
@@ -210,7 +213,7 @@ def url_destino() -> str:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--preparar-destino", action="store_true",
-                        help="Aplica db/migrations/0027_fila_intervencao.sql no destino (idempotente).")
+                        help="Aplica db/migrations/0029_fila_intervencao.sql no destino (idempotente).")
     parser.add_argument("--csv", type=Path, help="Grava a fila neste CSV em vez de sincronizar o destino.")
     args = parser.parse_args(argv)
 

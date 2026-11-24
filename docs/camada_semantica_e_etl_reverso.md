@@ -29,26 +29,22 @@ Os dois consumidores leem dessas tabelas, e nenhum deles refaz a conta:
 | `TestMesmoNumero::test_03` | As abas que leem a gold (Detalhe por Curso, Simulador) mostram, curso a curso, os mesmos valores do ranking e da fila: evasão, formatura, atraso, % no prazo, IRC, classificação e ingressantes. |
 | `tests/test_unit_metricas_painel.py` | Sem o mart, o painel usa a mesma regra (razão das somas) e o mesmo universo, e deixa vazio o que não consegue calcular pela definição. |
 
-### A divergência que a camada semântica corrigiu
+### As divergências que levaram à camada semântica
 
-Antes, a aba "Noturno vs. Diurno & Turnos" do painel tirava a **média simples das taxas** dos cursos por turno e por grau. Assim, um curso de 20 ingressantes pesava o mesmo que um de 2.000. Já a comparação por campus, na mesma aba, usava a **razão das somas**. Eram duas definições de "taxa de evasão" na mesma tela. Medido na carga de 24/11/2026 (cursos terminais):
+Até a E3, a aba "Noturno vs. Diurno & Turnos" tirava a **média simples das taxas** dos cursos por turno e por grau. Assim, um curso de 20 ingressantes pesava o mesmo que um de 2.000. Já a comparação por campus, na mesma aba, usava a **razão das somas**. Medido na carga de 24/11/2026 (cursos terminais):
 
-| Recorte | Definição (razão das somas) | Painel antes (média das taxas) | Diferença |
+| Recorte | Razão das somas | Média das taxas (painel até a E3) | Diferença |
 |---|---|---|---|
 | Turno DIURNO E NOTURNO | 44,68% | 47,56% | +2,88 p.p. |
 | Grau MISTO | 52,84% | 54,23% | +1,39 p.p. |
 | Turno NOTURNO | 49,99% | 50,90% | +0,91 p.p. |
 | Grau BACHARELADO | 37,71% | 38,38% | +0,67 p.p. |
 
-Agora as três comparações vêm de `metricas_por_recorte`.
+Os KPIs da UnB também somavam o curso-tronco ENGENHARIA, que fica fora do ranking (68.339 ingressantes contra 67.063).
 
-O mesmo problema aparecia nos números "da UnB inteira". Os KPIs da Visão Executiva e o escopo global do Simulador somavam a gold com o curso-tronco ENGENHARIA, que fica fora do ranking (ADR 0022). Assim, a mesma tela mostrava um ranking de 94 cursos e um total de outro universo:
+O PR #69 corrigiu as duas coisas no próprio painel, com uma segunda implementação em Python (`agregar_ponderado`). Ela usa a razão das somas para as taxas e a média das médias dos cursos, ponderada pelos formados, para os tempos. Ficava uma diferença residual: 50,42% no prazo ideal contra 50,43% da definição, e 11,60 contra 11,59 semestres no turno NOTURNO. A razão é que ela pondera pelos formados, e não pelos formados com permanência calculável.
 
-| Número da UnB | Antes (gold, 95 cursos) | Agora (camada semântica, recorte UNB) |
-|---|---|---|
-| Ingressantes analisados | 68.339 | 67.063 |
-| Formatura no prazo ideal | 50,36% | 50,43% |
-| Atraso médio | 0,82 sem. | 0,81 sem. |
+Com a camada semântica, `agregar_ponderado` e os KPIs da Visão Executiva e do Simulador leem `metricas_por_recorte`. A conta passa a existir num lugar só, as macros do dbt, e o painel só faz a conta em Python quando o mart não está no snapshot.
 
 ### Escopo do registro
 
@@ -66,7 +62,7 @@ Uma métrica nova sem linha no registro, ou uma linha sem métrica publicada, fa
 
 **Quem consome:** a coordenação de cada curso, acompanhada pelo Decanato de Ensino de Graduação (DEG).
 
-**O que faz com o dado:** a pergunta da E1 é "em quais cursos intervir primeiro?". O painel responde com um ranking. A fila transforma essa resposta em trabalho. Cada curso em RETENÇÃO CRÍTICA vira uma linha em `operacional.fila_intervencao`, e nela a coordenação:
+**O que faz com o dado:** a pergunta da E1 é "em quais cursos intervir primeiro?". O painel responde com um ranking. A fila transforma essa resposta em trabalho. Cada curso em RETENÇÃO CRÍTICA da fila de intervenção do mart vira uma linha em `operacional.fila_intervencao`. A fila do mart é a coluna `na_fila_de_intervencao`, com 30 ou mais ingressantes (ADR 0006): a mesma cujos primeiros a Visão Executiva aponta. Nela, a coordenação:
 
 - registra o responsável e o plano de ação;
 - avança o status: `NOVO` → `EM_ANALISE` → `PLANO_EM_EXECUCAO` → `CONCLUIDO` (ou `DESCARTADO`).
@@ -104,7 +100,7 @@ ORDER BY posicao;
 
 | | CSV agendado (opção nula) | Fila no banco |
 |---|---|---|
-| Tempo por ciclo (23 cursos) | < 1 s | 3 a 4 ms de sincronização |
+| Tempo por ciclo (22 cursos) | < 1 s | 3 a 4 ms de sincronização |
 | Andamento da coordenação | Fica fora do arquivo (planilha à parte, que o próximo CSV não conhece) | Na mesma linha, preservado entre ciclos |
 | Curso que sai da fila | Some do arquivo | Fica, com a data de saída |
 | Quem pode alterar o quê | Quem tem o arquivo altera tudo | Privilégio por coluna |
@@ -114,7 +110,7 @@ O CSV basta para **avisar**. Não basta para **acompanhar**, que é o que o DEG 
 ### Rodar e demonstrar
 
 ```bash
-python3 src/etl_reverso/fila_intervencao.py          # sincroniza: "23 novos, 0 atualizados, 0 saíram da fila"
+python3 src/etl_reverso/fila_intervencao.py          # sincroniza: "22 novos, 0 atualizados, 0 saíram da fila"
 python3 src/etl_reverso/fila_intervencao.py          # de novo: "0 novos, 0 atualizados, 0 saíram da fila"
 python3 src/etl_reverso/fila_intervencao.py --csv export/fila_intervencao.csv   # opção nula
 ETL_REVERSO_DATABASE_URL=postgresql://x:y@127.0.0.1:5999/z \

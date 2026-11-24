@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migração 0027: Fila de intervenção (destino do ETL reverso, E4)
+-- Migração 0029: Fila de intervenção (destino do ETL reverso, E4)
 --
 -- A plataforma termina num ranking; quem age sobre ele é a coordenação do curso, acompanhada pelo
 -- Decanato de Ensino de Graduação (DEG). Esta tabela é o sistema operacional onde isso acontece: uma

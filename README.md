@@ -96,7 +96,7 @@ observatorio-unb/
 | Item do checklist | Evidência |
 |---|---|
 | Consumo duplo: painel e camada semântica de métricas, com definição versionada | Fórmulas em `transform/macros/metricas.sql`, registro versionado em `transform/seeds/metricas_definicoes.csv`, recortes em `dbt_marts.metricas_por_recorte`, que o painel lê. Ver [docs/camada_semantica_e_etl_reverso.md](docs/camada_semantica_e_etl_reverso.md) |
-| ETL reverso para um sistema onde alguém age | `src/etl_reverso/fila_intervencao.py` → `operacional.fila_intervencao` (migração 0027): a fila de intervenção da coordenação de curso e do DEG |
+| ETL reverso para um sistema onde alguém age | `src/etl_reverso/fila_intervencao.py` → `operacional.fila_intervencao` (migração 0029): a fila de intervenção da coordenação de curso e do DEG |
 
 ---
 

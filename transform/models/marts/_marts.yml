@@ -159,10 +159,8 @@ models:
         data_type: bigint
       - name: total_evadidos
         data_type: bigint
-<<<<<<< HEAD
       - name: na_fila_de_intervencao
         data_type: boolean
-=======
 
   - name: metricas_por_recorte
     description: >
@@ -225,4 +223,3 @@ models:
         data_type: numeric
       - name: prazo_ideal_medio_semestres
         data_type: numeric
->>>>>>> 7e245ff (feat(e4): camada semântica de métricas e ETL reverso para a fila de intervenção)

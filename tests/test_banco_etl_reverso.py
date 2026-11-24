@@ -176,7 +176,7 @@ class TestMesmoNumero(unittest.TestCase):
             sincronizar(self.conn, cursos, versao, ciclo)
             diferentes = self.conn.execute("""
                 WITH p AS (SELECT * FROM dbt_marts.painel_cursos_criticos
-                           WHERE classificacao_retencao = 'RETENÇÃO CRÍTICA'),
+                           WHERE classificacao_retencao = 'RETENÇÃO CRÍTICA' AND na_fila_de_intervencao),
                      f AS (SELECT * FROM operacional.fila_intervencao WHERE na_fila)
                 SELECT coalesce(p.nome_curso, f.nome_curso)
                 FROM p FULL JOIN f ON f.nome_curso = p.nome_curso

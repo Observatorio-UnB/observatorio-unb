@@ -4,7 +4,7 @@ O lado de quem age: a coordenação lê a fila de intervenção e registra o and
 É a aplicação que consome o ETL reverso (src/etl_reverso/fila_intervencao.py). O painel a usa na tela
 "Fila de Intervenção" quando está ligado ao banco; sem banco (GitHub Pages), a tela explica onde a fila
 vive. A escrita roda com o papel coordenacao_academica (SET LOCAL ROLE): o banco, e não a tela, garante
-que a coordenação só grava status, responsável e plano de ação (privilégio por coluna, migração 0027).
+que a coordenação só grava status, responsável e plano de ação (privilégio por coluna, migração 0029).
 
 Uso, sem o painel:
     python3 src/etl_reverso/coordenacao.py                                  # a fila, do mais crítico

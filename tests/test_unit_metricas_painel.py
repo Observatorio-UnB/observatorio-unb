@@ -17,9 +17,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR / "src" / "dashboard"))
 sys.path.insert(0, str(BASE_DIR))
 from metricas import FONTE_GOLD, FONTE_SEMANTICA, definicoes, metricas_da_unb, metricas_por_recorte  # noqa: E402
+
 from src.etl_reverso.coordenacao import alteracoes  # noqa: E402
-from src.etl_reverso.fila_intervencao import (  # noqa: E402
-    METRICAS_GRAVADAS, OrigemInvalida, com_retentativas, versao_metricas)
+from src.etl_reverso.fila_intervencao import METRICAS_GRAVADAS, OrigemInvalida, com_retentativas, versao_metricas  # noqa: E402
 
 
 def gold(curso, turno, ingressantes, evadidos, formados, taxa_evasao):
