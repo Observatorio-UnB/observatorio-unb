@@ -19,6 +19,57 @@ def renderizar(g):
     painel_e1 = g.painel_e1
 
     mostrar_escopo("exec")
+    ranking_e1, fonte_e1 = ranking_cursos_criticos(
+        {"painel_cursos_criticos": painel_e1}, df_gold, EXCLUDED_GENERIC_COURSES)
+    st.subheader(
+        "❓ Pergunta da E1: em quais cursos intervir primeiro?")
+    st.markdown(f"> *{PERGUNTA_E1}*")
+    if ranking_e1 is not None:
+        n_criticos_e1 = (
+            ranking_e1["classificacao_retencao"] == "RETENÇÃO CRÍTICA").sum()
+        _grandes = ranking_e1[ranking_e1["total_ingressantes"] >= N_MIN_RANKING]
+        primeiros = ", ".join(f"**{c}**" for c in _grandes["nome_curso"].head(3))
+        _pos_primeiro_grande = ranking_e1.index.get_loc(_grandes.index[0]) if len(_grandes) else len(ranking_e1)
+        _pequenos_antes = ranking_e1.iloc[:_pos_primeiro_grande]
+        if len(_pequenos_antes):
+            st.info(
+                f"{len(_pequenos_antes)} curso(s) com IRC maior que o primeiro abaixo têm menos de {N_MIN_RANKING} "
+                f"ingressantes (ex.: {_pequenos_antes.iloc[0]['nome_curso']}, {int(_pequenos_antes.iloc[0]['total_ingressantes'])}): "
+                "amostra pequena oscila muito, por isso a resposta considera só cursos com "
+                f"{N_MIN_RANKING}+ ingressantes. A tabela mostra todos.")
+        st.markdown(
+            f"**Resposta:** {n_criticos_e1} cursos estão em retenção crítica, o quartil mais alto do "
+            f"Índice de Retenção Crítica (IRC). Os primeiros da fila de intervenção, entre os cursos com {N_MIN_RANKING}+ ingressantes, são {primeiros}. "
+            "O IRC combina a evasão (peso 0,7) e o atraso na formatura (peso 0,3), medidos nas "
+            "turmas que já tiveram 8 anos para se formar."
+        )
+        QUARTIL_IRC = {"RETENÇÃO CRÍTICA": "4º quartil (crítica)", "RETENÇÃO ALTA": "3º quartil (alta)",
+                       "RETENÇÃO MÉDIA": "2º quartil (média)", "RETENÇÃO BAIXA": "1º quartil (baixa)"}
+        tabela_e1 = ranking_e1.head(15).assign(
+            classificacao_retencao=lambda d: d["classificacao_retencao"].map(
+                QUARTIL_IRC).fillna(d["classificacao_retencao"])
+        ).rename(columns=COLUNAS_E1).rename(columns={"Classificação": "Quartil do IRC"})
+        _todos_no_mesmo_quartil = tabela_e1["Quartil do IRC"].nunique() == 1
+        if _todos_no_mesmo_quartil:  # coluna repetida em todas as linhas não informa nada
+            tabela_e1 = tabela_e1.drop(columns="Quartil do IRC")
+        mostrar_tabela(tabela_e1, width="stretch", hide_index=True)
+        _legenda_q = ("O quartil é relativo entre os cursos (quartil mais alto = maior IRC), e não um nível absoluto: "
+                      "a coluna Evasão (%) mostra a taxa real de cada curso.")
+        if _todos_no_mesmo_quartil:
+            _legenda_q = "Todos os cursos da tabela estão no quartil mais alto do IRC. " + _legenda_q
+        st.caption(_legenda_q)
+        legenda = (f"Ranking completo: {len(ranking_e1)} cursos. Fonte: `{fonte_e1}`. "
+                   "Dados abertos do portal dados.unb.br (datas das fontes na barra lateral).")
+        dados_frescor = frescor(carregado_em)
+        if dados_frescor:
+            data_carga, idade_dias, dentro_do_sla = dados_frescor
+            legenda += f" Dados da carga de {data_carga:%d/%m/%Y} (há {idade_dias} dia(s); SLA de frescor: {SLA_DIAS} dias)."
+            if not dentro_do_sla:
+                st.warning(f"A carga tem {idade_dias} dias, acima do SLA de {SLA_DIAS} dias: "
+                           "o ranking pode não refletir a publicação mais recente do portal.")
+        st.caption(legenda)
+
+    st.markdown("---")
 
     # KPIs Globais
     c1, c2, c3, c4 = st.columns(4)
@@ -133,59 +184,6 @@ def renderizar(g):
         f"{int((_quadrante & _critico).sum())} estão nos dois grupos. Os critérios são diferentes: o quadrante "
         "usa só atraso e evasão acima da mediana; o IRC pesa evasão (0,7) e atraso (0,3) e ordena os cursos.")
         
-    st.markdown("---")
-
-    # A resposta à pergunta de gestão da E1 (docs/challenge_canvas.md) vem antes de tudo.
-    ranking_e1, fonte_e1 = ranking_cursos_criticos(
-        {"painel_cursos_criticos": painel_e1}, df_gold, EXCLUDED_GENERIC_COURSES)
-    st.subheader(
-        "❓ Pergunta da E1: em quais cursos intervir primeiro?")
-    st.markdown(f"> *{PERGUNTA_E1}*")
-    if ranking_e1 is not None:
-        n_criticos_e1 = (
-            ranking_e1["classificacao_retencao"] == "RETENÇÃO CRÍTICA").sum()
-        _grandes = ranking_e1[ranking_e1["total_ingressantes"] >= N_MIN_RANKING]
-        primeiros = ", ".join(f"**{c}**" for c in _grandes["nome_curso"].head(3))
-        _pos_primeiro_grande = ranking_e1.index.get_loc(_grandes.index[0]) if len(_grandes) else len(ranking_e1)
-        _pequenos_antes = ranking_e1.iloc[:_pos_primeiro_grande]
-        if len(_pequenos_antes):
-            st.info(
-                f"{len(_pequenos_antes)} curso(s) com IRC maior que o primeiro abaixo têm menos de {N_MIN_RANKING} "
-                f"ingressantes (ex.: {_pequenos_antes.iloc[0]['nome_curso']}, {int(_pequenos_antes.iloc[0]['total_ingressantes'])}): "
-                "amostra pequena oscila muito, por isso a resposta considera só cursos com "
-                f"{N_MIN_RANKING}+ ingressantes. A tabela mostra todos.")
-        st.markdown(
-            f"**Resposta:** {n_criticos_e1} cursos estão em retenção crítica, o quartil mais alto do "
-            f"Índice de Retenção Crítica (IRC). Os primeiros da fila de intervenção, entre os cursos com {N_MIN_RANKING}+ ingressantes, são {primeiros}. "
-            "O IRC combina a evasão (peso 0,7) e o atraso na formatura (peso 0,3), medidos nas "
-            "turmas que já tiveram 8 anos para se formar."
-        )
-        QUARTIL_IRC = {"RETENÇÃO CRÍTICA": "4º quartil (crítica)", "RETENÇÃO ALTA": "3º quartil (alta)",
-                       "RETENÇÃO MÉDIA": "2º quartil (média)", "RETENÇÃO BAIXA": "1º quartil (baixa)"}
-        tabela_e1 = ranking_e1.head(15).assign(
-            classificacao_retencao=lambda d: d["classificacao_retencao"].map(
-                QUARTIL_IRC).fillna(d["classificacao_retencao"])
-        ).rename(columns=COLUNAS_E1).rename(columns={"Classificação": "Quartil do IRC"})
-        _todos_no_mesmo_quartil = tabela_e1["Quartil do IRC"].nunique() == 1
-        if _todos_no_mesmo_quartil:  # coluna repetida em todas as linhas não informa nada
-            tabela_e1 = tabela_e1.drop(columns="Quartil do IRC")
-        mostrar_tabela(tabela_e1, width="stretch", hide_index=True)
-        _legenda_q = ("O quartil é relativo entre os cursos (quartil mais alto = maior IRC), e não um nível absoluto: "
-                      "a coluna Evasão (%) mostra a taxa real de cada curso.")
-        if _todos_no_mesmo_quartil:
-            _legenda_q = "Todos os cursos da tabela estão no quartil mais alto do IRC. " + _legenda_q
-        st.caption(_legenda_q)
-        legenda = (f"Ranking completo: {len(ranking_e1)} cursos. Fonte: `{fonte_e1}`. "
-                   "Dados abertos do portal dados.unb.br (datas das fontes na barra lateral).")
-        dados_frescor = frescor(carregado_em)
-        if dados_frescor:
-            data_carga, idade_dias, dentro_do_sla = dados_frescor
-            legenda += f" Dados da carga de {data_carga:%d/%m/%Y} (há {idade_dias} dia(s); SLA de frescor: {SLA_DIAS} dias)."
-            if not dentro_do_sla:
-                st.warning(f"A carga tem {idade_dias} dias, acima do SLA de {SLA_DIAS} dias: "
-                           "o ranking pode não refletir a publicação mais recente do portal.")
-        st.caption(legenda)
-
     st.markdown("---")
 
     # Rankings: à esquerda os 25 piores, à direita os 25 melhores, na mesma ordem de tema.
