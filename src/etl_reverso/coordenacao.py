@@ -3,8 +3,17 @@ O lado de quem age: a coordenação lê a fila de intervenção e registra o and
 
 É a aplicação que consome o ETL reverso (src/etl_reverso/fila_intervencao.py). O painel a usa na tela
 "Fila de Intervenção" quando está ligado ao banco; sem banco (GitHub Pages), a tela explica onde a fila
-vive. A escrita roda com o papel coordenacao_academica (SET LOCAL ROLE): o banco, e não a tela, garante
-que a coordenação só grava status, responsável e plano de ação (privilégio por coluna, migração 0029).
+vive. Lê e grava no banco da fila (url_fila_intervencao: ETL_REVERSO_DATABASE_URL ou o da plataforma),
+o mesmo em que o ETL reverso grava.
+
+Privilégio por coluna (migração 0029): o papel coordenacao_academica só grava status, responsável e
+plano de ação. Quem garante isso depende de como se conecta:
+  - com um login próprio da coordenação (CREATE ROLE ... LOGIN IN ROLE coordenacao_academica, sem ser
+    dono das tabelas), o banco garante: não há como gravar uma métrica nem apagar uma linha;
+  - pela conexão do dono (o painel local e esta linha de comando, no ambiente do projeto), este módulo
+    troca para o papel com SET LOCAL ROLE antes de cada operação. O banco recusa o que o papel não pode
+    fazer, mas a troca é decisão do código: quem tem a conexão do dono pode simplesmente não trocar.
+Em produção, cada coordenação teria o próprio login, e a conexão do dono ficaria só com o pipeline.
 
 Uso, sem o painel:
     python3 src/etl_reverso/coordenacao.py                                  # a fila, do mais crítico
@@ -22,7 +31,7 @@ from psycopg.rows import dict_row
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
-from src.db.conexao import conectar  # noqa: E402
+from src.db.conexao import conectar, url_fila_intervencao  # noqa: E402
 
 PAPEL = "coordenacao_academica"
 STATUS = ("NOVO", "EM_ANALISE", "PLANO_EM_EXECUCAO", "CONCLUIDO", "DESCARTADO")
@@ -81,7 +90,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--responsavel")
     parser.add_argument("--plano")
     args = parser.parse_args(argv)
-    with conectar() as conn:
+    with conectar(url_fila_intervencao()) as conn:
         if args.curso:
             registrar_andamento(conn, args.curso, args.status or "EM_ANALISE", args.responsavel, args.plano)
             print(f"Andamento de {args.curso} registrado.")

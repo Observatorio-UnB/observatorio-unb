@@ -2,7 +2,8 @@
 
 O consumidor do ETL reverso (src/etl_reverso/fila_intervencao.py): a coordenação vê os cursos em
 retenção crítica e registra o andamento. Lê e grava como coordenacao_academica
-(src/etl_reverso/coordenacao.py): o banco, e não a tela, garante que só o andamento é gravado.
+(src/etl_reverso/coordenacao.py), no mesmo banco em que o ETL reverso grava a fila. Ver ali quem garante
+o privilégio por coluna em cada forma de conexão.
 """
 
 import streamlit as st
@@ -17,9 +18,9 @@ def renderizar(g):
         "DEG acompanha os cursos ainda sem andamento e se os que tiveram plano saíram da fila nos ciclos seguintes."
     )
     try:
-        from src.db.conexao import conectar
+        from src.db.conexao import conectar, url_fila_intervencao
         from src.etl_reverso.coordenacao import STATUS, alteracoes, ler_fila, registrar_andamento
-        with conectar(connect_timeout=3) as conn:
+        with conectar(url_fila_intervencao(), connect_timeout=3) as conn:
             fila = ler_fila(conn)
     except Exception as erro:  # GitHub Pages (sem banco) ou banco fora do ar
         st.info(
@@ -57,11 +58,11 @@ def renderizar(g):
     mudancas = alteracoes(fila, editada)
     if st.button(f"Salvar andamento ({len(mudancas)} curso(s) alterado(s))", disabled=not mudancas):
         try:
-            with conectar(connect_timeout=3) as conn:
+            with conectar(url_fila_intervencao(), connect_timeout=3) as conn:
                 for m in mudancas:
                     registrar_andamento(conn, m["nome_curso"], m["status"], m["responsavel"], m["plano_de_acao"])
             st.success(f"Andamento de {len(mudancas)} curso(s) registrado.")
         except Exception as erro:
             st.error(f"Não foi possível registrar: {erro}")
     st.caption(f"Definição das métricas: {fila['versao_metricas'].iloc[0]}. As métricas vêm do ETL "
-               "reverso e não são editáveis aqui; o banco só deixa a coordenação gravar o andamento.")
+               "reverso e não são editáveis aqui; o papel da coordenação só pode gravar o andamento.")

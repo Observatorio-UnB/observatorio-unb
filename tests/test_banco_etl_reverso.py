@@ -66,6 +66,7 @@ class TestSincronizacao(unittest.TestCase):
         self.transacao.__enter__()
         self.conn.execute("DELETE FROM operacional.fila_intervencao")
         self.conn.execute("DELETE FROM operacional.fila_intervencao_execucoes")
+        self.conn.execute("DELETE FROM operacional.fila_intervencao_episodios")
 
     def tearDown(self):
         self.transacao.__exit__(Rollback, Rollback(), None)
@@ -106,6 +107,38 @@ class TestSincronizacao(unittest.TestCase):
         b = self.fila()["B"]
         self.assertTrue(b["na_fila"])
         self.assertIsNone(b["saiu_da_fila_em"])
+
+    def test_06_volta_a_fila_e_episodio_novo_e_o_anterior_fica_guardado(self):
+        """Revisão do #82: o curso que volta não pode carregar o andamento do episódio anterior."""
+        sincronizar(self.conn, [curso("B", 80)], VERSAO, CICLO)
+        self.conn.execute("""UPDATE operacional.fila_intervencao
+                             SET status = 'CONCLUIDO', responsavel = 'coord.b', plano_de_acao = 'tutoria',
+                                 atualizado_pela_coordenacao_em = now()
+                             WHERE nome_curso = 'B'""")
+        sincronizar(self.conn, [curso("A", 90)], VERSAO, CICLO + timedelta(days=30))       # B sai
+        sincronizar(self.conn, [curso("A", 90), curso("B", 88)], VERSAO, CICLO + timedelta(days=60))  # B volta
+
+        b = self.fila()["B"]
+        self.assertTrue(b["na_fila"])
+        self.assertEqual((b["status"], b["responsavel"], b["plano_de_acao"], b["atualizado_pela_coordenacao_em"]),
+                         ("NOVO", None, None, None))
+        self.assertEqual(b["indice_retencao_critica"], Decimal("88"))
+        with self.conn.cursor(row_factory=dict_row) as cur:
+            episodios = cur.execute("""SELECT nome_curso, status_final, responsavel, plano_de_acao,
+                                              indice_retencao_critica, saiu_da_fila_em
+                                       FROM operacional.fila_intervencao_episodios""").fetchall()
+        self.assertEqual(len(episodios), 1)
+        self.assertEqual((episodios[0]["nome_curso"], episodios[0]["status_final"], episodios[0]["responsavel"],
+                          episodios[0]["plano_de_acao"], episodios[0]["indice_retencao_critica"]),
+                         ("B", "CONCLUIDO", "coord.b", "tutoria", Decimal("80")))
+        self.assertIsNotNone(episodios[0]["saiu_da_fila_em"])
+
+    def test_07_reexecutar_a_saida_nao_duplica_o_episodio(self):
+        sincronizar(self.conn, [curso("A", 90), curso("B", 80)], VERSAO, CICLO)
+        for dias in (30, 30, 60):
+            sincronizar(self.conn, [curso("A", 90)], VERSAO, CICLO + timedelta(days=dias))
+        n = self.conn.execute("SELECT count(*) FROM operacional.fila_intervencao_episodios").fetchone()[0]
+        self.assertEqual(n, 1)
 
     def test_04_ciclo_mais_antigo_que_o_destino_e_recusado(self):
         sincronizar(self.conn, [curso("A", 90)], VERSAO, CICLO)
@@ -151,6 +184,24 @@ class TestCoordenacao(TestSincronizacao):
         linha = ler_fila(self.conn).set_index("nome_curso").loc["A"]
         self.assertEqual((linha["status"], linha["responsavel"]), ("EM_ANALISE", "coord.a"))
         self.assertEqual(linha["indice_retencao_critica"], Decimal("70"))
+
+
+class TestMesmoBanco(unittest.TestCase):
+    """Revisão do #82: quem grava a fila e quem a opera abrem o mesmo banco."""
+
+    def test_01_etl_coordenacao_e_aba_usam_a_mesma_url(self):
+        from unittest import mock
+
+        from src.db import conexao
+        from src.etl_reverso import coordenacao, fila_intervencao
+        destino = "postgresql://u:s@destino-separado:5432/fila"
+        with mock.patch.dict("os.environ", {"ETL_REVERSO_DATABASE_URL": destino}):
+            self.assertEqual(conexao.url_fila_intervencao(), destino)
+        for modulo in (coordenacao, fila_intervencao):
+            with self.subTest(modulo=modulo.__name__):
+                self.assertIn("url_fila_intervencao", vars(modulo))
+        aba = (BASE_DIR / "src" / "dashboard" / "abas" / "fila_intervencao.py").read_text(encoding="utf-8")
+        self.assertEqual(aba.count("conectar(url_fila_intervencao()"), 2)
 
 
 class TestMesmoNumero(unittest.TestCase):

@@ -50,12 +50,14 @@ from psycopg.rows import dict_row
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
-from src.db.conexao import conectar, database_url, ler_variavel  # noqa: E402
+from src.db.conexao import conectar, url_fila_intervencao  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
 logger = logging.getLogger("etl_reverso")
 
-MIGRACAO_DESTINO = BASE_DIR / "db" / "migrations" / "0029_fila_intervencao.sql"
+# O que --preparar-destino aplica num destino separado, na ordem (os dois são idempotentes).
+MIGRACOES_DESTINO = tuple(BASE_DIR / "db" / "migrations" / nome
+                          for nome in ("0029_fila_intervencao.sql", "0031_fila_intervencao_episodios.sql"))
 CLASSIFICACAO_DA_FILA = "RETENÇÃO CRÍTICA"
 ESPERAS_S = (2, 4, 8)
 
@@ -156,7 +158,9 @@ def sincronizar(destino: psycopg.Connection, cursos: List[Dict], versao: str, ci
         atribuicoes = ", ".join(f"{c} = excluded.{c}" for c in COLUNAS_METRICA)
         mudou = " OR ".join(f"f.{c} IS DISTINCT FROM excluded.{c}" for c in COLUNAS_METRICA)
         # Novo na fila, de volta a ela, ou com métrica diferente: grava. Só toca a linha que mudou de
-        # fato, para a reexecução de um mesmo ciclo não alterar nada. O andamento não é tocado.
+        # fato, para a reexecução de um mesmo ciclo não alterar nada. Enquanto o curso está na fila, o
+        # andamento da coordenação não é tocado. Na volta à fila é um episódio novo: o anterior já foi
+        # para fila_intervencao_episodios na saída, e o andamento recomeça como NOVO.
         cur.execute(f"""
             WITH gravados AS (
                 INSERT INTO operacional.fila_intervencao AS f
@@ -167,6 +171,10 @@ def sincronizar(destino: psycopg.Connection, cursos: List[Dict], versao: str, ci
                     versao_metricas = excluded.versao_metricas,
                     ciclo_dados = excluded.ciclo_dados,
                     entrou_na_fila_em = CASE WHEN f.na_fila THEN f.entrou_na_fila_em ELSE current_date END,
+                    status = CASE WHEN f.na_fila THEN f.status ELSE 'NOVO' END,
+                    responsavel = CASE WHEN f.na_fila THEN f.responsavel END,
+                    plano_de_acao = CASE WHEN f.na_fila THEN f.plano_de_acao END,
+                    atualizado_pela_coordenacao_em = CASE WHEN f.na_fila THEN f.atualizado_pela_coordenacao_em END,
                     na_fila = true,
                     saiu_da_fila_em = NULL,
                     sincronizado_em = now()
@@ -179,10 +187,20 @@ def sincronizar(destino: psycopg.Connection, cursos: List[Dict], versao: str, ci
         """, {"versao": versao, "ciclo": ciclo})
         inseridos, atualizados = cur.fetchone()
 
+        # Saída da fila: encerra o episódio e o guarda, com o andamento e as métricas com que o curso saiu.
         cur.execute("""
-            UPDATE operacional.fila_intervencao f
-            SET na_fila = false, saiu_da_fila_em = current_date, sincronizado_em = now(), ciclo_dados = %s
-            WHERE f.na_fila AND NOT EXISTS (SELECT 1 FROM origem o WHERE o.nome_curso = f.nome_curso)
+            WITH sairam AS (
+                UPDATE operacional.fila_intervencao f
+                SET na_fila = false, saiu_da_fila_em = current_date, sincronizado_em = now(), ciclo_dados = %s
+                WHERE f.na_fila AND NOT EXISTS (SELECT 1 FROM origem o WHERE o.nome_curso = f.nome_curso)
+                RETURNING f.*
+            )
+            INSERT INTO operacional.fila_intervencao_episodios
+                (nome_curso, entrou_na_fila_em, saiu_da_fila_em, status_final, responsavel, plano_de_acao,
+                 atualizado_pela_coordenacao_em, indice_retencao_critica, taxa_evasao_pct, versao_metricas)
+            SELECT nome_curso, entrou_na_fila_em, saiu_da_fila_em, status, responsavel, plano_de_acao,
+                   atualizado_pela_coordenacao_em, indice_retencao_critica, taxa_evasao_pct, versao_metricas
+            FROM sairam
         """, (ciclo,))
         sairam = cur.rowcount
 
@@ -206,14 +224,10 @@ def gravar_csv(cursos: List[Dict], versao: str, ciclo: datetime, caminho: Path) 
     return caminho
 
 
-def url_destino() -> str:
-    return ler_variavel("ETL_REVERSO_DATABASE_URL") or database_url()
-
-
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--preparar-destino", action="store_true",
-                        help="Aplica db/migrations/0029_fila_intervencao.sql no destino (idempotente).")
+                        help="Aplica as migrações 0029 e 0031 (fila e episódios) no destino (idempotentes).")
     parser.add_argument("--csv", type=Path, help="Grava a fila neste CSV em vez de sincronizar o destino.")
     args = parser.parse_args(argv)
 
@@ -230,9 +244,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
 
     def executar() -> Resultado:
-        with conectar(url_destino(), connect_timeout=10) as destino:
+        with conectar(url_fila_intervencao(), connect_timeout=10) as destino:
             if args.preparar_destino:
-                destino.execute(MIGRACAO_DESTINO.read_text(encoding="utf-8"))
+                for migracao in MIGRACOES_DESTINO:
+                    destino.execute(migracao.read_text(encoding="utf-8"))
                 destino.commit()
             return sincronizar(destino, cursos, versao, ciclo)
 
