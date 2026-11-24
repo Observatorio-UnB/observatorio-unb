@@ -15,9 +15,14 @@ permissions:
   pages: write
   id-token: write
 
+# Na main (push e workflow_dispatch), um grupo só, "pages": as publicações no GitHub Pages saem em
+# fila, uma de cada vez, e nenhuma é cancelada. Nos PRs, um grupo por PR: o GitHub só guarda um run
+# pendente por grupo, e com o "pages" para todos os PRs cancelavam os runs uns dos outros (o #84 ficou
+# sem o pipeline completo no último commit). Um push novo no mesmo PR cancela o run anterior dele, que
+# já não interessa; o deploy nunca roda em PR (if do job deploy).
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   pipeline:
