@@ -67,7 +67,9 @@ Uma métrica nova sem linha no registro, ou uma linha sem métrica publicada, fa
 - registra o responsável e o plano de ação;
 - avança o status: `NOVO` → `EM_ANALISE` → `PLANO_EM_EXECUCAO` → `CONCLUIDO` (ou `DESCARTADO`).
 
-**A aplicação que lê a fila:** a tela **"📋 Fila de Intervenção (Coordenações)"** do painel, quando ele está ligado ao banco, e a linha de comando [`src/etl_reverso/coordenacao.py`](../src/etl_reverso/coordenacao.py). As duas leem e gravam com o papel `coordenacao_academica`. Na tela, a coordenação edita status, responsável e plano de ação e salva. As métricas aparecem bloqueadas, e o banco recusa a gravação delas mesmo que a tela tentasse (privilégio por coluna). A versão pública do painel, no GitHub Pages, não tem acesso à fila e diz isso.
+**A aplicação que lê a fila:** a tela **"📋 Fila de Intervenção (Coordenações)"** do painel, quando ele está ligado ao banco, e a linha de comando [`src/etl_reverso/coordenacao.py`](../src/etl_reverso/coordenacao.py). As duas leem e gravam no mesmo banco em que o ETL reverso grava a fila (`url_fila_intervencao`: `ETL_REVERSO_DATABASE_URL` ou o banco da plataforma), com o papel `coordenacao_academica`. Na tela, a coordenação edita status, responsável e plano de ação e salva. As métricas aparecem bloqueadas.
+
+**Quem garante o privilégio por coluna.** O papel só tem `UPDATE` nas colunas de andamento e nenhum `DELETE`. Com um **login próprio** da coordenação (`CREATE ROLE ... LOGIN IN ROLE coordenacao_academica`), quem garante é o banco: não há como gravar uma métrica. No ambiente do projeto, a tela e a linha de comando conectam como **dono** das tabelas e trocam para o papel com `SET LOCAL ROLE` antes de cada operação. O banco recusa o que o papel não pode fazer, mas a troca é decisão do código: quem tem a conexão do dono pode não trocar. Em produção, cada coordenação teria o próprio login, e a conexão do dono ficaria só com o pipeline. A versão pública do painel, no GitHub Pages, não tem acesso à fila e diz isso.
 
 ```bash
 python3 src/etl_reverso/coordenacao.py                       # a fila, do mais crítico ao menos
@@ -90,8 +92,9 @@ ORDER BY posicao;
 | Push ou pull | **Push**, depois de cada carga (`rodar_pipeline.sh`, asset `etl_reverso` no Dagster, CI) | A origem muda uma vez por mês. Quem sabe que há dado novo é o pipeline. |
 | Por estado ou por evento | **Por estado** | Cada execução leva o destino ao estado da origem. Uma execução perdida é coberta pela seguinte, sem fila de eventos pendentes. |
 | Idempotência | Só grava linha cujo valor mudou | A segunda execução do mesmo ciclo dá `0 novos, 0 atualizados, 0 saíram`. |
-| O que é da coordenação | `status`, `responsavel`, `plano_de_acao` nunca são sobrescritos | O papel `coordenacao_academica` só tem `UPDATE` nessas colunas (privilégio por coluna) e não pode apagar linhas. |
-| Curso que melhora | Não é apagado: `na_fila = false` e data de saída | O histórico da intervenção fica. Se o curso voltar à fila, mantém o andamento e ganha nova data de entrada. |
+| O que é da coordenação | `status`, `responsavel` e `plano_de_acao` nunca são sobrescritos enquanto o curso está na fila | O papel `coordenacao_academica` só tem `UPDATE` nessas colunas (privilégio por coluna) e não pode apagar linhas. |
+| Curso que melhora | Não é apagado: `na_fila = false` e data de saída. O episódio encerrado (datas, andamento e métricas na saída) vai para `operacional.fila_intervencao_episodios` (migração 0031) | O histórico da intervenção fica. |
+| Curso que volta à fila | Episódio novo: nova data de entrada e status de volta a `NOVO`, sem responsável nem plano | O DEG vê no KPI "Sem andamento" que o curso precisa de ação de novo, e consulta em `fila_intervencao_episodios` o plano anterior e com que status ele terminou. Antes desta revisão, o curso voltava com o andamento antigo, por exemplo `CONCLUIDO`, e ficava fora do KPI. |
 | Proteções | Recusa origem vazia (o dbt não rodou) e ciclo mais antigo que o da última execução | Um banco desatualizado não esvazia nem regride a fila. |
 | Destino fora do ar | 4 tentativas (espera de 2, 4 e 8 s), depois sai com código 2 | O Dagster aplica o retry do asset. Como a sincronização é por estado, nada fica pendente. |
 | Destino | `ETL_REVERSO_DATABASE_URL`, que por padrão é o próprio banco (esquema `operacional`) | Num destino novo, como o Supabase (onde a coordenação editaria pela interface de tabelas), basta rodar uma vez com `--preparar-destino`. A fila é agregada por curso (k ≥ 5). |
