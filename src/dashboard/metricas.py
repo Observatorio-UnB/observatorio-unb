@@ -69,6 +69,15 @@ def metricas_por_recorte(tabelas: Dict[str, List[Dict]], df_gold: Optional[pd.Da
     return df[COLUNAS], FONTE_GOLD
 
 
+def metricas_da_unb(tabelas: Dict[str, List[Dict]]) -> Optional[Dict]:
+    """A linha UNB da camada semântica: os números "da UnB inteira" que o painel mostra (KPIs da Visão
+    Executiva, escopo global do simulador). Mesmo universo do ranking: cursos terminais, k >= 5."""
+    for linha in tabelas.get("metricas_por_recorte") or []:
+        if linha.get("recorte") == "UNB":
+            return linha
+    return None
+
+
 def definicoes(tabelas: Dict[str, List[Dict]], metricas: Optional[Iterable[str]] = None) -> Optional[pd.DataFrame]:
     """Registro das métricas (rótulo, definição, fórmula, unidade, versão), na ordem do registro."""
     registro = tabelas.get("metricas_definicoes") or []

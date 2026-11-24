@@ -36,7 +36,7 @@ ERROS_DE_FONTE = (ImportError, OSError, *_ERROS_DO_BANCO)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from formatacao import br, dec, grafico, mostrar_tabela, reducao  # noqa: E402,F401
-from abas import alunos_ativos, auditoria, benchmark_inep, detalhe_curso, limites_do_dado, pibic, simulador, turnos, visao_executiva  # noqa: E402
+from abas import alunos_ativos, auditoria, benchmark_inep, detalhe_curso, fila_intervencao, limites_do_dado, pibic, simulador, turnos, visao_executiva  # noqa: E402
 
 px.defaults.color_discrete_sequence = UNB_PALETTE
 
@@ -121,6 +121,10 @@ st.markdown(
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+# A raiz do projeto no path: sem ela, `from src.db ...` falha em silêncio quando o painel roda com
+# `streamlit run` (o path tem só a pasta do script), e o painel local lê o export em vez do banco.
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 DOCS_DIR = BASE_DIR / "docs"
 # Export estático da gold, gerado pelo CI a partir do banco (src/db/exportar_gold.py). É o
 # que a versão do GitHub Pages lê: o stlite roda no navegador, sem acesso ao PostgreSQL.
@@ -218,7 +222,7 @@ except LookupError:
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from faixas import FAIXAS, faixas_exclusivas  # noqa: E402
 from resposta_e1 import COLUNAS as COLUNAS_E1, PERGUNTA_E1, SLA_DIAS, frescor, ranking_cursos_criticos  # noqa: E402
-from metricas import definicoes as definicoes_metricas, metricas_por_recorte  # noqa: E402
+from metricas import definicoes as definicoes_metricas, metricas_da_unb, metricas_por_recorte  # noqa: E402
 
 
 def _graficos_do_curso(row, chave: str):
@@ -378,6 +382,9 @@ def load_camada_semantica(versao: str):
 
 
 camada_semantica = load_camada_semantica(_versao_dos_dados())
+# Números "da UnB inteira" (KPIs da Visão Executiva, escopo global do Simulador): a linha UNB da camada
+# semântica. Sem o mart, as abas fazem a mesma conta sobre a gold.
+unb_semantica = metricas_da_unb(camada_semantica)
 
 # Coluna da gold -> recorte da camada semântica (dbt_marts.metricas_por_recorte).
 RECORTE_DA_COLUNA = {"turno": "TURNO", "categoria_grau": "CATEGORIA_GRAU", "campus": "CAMPUS"}
@@ -502,6 +509,7 @@ tab_choice = st.sidebar.radio(
         "🔬 PIBIC & Inclusão Social na Ciência",
         "🇧🇷 Benchmark Nacional (INEP)",
         "💡 Simulador What-If & Custo da Retenção",
+        "📋 Fila de Intervenção (Coordenações)",
         "🛠️ Auditoria & Qualidade de Dados",
         "⚠️ O Que Este Dado NÃO Responde",
     ],
@@ -541,6 +549,7 @@ if df_gold is not None:
         "🔬 PIBIC & Inclusão Social na Ciência": pibic.renderizar,
         "🇧🇷 Benchmark Nacional (INEP)": benchmark_inep.renderizar,
         "💡 Simulador What-If & Custo da Retenção": simulador.renderizar,
+        "📋 Fila de Intervenção (Coordenações)": fila_intervencao.renderizar,
         "🛠️ Auditoria & Qualidade de Dados": auditoria.renderizar,
         "⚠️ O Que Este Dado NÃO Responde": limites_do_dado.renderizar,
     }

@@ -15,7 +15,7 @@ cada métrica é definida, e como a métrica tratada chega à coordenação de c
 
 Os dois consumidores leem dessas tabelas, e nenhum deles refaz a conta:
 
-- **Painel** (Streamlit e GitHub Pages): o ranking vem de `painel_cursos_criticos`. As comparações por turno, grau e campus vêm de `metricas_por_recorte` ([`src/dashboard/metricas.py`](../src/dashboard/metricas.py)). Cada comparação mostra a fonte e a definição versionada de cada métrica.
+- **Painel** (Streamlit e GitHub Pages): o ranking vem de `painel_cursos_criticos`. As comparações por turno, grau e campus, os KPIs "da UnB" da Visão Executiva e o escopo global do Simulador vêm de `metricas_por_recorte` ([`src/dashboard/metricas.py`](../src/dashboard/metricas.py)). Cada comparação mostra a fonte e a definição versionada de cada métrica.
 - **ETL reverso**: lê `painel_cursos_criticos` e grava, ao lado de cada número, a versão da definição (`indice_retencao_critica@1.0.0;taxa_evasao_pct@1.0.0;...`).
 
 ### O que os testes garantem
@@ -26,6 +26,7 @@ Os dois consumidores leem dessas tabelas, e nenhum deles refaz a conta:
 | `metricas_recortes_fecham_com_o_painel` (dbt) | O recorte UnB tem os mesmos cursos e contagens do ranking do painel. Cada recorte particiona esse universo. As taxas do painel são as que as macros dão. |
 | `reconcilia_fato_retencao_com_a_gold` (dbt, já existia) | A refatoração para macros não mudou nenhum número: o fato continua igual ao da gold, curso a curso. |
 | `tests/test_banco_etl_reverso.py::TestMesmoNumero` | A fila de intervenção e o painel têm o mesmo IRC, evasão, atraso, % no prazo, ingressantes e posição, curso a curso. A evasão da UnB da camada semântica é a razão das somas do ranking do painel. |
+| `TestMesmoNumero::test_03` | As abas que leem a gold (Detalhe por Curso, Simulador) mostram, curso a curso, os mesmos valores do ranking e da fila: evasão, formatura, atraso, % no prazo, IRC, classificação e ingressantes. |
 | `tests/test_unit_metricas_painel.py` | Sem o mart, o painel usa a mesma regra (razão das somas) e o mesmo universo, e deixa vazio o que não consegue calcular pela definição. |
 
 ### A divergência que a camada semântica corrigiu
@@ -40,6 +41,18 @@ Antes, a aba "Noturno vs. Diurno & Turnos" do painel tirava a **média simples d
 | Grau BACHARELADO | 37,71% | 38,38% | +0,67 p.p. |
 
 Agora as três comparações vêm de `metricas_por_recorte`.
+
+O mesmo problema aparecia nos números "da UnB inteira". Os KPIs da Visão Executiva e o escopo global do Simulador somavam a gold com o curso-tronco ENGENHARIA, que fica fora do ranking (ADR 0022). Assim, a mesma tela mostrava um ranking de 94 cursos e um total de outro universo:
+
+| Número da UnB | Antes (gold, 95 cursos) | Agora (camada semântica, recorte UNB) |
+|---|---|---|
+| Ingressantes analisados | 68.339 | 67.063 |
+| Formatura no prazo ideal | 50,36% | 50,43% |
+| Atraso médio | 0,82 sem. | 0,81 sem. |
+
+### Escopo do registro
+
+O registro versionado cobre as métricas de retenção: as do ranking, da fila e das comparações. As métricas próprias das abas de PIBIC, INEP e alunos ativos continuam definidas na gold (migração 0022) e nos ADRs 0008, 0019 e 0023. Elas não aparecem em mais de uma tela, então não correm o risco de divergir. Se passarem a aparecer, entram no registro.
 
 ### Como mudar uma métrica
 
@@ -57,6 +70,13 @@ Uma métrica nova sem linha no registro, ou uma linha sem métrica publicada, fa
 
 - registra o responsável e o plano de ação;
 - avança o status: `NOVO` → `EM_ANALISE` → `PLANO_EM_EXECUCAO` → `CONCLUIDO` (ou `DESCARTADO`).
+
+**A aplicação que lê a fila:** a tela **"📋 Fila de Intervenção (Coordenações)"** do painel, quando ele está ligado ao banco, e a linha de comando [`src/etl_reverso/coordenacao.py`](../src/etl_reverso/coordenacao.py). As duas leem e gravam com o papel `coordenacao_academica`. Na tela, a coordenação edita status, responsável e plano de ação e salva. As métricas aparecem bloqueadas, e o banco recusa a gravação delas mesmo que a tela tentasse (privilégio por coluna). A versão pública do painel, no GitHub Pages, não tem acesso à fila e diz isso.
+
+```bash
+python3 src/etl_reverso/coordenacao.py                       # a fila, do mais crítico ao menos
+python3 src/etl_reverso/coordenacao.py --curso COMPUTACAO --status EM_ANALISE --responsavel coord.cic
+```
 
 O DEG consulta quais cursos críticos ainda estão em `NOVO`, ou seja, sem ninguém responsável. Também acompanha, nos ciclos seguintes, se os cursos com plano saíram da fila (`na_fila = false`, `saiu_da_fila_em`).
 

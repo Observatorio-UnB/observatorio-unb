@@ -27,6 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conectar  # noqa: E402
 from src.db.migrar import aplicar_migracoes  # noqa: E402
+from src.etl_reverso.coordenacao import ler_fila, registrar_andamento  # noqa: E402
 from src.etl_reverso.fila_intervencao import OrigemInvalida, ler_origem, sincronizar  # noqa: E402
 
 CICLO = datetime(2026, 11, 1, 6, 0, tzinfo=timezone.utc)
@@ -124,6 +125,34 @@ class TestSincronizacao(unittest.TestCase):
         self.assertEqual(self.fila()["A"]["status"], "EM_ANALISE")
 
 
+class TestCoordenacao(TestSincronizacao):
+    """A aplicação da coordenação (src/etl_reverso/coordenacao.py, tela do painel) sobre a fila."""
+
+    def test_01_registra_andamento_como_coordenacao(self):
+        sincronizar(self.conn, [curso("A", 90)], VERSAO, CICLO)
+        registrar_andamento(self.conn, "A", "PLANO_EM_EXECUCAO", "coord.a", "tutoria no 1º ano")
+        linha = ler_fila(self.conn).set_index("nome_curso").loc["A"]
+        self.assertEqual((linha["status"], linha["responsavel"], linha["plano_de_acao"]),
+                         ("PLANO_EM_EXECUCAO", "coord.a", "tutoria no 1º ano"))
+        self.assertIsNotNone(linha["atualizado_pela_coordenacao_em"])
+        self.assertEqual(linha["indice_retencao_critica"], Decimal("90"))
+
+    def test_02_recusa_status_invalido_e_curso_fora_da_fila(self):
+        sincronizar(self.conn, [curso("A", 90)], VERSAO, CICLO)
+        with self.assertRaises(ValueError):
+            registrar_andamento(self.conn, "A", "RESOLVIDO", None, None)
+        with self.assertRaises(LookupError):
+            registrar_andamento(self.conn, "Z", "EM_ANALISE", None, None)
+
+    def test_03_ciclo_seguinte_preserva_o_que_a_aplicacao_gravou(self):
+        sincronizar(self.conn, [curso("A", 90)], VERSAO, CICLO)
+        registrar_andamento(self.conn, "A", "EM_ANALISE", "coord.a", "")
+        sincronizar(self.conn, [curso("A", 70)], VERSAO, CICLO + timedelta(days=30))
+        linha = ler_fila(self.conn).set_index("nome_curso").loc["A"]
+        self.assertEqual((linha["status"], linha["responsavel"]), ("EM_ANALISE", "coord.a"))
+        self.assertEqual(linha["indice_retencao_critica"], Decimal("70"))
+
+
 class TestMesmoNumero(unittest.TestCase):
     """O teste da E4: duas telas não podem mostrar valores diferentes para a mesma métrica."""
 
@@ -159,6 +188,22 @@ class TestMesmoNumero(unittest.TestCase):
                        f.formados_tempo_ideal_pct, f.total_ingressantes, f.posicao)
             """).fetchall()
             raise Rollback()
+        self.assertEqual(diferentes, [])
+
+    def test_03_abas_da_gold_e_ranking_dao_o_mesmo_numero(self):
+        """Detalhe por Curso e Simulador leem gold.retencao_cursos_unb; o ranking e a fila, a camada
+        semântica. Para o mesmo curso, as duas telas têm de mostrar os mesmos valores."""
+        diferentes = self.conn.execute("""
+            SELECT p.nome_curso
+            FROM dbt_marts.painel_cursos_criticos p
+            LEFT JOIN gold.retencao_cursos_unb g ON g.curso = p.nome_curso
+            WHERE g.curso IS NULL
+               OR (p.taxa_evasao_pct, p.taxa_formatura_pct, p.atraso_medio_semestres, p.formados_tempo_ideal_pct,
+                   p.indice_retencao_critica, p.classificacao_retencao, p.total_ingressantes)
+                  IS DISTINCT FROM
+                  (g.taxa_evasao_pct, g.taxa_formatura_pct, g.desvio_medio_semestres, g.formados_tempo_ideal_pct,
+                   g.indice_retencao_critica, g.classificacao_retencao, g.total_discentes_registrados)
+        """).fetchall()
         self.assertEqual(diferentes, [])
 
     def test_02_painel_e_semantica_dao_a_mesma_evasao_da_unb(self):

@@ -16,7 +16,8 @@ import psycopg
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR / "src" / "dashboard"))
 sys.path.insert(0, str(BASE_DIR))
-from metricas import FONTE_GOLD, FONTE_SEMANTICA, definicoes, metricas_por_recorte  # noqa: E402
+from metricas import FONTE_GOLD, FONTE_SEMANTICA, definicoes, metricas_da_unb, metricas_por_recorte  # noqa: E402
+from src.etl_reverso.coordenacao import alteracoes  # noqa: E402
 from src.etl_reverso.fila_intervencao import (  # noqa: E402
     METRICAS_GRAVADAS, OrigemInvalida, com_retentativas, versao_metricas)
 
@@ -78,6 +79,24 @@ class TestRecortes(unittest.TestCase):
         self.assertEqual(df["Métrica"].tolist(), ["Taxa de evasão"])
         self.assertEqual(df.iloc[0]["Versão"], "1.0.0")
         self.assertIsNone(definicoes({}))
+
+
+class TestUnbEFila(unittest.TestCase):
+
+    def test_01_numeros_da_unb_vem_do_recorte_unb(self):
+        tabelas = {"metricas_por_recorte": [{"recorte": "TURNO", "valor": "UNB"},
+                                            {"recorte": "UNB", "valor": "UNB", "taxa_evasao_pct": 43.14}]}
+        self.assertEqual(metricas_da_unb(tabelas)["taxa_evasao_pct"], 43.14)
+        self.assertIsNone(metricas_da_unb({}))
+
+    def test_02_tela_da_fila_so_envia_o_que_mudou(self):
+        antes = pd.DataFrame([{"nome_curso": "A", "status": "NOVO", "responsavel": None, "plano_de_acao": None},
+                              {"nome_curso": "B", "status": "NOVO", "responsavel": None, "plano_de_acao": None}])
+        depois = antes.copy()
+        depois.loc[1, ["status", "responsavel"]] = ["EM_ANALISE", "coord.b"]
+        self.assertEqual(alteracoes(antes, depois),
+                         [{"nome_curso": "B", "status": "EM_ANALISE", "responsavel": "coord.b", "plano_de_acao": ""}])
+        self.assertEqual(alteracoes(antes, antes.copy()), [])
 
 
 class TestEtlReversoSemBanco(unittest.TestCase):
