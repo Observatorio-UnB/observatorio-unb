@@ -1,0 +1,119 @@
+version: 2
+
+# Consumidores da plataforma: o último elo da linhagem. Cada exposure diz o que lê, quem é o dono e o
+# que se faz com o dado. Aparecem no grafo do dbt docs (publicado no GitHub Pages em /dbt/) e em
+# docs/catalogo/linhagem.md, que liga estes consumidores ao recurso do portal de onde o dado veio.
+
+exposures:
+  - name: painel_visao_executiva
+    label: "Painel: Visão Executiva (pergunta da E1)"
+    type: dashboard
+    maturity: high
+    url: https://observatorio-unb.github.io/observatorio-unb/
+    description: >
+      Ranking dos cursos pelo Índice de Retenção Crítica: em quais cursos intervir primeiro. É a
+      resposta à pergunta de gestão da E1 (src/dashboard/resposta_e1.py). O gráfico de dispersão e os
+      destaques da aba vêm de gold.retencao_cursos_unb.
+    depends_on:
+      - ref('painel_cursos_criticos')
+      - source('gold', 'retencao_cursos_unb')
+    owner:
+      name: Squad Observatório UnB
+    meta: {consumidor: "DEG e coordenações de curso", leitura: "export/gold.json (GitHub Pages) ou banco, papel observatorio_leitura"}
+
+  - name: painel_comparacoes_por_grupo
+    label: "Painel: Noturno vs. Diurno, grau e campus"
+    type: dashboard
+    maturity: high
+    url: https://observatorio-unb.github.io/observatorio-unb/
+    description: >
+      Evasão, formatura e tempo até a formatura por turno, grau e campus, pela camada semântica
+      (razão das somas), com a definição versionada de cada métrica (src/dashboard/metricas.py).
+    depends_on:
+      - ref('metricas_por_recorte')
+      - ref('metricas_definicoes')
+    owner:
+      name: Squad Observatório UnB
+    meta: {consumidor: "DEG", leitura: "export/gold.json ou banco, papel observatorio_leitura"}
+
+  - name: painel_detalhe_e_simulador
+    label: "Painel: Detalhe por Curso e Simulador What-If"
+    type: dashboard
+    maturity: medium
+    url: https://observatorio-unb.github.io/observatorio-unb/
+    description: Ficha de cada curso e simulação do efeito de reduzir a evasão.
+    depends_on:
+      - source('gold', 'retencao_cursos_unb')
+    owner:
+      name: Squad Observatório UnB
+    meta: {consumidor: "DEG e coordenações de curso", leitura: "export/gold.json ou banco, papel observatorio_leitura"}
+
+  - name: painel_alunos_ativos
+    label: "Painel: Alunos Ativos"
+    type: dashboard
+    maturity: medium
+    url: https://observatorio-unb.github.io/observatorio-unb/
+    description: Alunos ativos hoje por curso e quantos já passaram do prazo ideal.
+    depends_on:
+      - source('gold', 'ativos_hoje_cursos_unb')
+    owner:
+      name: Squad Observatório UnB
+    meta: {consumidor: "Coordenações de curso", leitura: "export/gold.json ou banco, papel observatorio_leitura"}
+
+  - name: painel_pibic
+    label: "Painel: PIBIC e Inclusão Social na Ciência"
+    type: dashboard
+    maturity: medium
+    url: https://observatorio-unb.github.io/observatorio-unb/
+    description: Iniciação científica por curso e perfil social, e a relação com a evasão do curso.
+    depends_on:
+      - source('gold', 'pibic_social_unb')
+      - source('gold', 'retencao_cursos_unb')
+    owner:
+      name: Squad Observatório UnB
+    meta: {consumidor: "Decanato de Pesquisa e DEG", leitura: "export/gold.json ou banco, papel observatorio_leitura"}
+
+  - name: painel_benchmark_inep
+    label: "Painel: Benchmark Nacional (INEP)"
+    type: dashboard
+    maturity: medium
+    url: https://observatorio-unb.github.io/observatorio-unb/
+    description: Cada curso da UnB contra os cursos equivalentes das universidades federais (Censo 2019).
+    depends_on:
+      - source('gold', 'inep_benchmark_cursos_unb')
+    owner:
+      name: Squad Observatório UnB
+    meta: {consumidor: "DEG", leitura: "export/gold.json ou banco, papel observatorio_leitura"}
+
+  - name: fila_intervencao
+    label: "ETL reverso: fila de intervenção (coordenação e DEG)"
+    type: application
+    maturity: medium
+    description: >
+      Cursos em RETENÇÃO CRÍTICA levados a operacional.fila_intervencao
+      (src/etl_reverso/fila_intervencao.py). A coordenação registra responsável, plano de ação e
+      status; o DEG acompanha os cursos sem plano e se os que tiveram plano saíram da fila.
+    depends_on:
+      - ref('painel_cursos_criticos')
+      - ref('metricas_definicoes')
+    owner:
+      name: Squad Observatório UnB
+    meta: {consumidor: "Coordenações de curso e DEG", leitura: "papel coordenacao_academica (grava só o andamento)"}
+
+  - name: lago_delta
+    label: "Lago analítico em Delta Lake (Parquet)"
+    type: analysis
+    maturity: medium
+    description: >
+      Silver 3NF (sem discentes) e star schema da gold em Delta Lake, em data/lake/lote/
+      (src/db/exportar_lago.py, ADR 0024), lido por DuckDB, Spark, Polars ou pandas sem o banco.
+    depends_on:
+      - source('silver', 'cursos')
+      - source('silver', 'estruturas_curriculares')
+      - source('silver', 'movimentacoes_vinculos')
+      - source('gold', 'fato_retencao_curso')
+      - source('gold', 'dim_curso')
+      - source('gold', 'dim_campus')
+    owner:
+      name: Squad Observatório UnB
+    meta: {consumidor: "Análise exploratória fora do banco (DuckDB, Spark, Polars)", leitura: "arquivos em data/lake/, na máquina ou runner que rodou o pipeline"}
