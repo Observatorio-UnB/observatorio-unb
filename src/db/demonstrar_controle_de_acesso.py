@@ -1,5 +1,5 @@
 """
-Demonstra o controle de acesso por linha e por coluna (migração 0028) e mede o custo da política.
+Demonstra o controle de acesso por linha e por coluna (migração 0030) e mede o custo da política.
 
 Tudo numa transação desfeita no fim: cria três usuários de exemplo no papel secretaria_campus, lota
 cada um em campi diferentes e mostra, como cada um (SET ROLE):

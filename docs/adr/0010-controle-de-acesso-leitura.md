@@ -23,7 +23,7 @@ Desde a E3, o papel `observatorio_leitura` também lê o esquema `dbt_marts`, a 
 
 O gatilho desta revisão foi a consequência acima: "quem precisa da Silver usa o usuário dono do banco". Para quem precisa do vínculo individual, como a secretaria acadêmica de um campus, isso dava acesso a todos os campi e ao `id_discente`. Era o contrário de privilégio mínimo.
 
-A migração 0028 cria o papel `secretaria_campus` com dois recortes em `silver.movimentacoes_vinculos`:
+A migração 0030 cria o papel `secretaria_campus` com dois recortes em `silver.movimentacoes_vinculos`:
 
 - **linha (RLS):** só os vínculos dos campi em que o usuário está lotado (`acesso.lotacao_campus`);
 - **coluna:** todas as colunas menos `id_discente`.

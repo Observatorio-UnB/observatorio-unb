@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migração 0028: Acesso por campus aos vínculos, com recorte de linha (RLS) e de coluna
+-- Migração 0030: Acesso por campus aos vínculos, com recorte de linha (RLS) e de coluna
 --
 -- Até aqui havia dois níveis (ADR 0010): o papel observatorio_leitura, que só lê o agregado (gold,
 -- busca, dbt_marts), e o dono do banco, que lê tudo. Quem precisa do vínculo individual para

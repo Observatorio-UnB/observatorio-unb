@@ -13,7 +13,7 @@ Até a E3 havia dois níveis ([ADR 0010](adr/0010-controle-de-acesso-leitura.md)
 
 Quem precisa do **vínculo individual** para trabalhar não tinha papel próprio. É o caso da secretaria acadêmica de um campus, que acompanha os alunos dos próprios cursos. A única saída era usar o dono do banco, que vê os quatro campi e o `id_discente`, a chave que liga o vínculo a nascimento, sexo e raça/cor em `silver.discentes`.
 
-## A solução: papel `secretaria_campus` ([migração 0028](../db/migrations/0028_acesso_por_campus_linha_e_coluna.sql))
+## A solução: papel `secretaria_campus` ([migração 0030](../db/migrations/0030_acesso_por_campus_linha_e_coluna.sql))
 
 | Recorte | Como | Efeito |
 |---|---|---|

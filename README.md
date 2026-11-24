@@ -95,7 +95,7 @@ observatorio-unb/
 
 | Item do checklist | Evidência |
 |---|---|
-| Controle de acesso por linha e por coluna, com privilégio mínimo | Papel `secretaria_campus` (migração 0028): RLS por campus lotado e `id_discente` fora do grant de colunas em `silver.movimentacoes_vinculos`. Demonstração em `src/db/demonstrar_controle_de_acesso.py`, explicação em [docs/controle_de_acesso.md](docs/controle_de_acesso.md), atualização do [ADR 0010](docs/adr/0010-controle-de-acesso-leitura.md) |
+| Controle de acesso por linha e por coluna, com privilégio mínimo | Papel `secretaria_campus` (migração 0030): RLS por campus lotado e `id_discente` fora do grant de colunas em `silver.movimentacoes_vinculos`. Demonstração em `src/db/demonstrar_controle_de_acesso.py`, explicação em [docs/controle_de_acesso.md](docs/controle_de_acesso.md), atualização do [ADR 0010](docs/adr/0010-controle-de-acesso-leitura.md) |
 
 ---
 

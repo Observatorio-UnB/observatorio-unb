@@ -1,5 +1,5 @@
 """
-Controle de acesso por linha e por coluna (migração 0028), com o papel secretaria_campus. Precisa de
+Controle de acesso por linha e por coluna (migração 0030), com o papel secretaria_campus. Precisa de
 PostgreSQL e da Silver 3NF carregada.
 
 Cada teste cria os usuários de exemplo numa transação desfeita no fim: nada fica no banco.
