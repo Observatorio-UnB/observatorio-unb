@@ -127,6 +127,19 @@ class TestQualidadeDaBusca(unittest.TestCase):
     def test_consulta_sem_sentido_nao_devolve_nada(self):
         self.assertEqual(self.buscar("xyzw qwerty zzkq", k=5), [])
 
+    def test_irc_dos_cursos_igual_ao_da_gold(self):
+        """O cartão de curso da busca mostra o IRC da carga atual: índice velho = números divergentes."""
+        if "curso" not in self.tipos:
+            self.skipTest("Sem cursos vetorizados.")
+        with conectar() as conn:
+            gold = {c: v for c, v in conn.execute(
+                "SELECT curso, indice_retencao_critica FROM gold.retencao_cursos_unb").fetchall()}
+            indexado = conn.execute(
+                "SELECT titulo, (metadados->>'indice_retencao_critica')::numeric FROM busca.documentos "
+                "WHERE tipo = 'curso' AND metadados ? 'indice_retencao_critica'").fetchall()
+        divergentes = [t for t, v in indexado if t in gold and abs(float(gold[t]) - float(v)) > 0.01]
+        self.assertEqual(divergentes, [], "Reindexe: python3 src/busca/vetorizar.py")
+
     def test_resultados_em_ordem_de_relevancia(self):
         resultados = self.buscar("evasão nos cursos de engenharia", k=8)
         self.assertTrue(resultados)

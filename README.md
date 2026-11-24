@@ -51,7 +51,7 @@ observatorio-unb/
 │   ├── db/                          # Migrações, 3NF e star schema, lago Delta, frescor, export, Supabase
 │   ├── cdc/                         # Consumidor do Debezium e demonstrações de entrega
 │   ├── busca/                       # Busca semântica híbrida (embeddings + pgvector + texto)
-│   └── dashboard/                   # Painel em Streamlit (resposta_e1.py: ranking da pergunta da E1)
+│   └── dashboard/                   # Painel em Streamlit: app.py (carga e navegação), abas/ (uma tela por módulo), formatacao.py (número em pt-BR), resposta_e1.py (ranking da E1)
 ├── tests/                           # 21 arquivos: test_unit_* sem banco; os demais com banco
 ├── .github/workflows/               # Medalhão, atualização mensal, frescor, lint e keep-alive
 ├── docker-compose.yml               # Banco + pipeline + painel (+ Kafka e Debezium no profile cdc)
@@ -87,7 +87,7 @@ observatorio-unb/
 | Testes de esquema, volume, unicidade, integridade e distribuição | [docs/testes_de_dados.md](docs/testes_de_dados.md); `tests/test_dbt_dado_ruim.py` prova que cada um falha com dado injetado |
 | Orquestração agendada com grafo, retry e backfill demonstrado | [Orquestração (Dagster)](#orquestração-dagster), [docs/orquestracao.md](docs/orquestracao.md) e os logs em [docs/orquestracao/evidencias/](docs/orquestracao/evidencias/) |
 | Consulta otimizada com `EXPLAIN (ANALYZE, BUFFERS)` antes e depois | [docs/explain/](docs/explain/) e a seção 5 de [03_ENGENHARIA_FISICA_E_TUNING_SGBD.md](docs/arquitetura/03_ENGENHARIA_FISICA_E_TUNING_SGBD.md): de 1.566 para 14 buffers e de 35,6 ms para 0,42 ms (migração 0024) |
-| Freshness e SLA de uma tabela de consumo | [Frescor e SLA do painel](#frescor-e-sla-do-painel), [docs/frescor_sla.md](docs/frescor_sla.md) |
+| Frescor e SLA de uma tabela de consumo | [Frescor e SLA do painel](#frescor-e-sla-do-painel), [docs/frescor_sla.md](docs/frescor_sla.md) |
 | ADR de modelagem analítica e ferramentas | [ADR 0030](docs/adr/0030-modelagem-analitica-e-ferramentas.md): estrela contra Data Vault e OBT, quatro grãos medidos, dbt e Dagster contra a opção nula |
 | Painel que responde à pergunta da E1 | Visão Executiva do painel, a partir de `dbt_marts.painel_cursos_criticos` (roteiro na seção D abaixo) |
 

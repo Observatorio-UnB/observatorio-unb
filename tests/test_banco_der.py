@@ -21,8 +21,9 @@ import psycopg
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 sys.path.insert(0, str(BASE_DIR / "scripts"))
-from src.db.conexao import conectar  # noqa: E402
 import gerar_svg_der as der  # noqa: E402
+
+from src.db.conexao import conectar  # noqa: E402
 
 
 class TestDerSincronizado(unittest.TestCase):

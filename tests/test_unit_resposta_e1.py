@@ -14,8 +14,7 @@ import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR / "src" / "dashboard"))
-from resposta_e1 import (  # noqa: E402
-    COLUNAS, FONTE_DBT, FONTE_GOLD, FONTE_GOLD_MART_ANTIGO, SLA_DIAS, frescor, ranking_cursos_criticos)
+from resposta_e1 import COLUNAS, FONTE_DBT, FONTE_GOLD, FONTE_GOLD_MART_ANTIGO, SLA_DIAS, frescor, ranking_cursos_criticos  # noqa: E402
 
 
 def linha_mart(posicao, curso, irc, classificacao="RETENÇÃO CRÍTICA"):

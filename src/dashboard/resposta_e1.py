@@ -36,7 +36,7 @@ COLUNAS = {
     "indice_retencao_critica": "IRC",
     "taxa_evasao_pct": "Evasão (%)",
     "atraso_medio_semestres": "Atraso médio (sem.)",
-    "formados_tempo_ideal_pct": "Formados no prazo ideal (%)",
+    "formados_tempo_ideal_pct": "Formados até o prazo ideal (%)",
     "total_ingressantes": "Ingressantes",
 }
 

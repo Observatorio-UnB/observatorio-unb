@@ -170,15 +170,15 @@ def _truncar(delta: DeltaTable, evento: Evento) -> int:
     """Marca como excluída toda linha cuja última mudança veio antes do evento (TRUNCATE ou fim
     do snapshot) e devolve quantas delas estavam vivas. As já excluídas também passam à posição
     do evento: assim, um INSERT reprocessado de antes dele não as ressuscita."""
-    c, l = evento.posicao
-    anteriores = (pc.field("_commit_lsn") < c) | ((pc.field("_commit_lsn") == c) & (pc.field("_lsn") < l))
+    commit, lsn = evento.posicao
+    anteriores = (pc.field("_commit_lsn") < commit) | ((pc.field("_commit_lsn") == commit) & (pc.field("_lsn") < lsn))
     vivas = delta.to_pyarrow_dataset().count_rows(filter=anteriores & ~pc.field("_deletado"))
     delta.update(
-        predicate=f"_commit_lsn < {c} OR (_commit_lsn = {c} AND _lsn < {l})",
+        predicate=f"_commit_lsn < {commit} OR (_commit_lsn = {commit} AND _lsn < {lsn})",
         updates={
             "_deletado": "true",
-            "_commit_lsn": str(c),
-            "_lsn": str(l),
+            "_commit_lsn": str(commit),
+            "_lsn": str(lsn),
             "_origem_em": f"'{evento.origem_em.isoformat()}'",
             "_gravado_em": f"'{datetime.now(timezone.utc).isoformat()}'",
         },

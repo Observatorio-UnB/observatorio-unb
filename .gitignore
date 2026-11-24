@@ -17,7 +17,11 @@ Thumbs.db
 
 # O pipeline grava as camadas no PostgreSQL. data/ é resto da versão em CSV, e o
 # export da gold para o GitHub Pages é gerado pelo CI (src/db/exportar_gold.py).
-data/
+data/*
+!data/bronze/
+data/bronze/*
+!data/bronze/cnpq_valor_bolsa_ic.json
+# A série do valor da bolsa de IC é a única entrada de dados versionada (ADR 0023).
 export/
 
 # IDEs e configurações locais
@@ -38,3 +42,7 @@ export/
 
 # Instância temporária do Dagster criada pelo `dagster dev` (orquestracao/)
 .tmp_dagster_home*/
+
+# Cobertura
+.coverage
+htmlcov/

@@ -19,11 +19,11 @@ sys.path.insert(0, str(BASE_DIR))
 from src.db.conexao import conectar
 from src.db.tabelas import ler
 from src.pipeline.build_gold import (
-    CANONICAL_RULES_METADATA,
-    build_gold,
     ANOS_MATURACAO_COORTE,
+    CANONICAL_RULES_METADATA,
     EXCLUDED_GENERIC_COURSES,
     MIN_MATRICULAS_BENCHMARK,
+    build_gold,
     valor_bolsa_ic_vigente,
 )
 

@@ -57,7 +57,9 @@ def aplicar_migracoes(url: Optional[str] = None) -> List[str]:
         for arquivo in sorted(MIGRATIONS_DIR.glob("*.sql")):
             checksum = _checksum(arquivo)
             if arquivo.name in ja_aplicadas:
-                if ja_aplicadas[arquivo.name] != checksum:
+                # CRLF do checkout no Windows (autocrlf) muda o hash de um arquivo igual: aceita também o hash com LF.
+                lf = hashlib.sha256(arquivo.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+                if ja_aplicadas[arquivo.name] not in (checksum, lf):
                     raise RuntimeError(
                         f"A migração {arquivo.name} foi alterada depois de aplicada. "
                         "Reverta a edição e crie uma migração nova em db/migrations/."

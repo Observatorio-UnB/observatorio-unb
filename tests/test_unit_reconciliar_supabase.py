@@ -9,6 +9,7 @@ Uso:
     python3 -m unittest tests/test_unit_reconciliar_supabase.py
 """
 
+import logging
 import sys
 import unittest
 from pathlib import Path
@@ -18,6 +19,14 @@ from unittest import mock
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.db import reconciliar_supabase as rs  # noqa: E402
+
+
+def setUpModule():
+    logging.disable(logging.CRITICAL)  # os casos com falha esperada logam [ERROR] e parecem erro no CI
+
+
+def tearDownModule():
+    logging.disable(logging.NOTSET)
 
 
 class ConexaoFalsa:

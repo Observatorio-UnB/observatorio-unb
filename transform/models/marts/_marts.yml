@@ -159,3 +159,5 @@ models:
         data_type: bigint
       - name: total_evadidos
         data_type: bigint
+      - name: na_fila_de_intervencao
+        data_type: boolean

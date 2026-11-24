@@ -31,7 +31,7 @@
 
 ### **GQ 3: Qual a proporção de saídas por formatura versus desligamentos críticos?**
 - **Evidência Global**:
-  - Do total de 68.339 vínculos das coortes 2010-2016, **51.28%** terminaram em *Formatura*, **44.07%** em *Evasão* (saída do curso sem diploma: abandono, desligamento, jubilamento, mudança de curso ou cancelamento no SIGAA) e **2.85%** seguiam ativos ou trancados em 07/2024.
+  - Do total de 68.339 vínculos das coortes 2010-2016 (universo bruto; o painel mostra 67.063, nos cursos com 5 ou mais alunos e sem curso de tronco), **51,28%** terminaram em *Formatura*, **44,07%** em *Evasão* (saída do curso sem diploma: abandono, desligamento, jubilamento, mudança de curso ou cancelamento no SIGAA) e **2.85%** seguiam ativos ou trancados em 07/2024.
   - Evasão inclui mudança de curso porque o SIGAA só marca o vínculo como CANCELADO, sem o motivo; é a definição de "evasão de curso" da Comissão Especial MEC/SESu (1996).
 - **Cursos com Maior Evasão Crítica**:
   - *Física Computacional*: 76.19% de evasão.

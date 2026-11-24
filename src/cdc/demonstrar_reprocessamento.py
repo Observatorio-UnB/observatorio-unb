@@ -182,8 +182,8 @@ def demonstrar() -> None:
     depois = registrar("reprocessamento depois da exclusão", reprocessar_do_inicio())
 
     print(f"\n{'cenário':<42}{'mensagens lidas':>16}{'linhas no lago':>16}{'sentinelas vivos':>18}   impressão digital")
-    for l in linhas:
-        print(f"{l['cenario']:<42}{l['lidas']:>16,}{l['total']:>16,}{l['vivos']:>18}   {l['digest']}")
+    for linha in linhas:
+        print(f"{linha['cenario']:<42}{linha['lidas']:>16,}{linha['total']:>16,}{linha['vivos']:>18}   {linha['digest']}")
 
     n = len(SENTINELAS)
     falhas = []

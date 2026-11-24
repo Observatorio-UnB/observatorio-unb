@@ -40,4 +40,4 @@ Para assegurar rigor científico e evitar conclusões precipitadas:
 1. **Motivação Individual da Evasão/Atraso**: Os dados abertos não informam motivos pessoais, de saúde mental, necessidade de trabalhar, dificuldades socioeconômicas ou reprovações pontuais em disciplinas específicas.
 2. **Semestre Exato de Ingresso e Saída**: SIGRA e SIGAA registram apenas o ano de ingresso (`2010`). O SIGRA publica o período de saída (`20141`); no SIGAA ele é estimado pela data de registro do diploma. Há uma incerteza residual de $\pm 1$ semestre metodológico.
 3. **Mudanças Curriculares Individuais**: Alunos que mudaram de habilitação, transferiram de curso ou ingressaram sob uma matriz curricular antiga e migraram para uma nova não têm esse histórico de transição individualizado no arquivo estático.
-4. **Cursos Descontinuados ou Muito Recentes**: Cursos novos com poucas turmas formadas ou cursos extintos possuem amostras estatísticas reduzidas.
+4. **Cursos Descontinuados ou Muito Recentes**: Cursos novos com poucas coortes formadas ou cursos extintos possuem amostras estatísticas reduzidas.

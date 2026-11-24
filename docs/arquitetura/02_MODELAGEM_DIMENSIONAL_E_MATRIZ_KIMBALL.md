@@ -164,7 +164,7 @@ No banco local isso não acontece, porque o fato é recriado a cada carga. Mas a
 
 ### 4.2 Avaliação de outros níveis de grão
 
-O grão de decisão foi comparado com dois mais finos, sobre os mesmos vínculos das coortes maduras (carga de 11/2026, 68.339 vínculos de 2010 a 2016). Uma célula com menos de 5 vínculos é suprimida (k-anonimato).
+O grão de decisão foi comparado com dois mais finos, sobre os mesmos vínculos das coortes maduras (carga de 11/2026, 68.339 vínculos de 2010 a 2016, universo bruto: o painel mostra 67.063, nos cursos com 5 ou mais alunos e sem curso de tronco). Uma célula com menos de 5 vínculos é suprimida (k-anonimato).
 
 | Grão | Células | Células com k ≥ 5 | Vínculos suprimidos | Mediana de vínculos por célula |
 |:---|---:|---:|---:|---:|

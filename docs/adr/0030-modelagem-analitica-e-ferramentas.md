@@ -61,7 +61,7 @@ Para medir os grãos, calculei cada nível sobre as coortes maduras da base atua
 
 | Grão | Linhas | Grupos com k < 5 | Vínculos perdidos | Tamanho | Responde à E1? |
 |---|---:|---:|---:|---:|---|
-| Vínculo (fato transacional) | 68.339 | 100% | 100% | 4,5 MB | Não pode ser publicado |
+| Vínculo (fato transacional) | 68.339 (universo bruto; o painel usa 67.063) | 100% | 100% | 4,5 MB | Não pode ser publicado |
 | **Curso** | **101** | 5,9% | **0,0%** (12) | 16 kB | **Sim: ranking por curso** |
 | Curso × coorte (ano de ingresso) | 633 | 5,7% | 0,1% (76) | 72 kB | Sim, e mostra a tendência entre coortes |
 | Curso × coorte × desfecho × semestre de saída | 14.359 | 67,6% | **28,1%** (19.196) | 1,5 MB | Não: perde um vínculo em cada quatro |

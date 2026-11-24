@@ -29,7 +29,6 @@ from src.db.migrar import aplicar_migracoes  # noqa: E402
 from src.db.povoar_dimensional import povoar_gold_dimensional  # noqa: E402
 from src.db.povoar_silver_3nf import povoar_silver_3nf, silver_carregada  # noqa: E402
 
-
 # Chaves substitutas de dim_curso e dim_perfil_social, que a recarga não pode mudar.
 SQL_CHAVES = """
     SELECT 'curso', nome_curso || '|' || vigente_de, sk_curso FROM gold.dim_curso

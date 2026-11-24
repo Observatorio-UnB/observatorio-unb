@@ -51,6 +51,8 @@ Este documento descreve a semântica, os tipos de dados e os métodos de cálcul
 | `pibic_investimento_total` | Float (R$) | `326700.00` | Soma estimada das bolsas remuneradas do curso, pela tabela de vigências do CNPq (ADR 0023). |
 | `pibic_projetos_por_100_alunos` | Float | `13.04` | `pibic_total_projetos / total_discentes_registrados × 100`. |
 
+> As quatro colunas `formados_*_pct` se sobrepõem (o tempo mínimo está dentro do ideal, e o limite máximo costuma estar dentro do "acima do ideal"), então não somam 100%. Para gráficos de distribuição use `faixa_minimo_pct` (t ≤ mínimo da matriz), `faixa_ideal_pct` (mínimo < t ≤ ideal), `faixa_acima_pct` (ideal < t < máximo) e `faixa_limite_pct` (t ≥ máximo, limite de jubilamento), que são exclusivas e somam 100%; quando máximo = ideal, o limite prevalece. Também existem em `gold.retencao_cursos_coorte`.
+
 ---
 
 ## 3. Cursos com Oferta Dupla (Bacharelado e Licenciatura) — `categoria_grau = "MISTO"`

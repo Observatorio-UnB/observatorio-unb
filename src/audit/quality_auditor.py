@@ -299,7 +299,7 @@ def achados_sigaa_e_catalogo() -> List[Dict]:
 def generate_markdown_report(findings: List[Dict]) -> str:
     """Gera o texto completo em Markdown para o Relatório de Qualidade e a Issue do CPD."""
     md = []
-    md.append("# Relatório de Auditoria de Qualidade de Dados (Dia 4 - Semana 1)")
+    md.append("# Relatório de Auditoria de Qualidade de Dados")
     md.append(
         "\n**Projeto**: Retenção, Tempo Real de Formatura e Evasão nos Cursos da UnB")
     md.append("**Portal Auditado**: [dados.unb.br](https://dados.unb.br)")

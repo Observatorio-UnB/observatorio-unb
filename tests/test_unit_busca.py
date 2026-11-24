@@ -15,7 +15,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.busca.buscar import consulta_de_cobertura, sem_acento  # noqa: E402
 from src.busca.vetorizar import (  # noqa: E402
-    SOBREPOSICAO_TRECHO, TAMANHO_MAX_TRECHO, _trechos, documentos_da_documentacao,
+    SOBREPOSICAO_TRECHO,
+    TAMANHO_MAX_TRECHO,
+    _trechos,
+    documentos_da_documentacao,
 )
 
 

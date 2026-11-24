@@ -22,7 +22,7 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 - Adotar a Arquitetura Medalhão (Bronze imutável, Silver tratada e Gold analítica). Registrado no [ADR 0001](../adr/0001-arquitetura-medalhao.md).
 - Automatizar a ingestão programática via API CKAN 2.11 sem downloads manuais. Registrado no [ADR 0002](../adr/0002-ingestao-api-ckan.md).
 - Garantir $k$-anonimato $\ge 5$ na Gold, excluindo identificadores pessoais da camada pública. Registrado no [ADR 0005](../adr/0005-privacidade-k-anonimato.md).
-- Criar o Índice de Retenção Crítica (IRC) com peso 50% atraso e 50% evasão para neutralizar o viés de sobrevivência. Registrado no [ADR 0006](../adr/0006-indice-retencao-critica.md).
+- Criar o Índice de Retenção Crítica (IRC) com peso 50% atraso e 50% evasão (proposta inicial; a fórmula em uso é 70% evasão e 30% atraso, ver o ADR 0006) para neutralizar o viés de sobrevivência. Registrado no [ADR 0006](../adr/0006-indice-retencao-critica.md).
 
 **Pendências para a Semana seguinte**
 

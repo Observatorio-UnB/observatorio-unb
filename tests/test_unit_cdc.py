@@ -144,7 +144,8 @@ class TestCdc(unittest.TestCase):
         lago.aplicar(CURSOS, topico, self.lake)
         lago.aplicar(CURSOS, topico[3:], self.lake)
         depois = self._estado(com_excluidas=True)
-        sem_gravado_em = lambda linhas: [{k: v for k, v in r.items() if k != "_gravado_em"} for r in linhas]
+        def sem_gravado_em(linhas):
+            return [{k: v for k, v in r.items() if k != "_gravado_em"} for r in linhas]
         self.assertEqual(sem_gravado_em(depois), sem_gravado_em(antes))
         self.assertEqual(self._nomes(), {1: "A2", 3: "C"})
 
