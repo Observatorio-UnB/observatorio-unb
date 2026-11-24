@@ -30,6 +30,10 @@ class TestPainelE1(unittest.TestCase):
                 cls.primeiro = conn.execute(
                     "SELECT nome_curso FROM dbt_marts.painel_cursos_criticos ORDER BY posicao, nome_curso LIMIT 1"
                 ).fetchone()[0]
+                cls.primeiro_grande = conn.execute(
+                    "SELECT nome_curso FROM dbt_marts.painel_cursos_criticos WHERE total_ingressantes >= 30 "
+                    "ORDER BY posicao, nome_curso LIMIT 1"
+                ).fetchone()[0]
                 cls.total = conn.execute("SELECT count(*) FROM dbt_marts.painel_cursos_criticos").fetchone()[0]
         except psycopg.OperationalError as erro:
             raise unittest.SkipTest(f"Banco indisponível ({erro}).")
@@ -43,7 +47,8 @@ class TestPainelE1(unittest.TestCase):
     def test_02_pergunta_e_resposta_no_topo_da_visao_executiva(self):
         self.assertTrue(self.app.subheader[0].value.startswith("❓ Pergunta da E1"))
         resposta = next(m.value for m in self.app.markdown if m.value.startswith("**Resposta:**"))
-        self.assertIn(f"**{self.primeiro}**", resposta)
+        # A resposta só considera cursos com 30+ ingressantes; a tabela abaixo mostra todos.
+        self.assertIn(f"**{self.primeiro_grande}**", resposta)
 
     def test_03_ranking_vem_do_mart_do_dbt(self):
         ranking = self.app.dataframe[0].value
