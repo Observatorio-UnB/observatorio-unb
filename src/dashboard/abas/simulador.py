@@ -11,7 +11,8 @@ def renderizar(g):
     UNB_GREEN = g.UNB_GREEN
     _COORTES = g._COORTES
     _anos_do_intervalo = g._anos_do_intervalo
-    df_gold = g.df_gold
+    EH_COORTE_OFICIAL = getattr(g, "EH_COORTE_OFICIAL", True)
+    df_gold = getattr(g, "df_gold_oficial", g.df_gold)
     global_meta = g.global_meta
     mostrar_escopo = g.mostrar_escopo
     n_pibic_evasao = g.n_pibic_evasao
@@ -22,6 +23,11 @@ def renderizar(g):
     st.subheader(
         "💡 Simulador What-If de Decisão do DEG & Impacto Orçamentário")
     mostrar_escopo("simulador")
+    if not EH_COORTE_OFICIAL:
+        st.caption(
+            f"ℹ️ Para evitar distorção orçamentária por censura à direita (ADR 0014), o simulador permanece "
+            f"ancorado nas coortes maduras oficiais (**{_COORTES}**) e não é alterado pelo seletor lateral."
+        )
     st.warning(
         "**Cenário hipotético, não é previsão.** Os resultados abaixo vêm de hipóteses fixas: cada 10% a mais de "
         "bolsas reduz a evasão em 2,5% do seu valor (fator 0,25), todo formado poupa o semestre reduzido, e o custo "

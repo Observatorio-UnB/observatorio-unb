@@ -1,7 +1,29 @@
-"""Formatação de números (padrão brasileiro) e de tabelas e gráficos do painel."""
+"""Formatação de números (padrão brasileiro), paleta acessível, exportação CSV e gráficos do painel."""
 
 import pandas as pd
 import streamlit as st
+
+# Paleta colorblind-safe (Okabe-Ito / WCAG AA) combinada com formas distintas para codificação redundante
+CORES_IRC = {
+    "RETENÇÃO CRÍTICA": "#C23B22",  # vermelhão alto contraste
+    "RETENÇÃO ALTA": "#D97706",     # âmbar escuro
+    "RETENÇÃO MÉDIA": "#0072B2",    # azul Okabe-Ito
+    "RETENÇÃO BAIXA": "#008940",    # verde institucional UnB
+}
+
+SIMBOLOS_IRC = {
+    "RETENÇÃO CRÍTICA": "triangle-up",
+    "RETENÇÃO ALTA": "diamond",
+    "RETENÇÃO MÉDIA": "square",
+    "RETENÇÃO BAIXA": "circle",
+}
+
+CORES_DESFECHO = {
+    "Formatura": "#008940",
+    "Evasão / Desligamento": "#C23B22",
+    "Ainda ativo": "#0072B2",
+    "Outros": "#64748B",
+}
 
 
 def br(valor, casas=0):
@@ -12,6 +34,31 @@ def br(valor, casas=0):
 
 def dec(valor, casas=2):
     return f"{float(valor):.{casas}f}".replace(".", ",")
+
+
+def delta_pp(atual, referencia, casas=1, unidade="p.p.", sufixo=""):
+    """Formata diferença assinada no padrão brasileiro ('+2,3 p.p. vs. UnB')."""
+    if pd.isna(atual) or pd.isna(referencia):
+        return None
+    diff = float(atual) - float(referencia)
+    if round(abs(diff), casas) == 0:
+        return f"0,{ '0' * casas if casas else '' } {unidade}{sufixo}".replace(", ", " ")
+    sinal = "+" if diff > 0 else "-"
+    return f"{sinal}{dec(abs(diff), casas)} {unidade}{sufixo}"
+
+
+def botao_csv(df: pd.DataFrame, nome_arquivo: str, label: str = "📥 Baixar CSV (Gold, k ≥ 5)", key: str = None):
+    """Exporta DataFrame já agregado da Gold (k >= 5) em CSV compatível com Excel PT-BR."""
+    if df is None or df.empty:
+        return
+    csv_bytes = df.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
+    st.download_button(
+        label=label,
+        data=csv_bytes,
+        file_name=nome_arquivo,
+        mime="text/csv",
+        key=key,
+    )
 
 
 def mostrar_tabela(df, casas=1, **kwargs):

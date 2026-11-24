@@ -35,7 +35,8 @@ ERROS_DE_FONTE = (ImportError, OSError, *_ERROS_DO_BANCO)
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from formatacao import br, dec, grafico, mostrar_tabela, reducao  # noqa: E402,F401
+from coortes import anos_disponiveis, intervalo_oficial, reagregar_por_coortes  # noqa: E402
+from formatacao import CORES_DESFECHO, CORES_IRC, SIMBOLOS_IRC, botao_csv, br, dec, delta_pp, grafico, mostrar_tabela, reducao  # noqa: E402,F401
 from abas import alunos_ativos, auditoria, benchmark_inep, detalhe_curso, limites_do_dado, pibic, simulador, turnos, visao_executiva  # noqa: E402
 
 px.defaults.color_discrete_sequence = UNB_PALETTE
@@ -115,12 +116,63 @@ st.markdown(
         border-radius: 4px;
         font-weight: 600;
     }
+    .context-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 2px;
+        margin-bottom: 14px;
+    }
+    .context-pill {
+        background-color: #F1F5F9;
+        border: 1px solid #CBD5E1;
+        color: #1E293B;
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 13px;
+        line-height: 18px;
+    }
+    .context-pill-oficial {
+        background-color: #ECFDF5;
+        border-color: #6EE7B7;
+        color: #065F46;
+        font-weight: 600;
+    }
+    .context-pill-alerta {
+        background-color: #FEF3C7;
+        border-color: #F59E0B;
+        color: #92400E;
+        font-weight: 600;
+    }
+    .sidebar-resumo {
+        background-color: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-left: 4px solid #008940;
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 13px;
+        margin-bottom: 12px;
+        color: #1E293B;
+    }
+    .footer-institucional {
+        margin-top: 32px;
+        padding-top: 14px;
+        border-top: 1px solid #E2E8F0;
+        color: #64748B;
+        font-size: 12px;
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 DOCS_DIR = BASE_DIR / "docs"
 # Export estático da gold, gerado pelo CI a partir do banco (src/db/exportar_gold.py). É o
 # que a versão do GitHub Pages lê: o stlite roda no navegador, sem acesso ao PostgreSQL.
@@ -225,19 +277,23 @@ def _graficos_do_curso(row, chave: str):
     c_chart1, c_chart2 = st.columns(2)
     with c_chart1:
         st.markdown("##### ⏱️ Distribuição de Tempo dos Formados")
-        st.caption(f"% dos {br(int(row['total_formados']))} alunos formados com tempo de conclusão calculável, por faixa "
-                   "(as faixas não se sobrepõem e somam 100%). Prazos mínimo, ideal e máximo vêm da matriz do curso.")
-        df_dist = pd.DataFrame(
-            {"Faixa de Conclusão": FAIXAS, "Percentual": faixas_exclusivas(row)})
-        fig_bar = px.bar(
-            df_dist, x="Faixa de Conclusão", y="Percentual", color="Faixa de Conclusão",
-            color_discrete_sequence=["#10B981",
-                                     "#3B82F6", "#F59E0B", "#DC2626"],
-            text_auto=".1f", height=350,
-        )
-        fig_bar.update_traces(
-            hovertemplate="%{x}<br>%{y:.1f}% dos alunos formados<extra></extra>")
-        grafico(fig_bar, width="stretch", key=f"barras_{chave}")
+        _n_form = int(row["total_formados"]) if pd.notna(row["total_formados"]) else 0
+        _vals_faixas = faixas_exclusivas(row)
+        if _n_form == 0 or all(pd.isna(v) for v in _vals_faixas):
+            st.info("Sem formados com tempo de conclusão calculável neste recorte (comum em coortes muito recentes).")
+        else:
+            st.caption(f"% dos {br(_n_form)} alunos formados com tempo de conclusão calculável, por faixa "
+                       "(as faixas não se sobrepõem e somam 100%). Prazos mínimo, ideal e máximo vêm da matriz do curso.")
+            df_dist = pd.DataFrame(
+                {"Faixa de Conclusão": FAIXAS, "Percentual": _vals_faixas})
+            fig_bar = px.bar(
+                df_dist, x="Faixa de Conclusão", y="Percentual", color="Faixa de Conclusão",
+                color_discrete_sequence=["#009E73", "#0072B2", "#E69F00", "#C23B22"],
+                text_auto=".1f", height=350,
+            )
+            fig_bar.update_traces(
+                hovertemplate="%{x}<br>%{y:.1f}% dos alunos formados<extra></extra>")
+            grafico(fig_bar, width="stretch", key=f"barras_{chave}")
 
     with c_chart2:
         st.markdown("##### 🚪 Desfecho das Movimentações Acadêmicas")
@@ -254,10 +310,7 @@ def _graficos_do_curso(row, chave: str):
         })
         fig_pie = px.pie(
             df_pie, names="Desfecho", values="Quantidade", color="Desfecho",
-            color_discrete_map={
-                "Formatura": "#10B981", "Evasão / Desligamento": "#DC2626",
-                "Ainda ativo": "#3B82F6", "Outros": "#6B7280",
-            },
+            color_discrete_map=CORES_DESFECHO,
             height=350,
         )
         fig_pie.update_traces(
@@ -325,10 +378,18 @@ EXCLUDED_GENERIC_COURSES = set((global_meta or {}).get("cursos_tronco", []))
 # Um só filtro para todas as abas: os cursos-tronco não são cursos terminais e distorciam totais,
 # turnos e campi (ex.: FCTE com ENGENHARIA 55% de evasão, sem ela 36%).
 if df_gold is not None:
-    df_gold = df_gold[~df_gold["curso"].isin(EXCLUDED_GENERIC_COURSES)]
+    df_gold = df_gold[~df_gold["curso"].isin(EXCLUDED_GENERIC_COURSES)].copy()
     n_pibic_evasao, r_pibic_evasao = correlacao_pibic_evasao(df_gold)
     r_pibic_evasao_txt = "indisponível" if r_pibic_evasao is None else f"{dec(r_pibic_evasao, 2)}".replace(
         ".", ",")
+
+df_gold_oficial = df_gold.copy() if df_gold is not None else None
+df_coortes_all = pd.DataFrame(load_coortes(_versao_dos_dados()))
+if not df_coortes_all.empty and "curso" in df_coortes_all.columns:
+    df_coortes_all = df_coortes_all[~df_coortes_all["curso"].isin(EXCLUDED_GENERIC_COURSES)].copy()
+
+ANO_INI_OFICIAL, ANO_FIM_OFICIAL = intervalo_oficial(global_meta)
+ANOS_COORTE, ULTIMO_ANO_MADURO = anos_disponiveis(df_coortes_all)
 
 _COORTES = (global_meta or {}).get("coortes_ingresso_analisadas", "n/d")
 _REF_ATIVOS = (global_meta or {}).get("ativos_hoje_referencia", "n/d")
@@ -360,7 +421,10 @@ N_MIN_RANKING = 30
 
 
 def mostrar_escopo(aba: str):
-    st.caption(f"🔎 **Recorte desta tela:** {ESCOPO[aba]}")
+    texto = ESCOPO[aba]
+    if aba in ("exec", "detalhe", "turnos") and COORTE_SELECIONADA != str(_COORTES):
+        texto = texto.replace(str(_COORTES), COORTE_SELECIONADA)
+    st.caption(f"🔎 **Recorte desta tela:** {texto}")
 
 
 def _media_ponderada(df, coluna, pesos="total_formados"):
@@ -453,19 +517,130 @@ st.sidebar.caption(
 with st.sidebar.expander("📖 Como ler este painel"):
     st.markdown(GLOSSARIO)
 
-tab_choice = st.sidebar.radio(
-    "Navegação:",
-    [
-        "📊 Visão Executiva (DEG)",
-        "🔍 Detalhe por Curso",
-        "🎒 Alunos Ativos",
-        "⚖️ Noturno vs. Diurno & Turnos",
-        "🔬 PIBIC & Inclusão Social na Ciência",
-        "🇧🇷 Benchmark Nacional (INEP)",
-        "💡 Simulador What-If & Custo da Retenção",
-        "🛠️ Auditoria & Qualidade de Dados",
-        "⚠️ O Que Este Dado NÃO Responde",
-    ],
+OPCOES_ABAS = [
+    "📊 Visão Executiva (DEG)",
+    "🔍 Detalhe por Curso",
+    "🎒 Alunos Ativos",
+    "⚖️ Noturno vs. Diurno & Turnos",
+    "🔬 PIBIC & Inclusão Social na Ciência",
+    "🇧🇷 Benchmark Nacional (INEP)",
+    "💡 Simulador What-If & Custo da Retenção",
+    "🛠️ Auditoria & Qualidade de Dados",
+    "⚠️ O Que Este Dado NÃO Responde",
+]
+SLUG_PARA_ABA = {
+    "executiva": OPCOES_ABAS[0],
+    "detalhe": OPCOES_ABAS[1],
+    "ativos": OPCOES_ABAS[2],
+    "turnos": OPCOES_ABAS[3],
+    "pibic": OPCOES_ABAS[4],
+    "inep": OPCOES_ABAS[5],
+    "simulador": OPCOES_ABAS[6],
+    "auditoria": OPCOES_ABAS[7],
+    "limites": OPCOES_ABAS[8],
+}
+ABA_PARA_SLUG = {v: k for k, v in SLUG_PARA_ABA.items()}
+
+# Leitura inicial de query params (?aba=detalhe&curso=...&coorte=2010-2016) com fallback seguro para stlite
+if "nav_aba" not in st.session_state:
+    _aba_inicial = OPCOES_ABAS[0]
+    try:
+        _qp_aba = str(st.query_params.get("aba", "")).strip().lower()
+        if _qp_aba in SLUG_PARA_ABA:
+            _aba_inicial = SLUG_PARA_ABA[_qp_aba]
+        _qp_curso = st.query_params.get("curso")
+        if _qp_curso and df_gold_oficial is not None and _qp_curso in set(df_gold_oficial["curso"]):
+            st.session_state["curso_selecionado"] = str(_qp_curso)
+    except Exception:
+        pass
+    st.session_state["nav_aba"] = _aba_inicial
+
+# Processa pedido de drill-down vindo de outra aba antes de instanciar o radio
+if "_ir_para_aba" in st.session_state:
+    _destino = st.session_state.pop("_ir_para_aba")
+    if _destino in OPCOES_ABAS:
+        st.session_state["nav_aba"] = _destino
+
+tab_choice = st.sidebar.radio("Navegação:", OPCOES_ABAS, key="nav_aba")
+
+# Seletor global de intervalo de coortes (ano_ingresso) usando gold.retencao_cursos_coorte
+COORTE_SELECIONADA = str(_COORTES)
+EH_COORTE_OFICIAL = True
+INCLUI_IMATURAS = False
+ANO_INI_SEL, ANO_FIM_SEL = ANO_INI_OFICIAL, ANO_FIM_OFICIAL
+
+if ANOS_COORTE and len(ANOS_COORTE) >= 2 and df_gold_oficial is not None:
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("##### 📅 Intervalo de Coortes (Ingresso)")
+    _padrao_ini = ANO_INI_OFICIAL if ANO_INI_OFICIAL in ANOS_COORTE else ANOS_COORTE[0]
+    _padrao_fim = ANO_FIM_OFICIAL if ANO_FIM_OFICIAL in ANOS_COORTE else (ULTIMO_ANO_MADURO or ANOS_COORTE[-1])
+    _init_range = (_padrao_ini, _padrao_fim)
+    if "coorte_range" not in st.session_state:
+        try:
+            _qp_coorte = str(st.query_params.get("coorte", ""))
+            if "-" in _qp_coorte:
+                _a, _b = [int(x) for x in _qp_coorte.split("-", 1)]
+                if _a in ANOS_COORTE and _b in ANOS_COORTE and _a <= _b:
+                    _init_range = (_a, _b)
+        except Exception:
+            pass
+    else:
+        _cur = st.session_state["coorte_range"]
+        if isinstance(_cur, (list, tuple)) and len(_cur) == 2:
+            _init_range = (int(_cur[0]), int(_cur[1]))
+
+    _sel_coorte = st.sidebar.select_slider(
+        "Anos de ingresso:",
+        options=ANOS_COORTE,
+        value=_init_range,
+        key="coorte_range",
+        help=f"Padrão oficial: {_COORTES} (coortes com 8+ anos de acompanhamento, ADR 0014). "
+             "Alterar o intervalo reagrega gold.retencao_cursos_coorte em modo exploratório.",
+    )
+    if isinstance(_sel_coorte, (list, tuple)) and len(_sel_coorte) == 2:
+        ANO_INI_SEL, ANO_FIM_SEL = int(_sel_coorte[0]), int(_sel_coorte[1])
+    else:
+        ANO_INI_SEL = ANO_FIM_SEL = int(_sel_coorte)
+    EH_COORTE_OFICIAL = (ANO_INI_SEL == _padrao_ini and ANO_FIM_SEL == _padrao_fim)
+    COORTE_SELECIONADA = f"{ANO_INI_SEL}–{ANO_FIM_SEL}"
+    INCLUI_IMATURAS = (ULTIMO_ANO_MADURO is not None and ANO_FIM_SEL > ULTIMO_ANO_MADURO)
+    if not EH_COORTE_OFICIAL:
+        df_reagregado = reagregar_por_coortes(
+            df_coortes_all, df_gold_oficial, ANO_INI_SEL, ANO_FIM_SEL, EXCLUDED_GENERIC_COURSES
+        )
+        if not df_reagregado.empty:
+            df_gold = df_reagregado
+        def _resetar_coorte():
+            st.session_state["coorte_range"] = (_padrao_ini, _padrao_fim)
+        st.sidebar.button(
+            f"↩️ Voltar ao padrão oficial ({_padrao_ini}–{_padrao_fim})",
+            use_container_width=True,
+            on_click=_resetar_coorte,
+        )
+
+# Sincroniza query params discretamente (link compartilhável)
+try:
+    st.query_params["aba"] = ABA_PARA_SLUG.get(tab_choice, "executiva")
+    if ANOS_COORTE:
+        st.query_params["coorte"] = f"{ANO_INI_SEL}-{ANO_FIM_SEL}"
+except Exception:
+    pass
+
+# Resumo fixo na sidebar (contexto institucional sempre visível)
+_n_cursos_visiveis = len(df_gold) if df_gold is not None else 0
+_n_alunos_visiveis = int(df_gold["total_discentes_registrados"].sum()) if df_gold is not None else 0
+_status_recorte = (
+    "Oficial (8+ anos, ADR 0014)" if EH_COORTE_OFICIAL
+    else ("Exploratório ⚠️ com imaturas" if INCLUI_IMATURAS else "Exploratório (maduras)")
+)
+st.sidebar.markdown(
+    f'<div class="sidebar-resumo">'
+    f'<strong>Recorte ativo:</strong> {COORTE_SELECIONADA}<br>'
+    f'<strong>Modo:</strong> {_status_recorte}<br>'
+    f'<strong>Universo:</strong> {br(_n_cursos_visiveis)} cursos · {br(_n_alunos_visiveis)} alunos<br>'
+    f'<strong>Privacidade:</strong> Gold agregada (k ≥ 5)'
+    f'</div>',
+    unsafe_allow_html=True,
 )
 
 st.sidebar.markdown("---")
@@ -494,6 +669,26 @@ if df_gold is not None:
     )
     st.markdown('<div class="sub-header">Mapeamento do tempo real de integralização curricular, retenção crítica e evasão baseado nos Dados Abertos da UnB.</div>', unsafe_allow_html=True)
 
+    # Faixa de contexto (pills) no topo: período, universo, fontes e k-anonimato explícitos logo na abertura
+    _pill_classe = (
+        "context-pill context-pill-alerta" if INCLUI_IMATURAS
+        else ("context-pill context-pill-oficial" if EH_COORTE_OFICIAL else "context-pill")
+    )
+    _pill_coorte_txt = (
+        f"📅 Coortes: {COORTE_SELECIONADA} (⚠️ inclui imaturas &gt; {ULTIMO_ANO_MADURO})"
+        if INCLUI_IMATURAS
+        else f"📅 Coortes: {COORTE_SELECIONADA} ({'padrão oficial 8+ anos' if EH_COORTE_OFICIAL else 'recorte exploratório'})"
+    )
+    st.markdown(
+        f'<div class="context-pills">'
+        f'<span class="{_pill_classe}">{_pill_coorte_txt}</span>'
+        f'<span class="context-pill">🎓 {br(_n_cursos_visiveis)} cursos terminais · {br(_n_alunos_visiveis)} ingressantes</span>'
+        f'<span class="context-pill">🏛️ Fontes: SIGRA + SIGAA (dados.unb.br) · Ativos {_REF_ATIVOS}</span>'
+        f'<span class="context-pill">🔒 Privacidade: k-anonimato ≥ 5 (LGPD / ADR 0005)</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
     ABAS = {
         "📊 Visão Executiva (DEG)": visao_executiva.renderizar,
         "🔍 Detalhe por Curso": detalhe_curso.renderizar,
@@ -506,3 +701,12 @@ if df_gold is not None:
         "⚠️ O Que Este Dado NÃO Responde": limites_do_dado.renderizar,
     }
     ABAS[tab_choice](SimpleNamespace(**globals()))
+
+    # Rodapé institucional fixo
+    st.markdown(
+        '<div class="footer-institucional">'
+        '<span><strong>Observatório de Retenção e Formatura — UnB</strong> · Apoio à Decisão do Decanato de Ensino de Graduação (DEG/UnB)</span>'
+        '<span>Dados abertos (dados.unb.br) · Camada Gold agregada (k ≥ 5, ADR 0005) · Janela de maturação: 8 anos (ADR 0014)</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )

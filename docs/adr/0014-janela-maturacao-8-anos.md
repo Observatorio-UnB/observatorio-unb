@@ -14,3 +14,11 @@ Com a união ao SIGAA, coortes recentes ainda têm muitos alunos cursando. Com j
 ## Consequências
 
 Ativos nas coortes analisadas caem para ~3%. O preço é olhar turmas de 8 a 14 anos atrás; o retrato do presente fica na tabela de ativos ([ADR 0019](0019-ativos-hoje.md)).
+
+## Atualização (24/11/2026) — Exploração interativa de coortes no painel
+
+O painel passou a oferecer um seletor global de intervalo de `ano_ingresso` (a partir de `gold.retencao_cursos_coorte`) e um heatmap longitudinal para exploração pelo DEG. Para preservar integralmente esta decisão:
+
+- O padrão oficial do painel e o ranking da E1 (`dbt_marts.painel_cursos_criticos`) permanecem ancorados exclusivamente nas coortes maduras (`2010–2016`), sem alteração de fórmula nem de recorte.
+- O Simulador What-If e os cruzamentos de PIBIC/INEP permanecem travados nas coortes maduras oficiais.
+- Sempre que o usuário amplia o seletor para anos posteriores ao corte de maturação (`> 2016`), o painel exibe aviso persistente de censura à direita, destaca a fronteira visual entre coortes maduras e imaturas no heatmap e calibra a escala de cor exclusivamente sobre as coortes maduras.
