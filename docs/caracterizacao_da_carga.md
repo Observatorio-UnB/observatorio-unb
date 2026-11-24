@@ -61,7 +61,7 @@ Não há acesso por chave de aluno no consumo: nenhuma consulta de produção pe
 | O quê | Tolerado | Medido | Por quê |
 |---|---|---|---|
 | Frescor do dado (fonte → painel) | **Até 35 dias** (SLA, [frescor_sla.md](frescor_sla.md)) | Atualização mensal | A fonte publica no máximo uma vez por ano. Um dado de um mês atrás é tão novo quanto o portal |
-| Consulta do painel | Menos de 1 s por tela | Ranking em 0,29 ms; view do painel em 0,38 ms; detalhe de um curso em 0,41 ms; snapshot inteiro em 0,04 s | Uso interativo |
+| Consulta do painel | Menos de 1 s por tela | Ranking em 0,29 ms; view do painel em 0,38 ms; detalhe de um curso em 0,42 ms (`docs/explain/`); snapshot inteiro em 0,04 s | Uso interativo |
 | Carga mensal | Minutos (roda de madrugada, sem ninguém esperando) | Silver 3NF em 3,4 s; pipeline em cerca de 46 s | Sem janela de manutenção a respeitar |
 | Disponibilidade da escrita | Uma carga que falha pode ser refeita em dias | Cada etapa tem até 3 retentativas com espera exponencial (Dagster) | Se as retentativas se esgotarem, o SLA de 35 dias dá 4 dias, além do mês, para corrigir à mão. Um dia de atraso não muda nenhuma decisão do DEG |
 

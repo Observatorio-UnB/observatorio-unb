@@ -24,7 +24,7 @@ Três perguntas definem a modelagem: até onde normalizar, se a origem preserva 
 | Integridade | Nenhuma entre vínculo e curso: o curso é texto | 4 FK, 4 PK, 3 UNIQUE e 12 CHECK; 26 colunas NOT NULL | Igual à 3NF |
 | Anomalias | Nascimento, sexo e raça/cor repetidos em cada vínculo dos 14.005 alunos (11%) que têm mais de um. O prazo da matriz se repete em cada vínculo do curso | Cada fato num lugar só ([prova da 3NF](../arquitetura/01_PROVA_MATEMATICA_NORMALIZACAO_3NF.md)) | Igual à 3NF |
 | Histórico | Sobrescreve | Sobrescreve | Diferença entre fotos, porque a fonte não publica a trajetória do aluno |
-| Leitura típica (detalhe de um curso, coortes de 2010 a 2016) | Sem junção | Uma junção, 0,41 ms (`docs/explain/`) | Uma junção a mais, filtrando a publicação |
+| Leitura típica (detalhe de um curso, coortes de 2010 a 2016) | Sem junção | Uma junção, 0,42 ms (`docs/explain/`) | Uma junção a mais, filtrando a publicação |
 
 ## Decisão
 
@@ -51,7 +51,7 @@ Três perguntas definem a modelagem: até onde normalizar, se a origem preserva 
 
 - O banco recusa vínculo sem curso, sem matriz, com desfecho fora do domínio ou com permanência fora de 1 a 35 semestres. A qualidade do dado é barrada na carga, e não descoberta na E3.
 - A recarga inteira é simples e idempotente: rodar duas vezes dá o mesmo banco. Em compensação, a situação de um vínculo numa data passada se perde, e não há como reproduzir pelo banco o ranking de um mês anterior.
-- A junção custa pouco: 0,41 ms no detalhe de um curso. A desnormalização no OLTP economizaria uma junção que não pesa e traria de volta as anomalias acima.
+- A junção custa pouco: 0,42 ms no detalhe de um curso (`docs/explain/`). A desnormalização no OLTP economizaria uma junção que não pesa e traria de volta as anomalias acima.
 
 ## Gatilhos de revisão
 
