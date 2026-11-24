@@ -91,6 +91,13 @@ observatorio-unb/
 | ADR de modelagem analítica e ferramentas | [ADR 0030](docs/adr/0030-modelagem-analitica-e-ferramentas.md): estrela contra Data Vault e OBT, quatro grãos medidos, dbt e Dagster contra a opção nula |
 | Painel que responde à pergunta da E1 | Visão Executiva do painel, a partir de `dbt_marts.painel_cursos_criticos` (roteiro na seção D abaixo) |
 
+## 🧾 Entrega E4 — Plataforma completa, governada e defendida (em andamento)
+
+| Item do checklist | Evidência |
+|---|---|
+| Consumo duplo: painel e camada semântica de métricas, com definição versionada | Fórmulas em `transform/macros/metricas.sql`, registro versionado em `transform/seeds/metricas_definicoes.csv`, recortes em `dbt_marts.metricas_por_recorte`, que o painel lê. Ver [docs/camada_semantica_e_etl_reverso.md](docs/camada_semantica_e_etl_reverso.md) |
+| ETL reverso para um sistema onde alguém age | `src/etl_reverso/fila_intervencao.py` → `operacional.fila_intervencao` (migração 0029): a fila de intervenção da coordenação de curso e do DEG |
+
 ---
 
 ## 🚀 2. Como Reproduzir o Projeto do Zero
