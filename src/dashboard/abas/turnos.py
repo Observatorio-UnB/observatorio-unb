@@ -156,3 +156,5 @@ def renderizar(g):
         grafico(fig_campus_alunos, width="stretch")
     st.caption("Cursos por campus: " + " · ".join(
         f"{c} ({int(n)})" for c, n in zip(df_campus["campus"], df_campus["cursos"])) + ".")
+    g.mostrar_definicoes(["ingressantes", "taxa_evasao_pct", "taxa_formatura_pct", "atraso_medio_semestres",
+                          "tempo_medio_formatura_semestres", "prazo_ideal_medio_semestres"])

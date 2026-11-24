@@ -5,6 +5,9 @@
 #   intermediate  (dbt_intermediate, views)  regras de negócio: atributos do curso, coortes, IRC
 #   marts         (dbt_marts, tabelas)       star schema e a tabela do painel, agregadas (k >= 5)
 #
+# A camada semântica (E4): a fórmula de cada métrica em macros/metricas.sql, a definição versionada
+# em seeds/metricas_definicoes.csv, e os recortes acima do curso em marts/metricas_por_recorte.
+#
 # E o snapshot (dbt_snapshots) com o histórico dos atributos do curso, de onde a dim_curso tira as
 # versões (SCD tipo 2, ADR 0028). O --full-refresh reconstrói os marts, mas não apaga o snapshot.
 #
@@ -16,6 +19,7 @@ profile: observatorio
 
 model-paths: ["models"]
 snapshot-paths: ["snapshots"]
+seed-paths: ["seeds"]
 test-paths: ["tests"]
 macro-paths: ["macros"]
 target-path: target
@@ -48,6 +52,13 @@ models:
       # carregam vínculos individuais da silver, como a própria silver).
       +grants:
         select: ["observatorio_leitura"]
+
+seeds:
+  observatorio:
+    # O registro das métricas fica com os marts: o painel e o ETL reverso o leem pelo papel de leitura.
+    +schema: dbt_marts
+    +grants:
+      select: ["observatorio_leitura"]
 
 on-run-end:
   - "GRANT USAGE ON SCHEMA {{ var('prefixo_esquema', '') }}dbt_marts TO observatorio_leitura"

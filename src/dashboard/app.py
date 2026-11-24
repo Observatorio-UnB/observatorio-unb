@@ -218,6 +218,7 @@ except LookupError:
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from faixas import FAIXAS, faixas_exclusivas  # noqa: E402
 from resposta_e1 import COLUNAS as COLUNAS_E1, PERGUNTA_E1, SLA_DIAS, frescor, ranking_cursos_criticos  # noqa: E402
+from metricas import definicoes as definicoes_metricas, metricas_por_recorte  # noqa: E402
 
 
 def _graficos_do_curso(row, chave: str):
@@ -369,9 +370,47 @@ def _media_ponderada(df, coluna, pesos="total_formados"):
     return float((d[coluna].astype(float) * w).sum() / w.sum()) if w.sum() else float("nan")
 
 
+# Camada semântica (src/dashboard/metricas.py): recortes acima do curso e o registro das definições.
+@st.cache_data
+def load_camada_semantica(versao: str):
+    tabelas = (_snapshot(versao) or {}).get("tabelas", {})
+    return {nome: tabelas.get(nome) or [] for nome in ("metricas_por_recorte", "metricas_definicoes")}
+
+
+camada_semantica = load_camada_semantica(_versao_dos_dados())
+
+# Coluna da gold -> recorte da camada semântica (dbt_marts.metricas_por_recorte).
+RECORTE_DA_COLUNA = {"turno": "TURNO", "categoria_grau": "CATEGORIA_GRAU", "campus": "CAMPUS"}
+
+
+def mostrar_definicoes(metricas) -> None:
+    """Rodapé de uma comparação: de onde vieram os números e a definição versionada das métricas."""
+    if not camada_semantica["metricas_por_recorte"]:
+        return
+    st.caption("Fonte: dbt_marts.metricas_por_recorte (camada semântica). Taxa de um grupo = soma dos "
+               "eventos / soma dos ingressantes dos cursos do grupo.")
+    registro = definicoes_metricas(camada_semantica, metricas)
+    if registro is not None:
+        with st.expander("📐 Definição das métricas (camada semântica, versionada)"):
+            st.dataframe(registro, width="stretch", hide_index=True)
+
+
 def agregar_ponderado(df, chave):
-    """Evasão, formatura e tempos por grupo de cursos, ponderados pelo número de alunos (evasão e
-    formatura) ou de formados (tempos). Mesma regra para turno, grau e campus."""
+    """Evasão, formatura e tempos por grupo de cursos. Com a camada semântica no snapshot, vêm de
+    dbt_marts.metricas_por_recorte: a fórmula é a das macros do dbt, a mesma do ranking e da fila, no
+    universo do ranking (cursos terminais). Os grupos seguem o filtro de `df` (ex.: sem MISTO). Sem o
+    mart, a mesma regra calculada aqui: razão das somas para evasão e formatura, tempos ponderados
+    pelos formados."""
+    recorte = RECORTE_DA_COLUNA.get(chave)
+    if recorte and camada_semantica["metricas_por_recorte"]:
+        sem, _ = metricas_por_recorte(camada_semantica, None, recorte)
+        sem = sem[sem["valor"].isin(set(df[chave].unique()))].rename(columns={
+            "valor": chave, "ingressantes": "total_discentes_registrados", "formados": "total_formados",
+            "evadidos": "total_evadidos_desligados", "atraso_medio_semestres": "desvio_medio_semestres",
+            "tempo_medio_formatura_semestres": "tempo_medio_real_semestres",
+            "prazo_ideal_medio_semestres": "semestre_ideal_previsto",
+        })
+        return sem.reset_index(drop=True)
     linhas = []
     for valor, g in df.groupby(chave):
         reg = g["total_discentes_registrados"].sum()

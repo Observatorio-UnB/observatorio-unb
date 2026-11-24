@@ -90,6 +90,13 @@ jobs:
       - name: "dbt — documentação e linhagem"
         run: bash scripts/dbt.sh docs generate --static
 
+      # ETL reverso: a fila de intervenção (operacional.fila_intervencao) no banco do runner. Prova a
+      # sincronização e a idempotência; o destino de verdade vem de ETL_REVERSO_DATABASE_URL.
+      - name: "ETL reverso — fila de intervenção (coordenação e DEG)"
+        run: |
+          python src/etl_reverso/fila_intervencao.py
+          python src/etl_reverso/fila_intervencao.py
+
       # O lago fica no runner, como bronze e silver: prova o export, não publica dado.
       - name: "Lago — Silver 3NF e Star Schema em Delta Lake"
         run: python src/db/exportar_lago.py
