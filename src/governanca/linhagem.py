@@ -128,6 +128,11 @@ ETAPAS: Tuple[Etapa, ...] = (
     Etapa("gold.dim_campus", ("silver.cursos",), "src/db/povoar_dimensional.py"),
     Etapa("gold.fato_retencao_curso", ("silver.movimentacoes_vinculos", "silver.estruturas_curriculares",
                                        "gold.dim_curso", "gold.dim_campus"), "src/db/povoar_dimensional.py"),
+
+    # ETL reverso: o analítico volta ao operacional
+    Etapa("operacional.fila_intervencao", ("dbt_marts.painel_cursos_criticos", "dbt_marts.metricas_definicoes"),
+          "src/etl_reverso/fila_intervencao.py", ("db/migrations/0027_fila_intervencao.sql",),
+          nota="fila que a coordenação opera; o andamento é dela, as métricas são do ETL reverso"),
 )
 
 
@@ -189,7 +194,8 @@ _VINCULO_ATE_A_FONTE = (
 
 TRILHAS: Tuple[Trilha, ...] = (
     Trilha("Evasão (%)", (
-        Passo("dbt_marts.painel_cursos_criticos", "taxa_evasao_pct", "lida pelo painel (Visão Executiva) e pela fila"),
+        Passo("operacional.fila_intervencao", "taxa_evasao_pct", "copiada pelo ETL reverso; lida pela coordenação"),
+        Passo("dbt_marts.painel_cursos_criticos", "taxa_evasao_pct", "lida pelo painel (Visão Executiva) e pelo ETL reverso"),
         Passo("dbt_marts.fct_retencao_curso", "taxa_evasao_pct", "cópia"),
         Passo("dbt_intermediate.int_metricas_curso", "taxa_evasao_pct",
               "metrica_taxa_evasao_pct(evadidos, ingressantes), transform/macros/metricas.sql"),
@@ -351,6 +357,9 @@ def montar_grafo(manifest: Optional[Dict]) -> Grafo:
             for dep in exp["depends_on"]["nodes"]:
                 if dep in nos:
                     g.arestas.add((_relacao(nos[dep]), chave))
+            # Tabela operacional lida pelo consumidor e gravada fora do dbt (ETL reverso).
+            for tabela in (exp.get("meta") or {}).get("tabelas_fora_do_dbt", []):
+                g.arestas.add((tabela, chave))
     for o, d in g.arestas:
         for no in (o, d):
             g.camada.setdefault(no, "Consumo" if no.startswith("consumo:") else _camada(no))

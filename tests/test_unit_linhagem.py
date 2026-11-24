@@ -77,7 +77,13 @@ class TestLinhagem(unittest.TestCase):
                 if trilha.rotulo == "IRC e Classificação":
                     continue  # remete às trilhas da Evasão e do Atraso
                 self.assertTrue(trilha.passos[-1].ativo.startswith("portal:"))
-                self.assertTrue(trilha.passos[0].ativo.startswith("dbt_marts."))
+                self.assertTrue(trilha.passos[0].ativo.startswith(("dbt_marts.", "operacional.")))
+
+    def test_10_fila_passa_pela_tabela_operacional(self):
+        """A linhagem do ETL reverso não pula a tabela que a coordenação lê."""
+        acima = L.ancestrais(self.grafo, "consumo:fila_intervencao")
+        self.assertIn("operacional.fila_intervencao", acima)
+        self.assertIn("dbt_marts.painel_cursos_criticos", L.ancestrais(self.grafo, "operacional.fila_intervencao"))
 
 
 if __name__ == "__main__":

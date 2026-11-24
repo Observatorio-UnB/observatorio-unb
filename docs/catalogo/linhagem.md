@@ -80,6 +80,7 @@ flowchart LR
     consumo_painel_detalhe_e_simulador[/"painel_detalhe_e_simulador"/]
     consumo_painel_pibic[/"painel_pibic"/]
     consumo_painel_visao_executiva[/"painel_visao_executiva"/]
+    operacional_fila_intervencao["operacional.fila_intervencao"]
   end
   bronze_bolsistas_iniciacao_cientifica --> silver_pibic_bolsistas
   bronze_cursos_graduacao --> silver_cursos_graduacao
@@ -108,9 +109,13 @@ flowchart LR
   dbt_marts_fct_retencao_curso --> dbt_marts_painel_cursos_criticos
   dbt_marts_metricas_definicoes --> consumo_fila_intervencao
   dbt_marts_metricas_definicoes --> consumo_painel_comparacoes_por_grupo
+  dbt_marts_metricas_definicoes --> operacional_fila_intervencao
   dbt_marts_metricas_por_recorte --> consumo_painel_comparacoes_por_grupo
+  dbt_marts_metricas_por_recorte --> consumo_painel_detalhe_e_simulador
+  dbt_marts_metricas_por_recorte --> consumo_painel_visao_executiva
   dbt_marts_painel_cursos_criticos --> consumo_fila_intervencao
   dbt_marts_painel_cursos_criticos --> consumo_painel_visao_executiva
+  dbt_marts_painel_cursos_criticos --> operacional_fila_intervencao
   dbt_snapshots_snap_atributos_curso --> dbt_marts_dim_curso
   dbt_staging_stg_cursos --> dbt_intermediate_int_atributos_curso
   dbt_staging_stg_cursos --> dbt_intermediate_int_campus_do_curso
@@ -136,6 +141,7 @@ flowchart LR
   gold_retencao_cursos_unb --> consumo_painel_detalhe_e_simulador
   gold_retencao_cursos_unb --> consumo_painel_pibic
   gold_retencao_cursos_unb --> consumo_painel_visao_executiva
+  operacional_fila_intervencao --> consumo_fila_intervencao
   portal_cnpq_bolsas --> data_bronze_cnpq_valor_bolsa_ic_json
   portal_cursos_graduacao --> bronze_cursos_graduacao
   portal_estrutura_curricular --> bronze_estrutura_curricular
@@ -176,14 +182,14 @@ flowchart LR
 
 | Consumidor | Tipo | Lê | Fontes públicas na origem | Quem usa |
 |---|---|---|---|---|
-| ETL reverso: fila de intervenção (coordenação e DEG) | application | `dbt_marts.metricas_definicoes`, `dbt_marts.painel_cursos_criticos` | cursos_graduacao, estrutura_curricular, sigaa, sigra | Coordenações de curso e DEG |
+| ETL reverso: fila de intervenção (coordenação e DEG) | application | `dbt_marts.metricas_definicoes`, `dbt_marts.painel_cursos_criticos`, `operacional.fila_intervencao` | cursos_graduacao, estrutura_curricular, sigaa, sigra | Coordenações de curso e DEG |
 | Lago analítico em Delta Lake (Parquet) | analysis | `gold.dim_campus`, `gold.dim_curso`, `gold.fato_retencao_curso`, `silver.cursos`, `silver.estruturas_curriculares`, `silver.movimentacoes_vinculos` | cursos_graduacao, estrutura_curricular, sigaa, sigra | Análise exploratória fora do banco (DuckDB, Spark, Polars) |
 | Painel: Alunos Ativos | dashboard | `gold.ativos_hoje_cursos_unb` | estrutura_curricular, sigaa_ativos | Coordenações de curso |
 | Painel: Benchmark Nacional (INEP) | dashboard | `gold.inep_benchmark_cursos_unb` | inep_censo_2019 | DEG |
 | Painel: Noturno vs. Diurno, grau e campus | dashboard | `dbt_marts.metricas_definicoes`, `dbt_marts.metricas_por_recorte` | cursos_graduacao, estrutura_curricular, sigaa, sigra | DEG |
-| Painel: Detalhe por Curso e Simulador What-If | dashboard | `gold.retencao_cursos_unb` | cnpq_bolsas, cursos_graduacao, estrutura_curricular, pibic, sigaa, sigra | DEG e coordenações de curso |
+| Painel: Detalhe por Curso e Simulador What-If | dashboard | `dbt_marts.metricas_por_recorte`, `gold.retencao_cursos_unb` | cnpq_bolsas, cursos_graduacao, estrutura_curricular, pibic, sigaa, sigra | DEG e coordenações de curso |
 | Painel: PIBIC e Inclusão Social na Ciência | dashboard | `gold.pibic_social_unb`, `gold.retencao_cursos_unb` | cnpq_bolsas, cursos_graduacao, estrutura_curricular, pibic, sigaa, sigra | Decanato de Pesquisa e DEG |
-| Painel: Visão Executiva (pergunta da E1) | dashboard | `dbt_marts.painel_cursos_criticos`, `gold.retencao_cursos_unb` | cnpq_bolsas, cursos_graduacao, estrutura_curricular, pibic, sigaa, sigra | DEG e coordenações de curso |
+| Painel: Visão Executiva (pergunta da E1) | dashboard | `dbt_marts.metricas_por_recorte`, `dbt_marts.painel_cursos_criticos`, `gold.retencao_cursos_unb` | cnpq_bolsas, cursos_graduacao, estrutura_curricular, pibic, sigaa, sigra | DEG e coordenações de curso |
 
 ## 3. Trilhas de coluna: do painel ao arquivo do portal
 
@@ -193,17 +199,18 @@ Cada trilha segue uma coluna do painel (e da fila de intervenção) para trás, 
 
 | # | Tabela | Coluna | Como |
 |---|---|---|---|
-| 1 | `dbt_marts.painel_cursos_criticos` | `taxa_evasao_pct` | lida pelo painel (Visão Executiva) e pela fila |
-| 2 | `dbt_marts.fct_retencao_curso` | `taxa_evasao_pct` | cópia |
-| 3 | `dbt_intermediate.int_metricas_curso` | `taxa_evasao_pct` | metrica_taxa_evasao_pct(evadidos, ingressantes), transform/macros/metricas.sql |
-| 4 | `dbt_intermediate.int_bases_curso` | `evadidos` | count(*) where tipo_saida_grupo = 'EVASAO', coortes maduras (ADR 0014), k >= 5 |
-| 5 | `dbt_staging.stg_vinculos` | `tipo_saida_grupo` | renomeia e tipa |
-| 6 | `silver.movimentacoes_vinculos` | `tipo_saida_grupo` | cópia (src/db/povoar_silver_3nf.py) |
-| 7 | `silver.discentes_graduacao` | `tipo_saida_grupo` | SIGRA: categorize_forma_saida(forma_saida); SIGAA: STATUS_SIGAA_GRUPO[status_aluno] (src/pipeline/transform_silver.py, ADR 0013) |
-| 8 | `bronze.sigra_discentes` | `forma_saida` | texto como veio do portal |
-| 9 | `bronze.sigaa_discentes` | `status_aluno` | texto como veio do portal |
-| 10 | [sigra](https://dados.unb.br/dataset/dados-referente-aos-alunos-de-graduacao-pos-graduacao-latu-sensu-mestrado-e-doutorado) | — | sigra.csv |
-| 11 | [sigaa](https://dados.unb.br/dataset/dados-referente-aos-alunos-de-graduacao-pos-graduacao-latu-sensu-mestrado-e-doutorado) | — | sigaa.csv |
+| 1 | `operacional.fila_intervencao` | `taxa_evasao_pct` | copiada pelo ETL reverso; lida pela coordenação |
+| 2 | `dbt_marts.painel_cursos_criticos` | `taxa_evasao_pct` | lida pelo painel (Visão Executiva) e pelo ETL reverso |
+| 3 | `dbt_marts.fct_retencao_curso` | `taxa_evasao_pct` | cópia |
+| 4 | `dbt_intermediate.int_metricas_curso` | `taxa_evasao_pct` | metrica_taxa_evasao_pct(evadidos, ingressantes), transform/macros/metricas.sql |
+| 5 | `dbt_intermediate.int_bases_curso` | `evadidos` | count(*) where tipo_saida_grupo = 'EVASAO', coortes maduras (ADR 0014), k >= 5 |
+| 6 | `dbt_staging.stg_vinculos` | `tipo_saida_grupo` | renomeia e tipa |
+| 7 | `silver.movimentacoes_vinculos` | `tipo_saida_grupo` | cópia (src/db/povoar_silver_3nf.py) |
+| 8 | `silver.discentes_graduacao` | `tipo_saida_grupo` | SIGRA: categorize_forma_saida(forma_saida); SIGAA: STATUS_SIGAA_GRUPO[status_aluno] (src/pipeline/transform_silver.py, ADR 0013) |
+| 9 | `bronze.sigra_discentes` | `forma_saida` | texto como veio do portal |
+| 10 | `bronze.sigaa_discentes` | `status_aluno` | texto como veio do portal |
+| 11 | [sigra](https://dados.unb.br/dataset/dados-referente-aos-alunos-de-graduacao-pos-graduacao-latu-sensu-mestrado-e-doutorado) | — | sigra.csv |
+| 12 | [sigaa](https://dados.unb.br/dataset/dados-referente-aos-alunos-de-graduacao-pos-graduacao-latu-sensu-mestrado-e-doutorado) | — | sigaa.csv |
 
 ### Atraso médio (sem.)
 
@@ -334,6 +341,7 @@ Toda tabela do grafo, com quem a grava, se guarda registro de pessoa e quem pode
 | `dbt_staging.stg_cursos` | dbt | dbt (models/staging/stg_cursos.sql) | não | só o dono do banco | Ofertas do catálogo de cursos, uma por id_curso. |
 | `dbt_staging.stg_estruturas_curriculares` | dbt | dbt (models/staging/stg_estruturas_curriculares.sql) | não | só o dono do banco | Matrizes curriculares, uma por curso canônico. |
 | `dbt_staging.stg_vinculos` | dbt | dbt (models/staging/stg_vinculos.sql) | um vínculo por linha, sem id_discente | só o dono do banco | Vínculos de graduação, um por linha, sem identificação do discente. |
+| `operacional.fila_intervencao` | Consumo | src/etl_reverso/fila_intervencao.py | não | coordenacao_academica (lê; grava só o andamento) | fila que a coordenação opera; o andamento é dela, as métricas são do ETL reverso |
 
 ## 5. Como manter
 

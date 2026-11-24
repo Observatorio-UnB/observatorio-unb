@@ -12,10 +12,11 @@ exposures:
     url: https://observatorio-unb.github.io/observatorio-unb/
     description: >
       Ranking dos cursos pelo Índice de Retenção Crítica: em quais cursos intervir primeiro. É a
-      resposta à pergunta de gestão da E1 (src/dashboard/resposta_e1.py). O gráfico de dispersão e os
-      destaques da aba vêm de gold.retencao_cursos_unb.
+      resposta à pergunta de gestão da E1 (src/dashboard/resposta_e1.py). Os KPIs da UnB vêm do recorte
+      UNB da camada semântica; o gráfico de dispersão e os destaques, de gold.retencao_cursos_unb.
     depends_on:
       - ref('painel_cursos_criticos')
+      - ref('metricas_por_recorte')
       - source('gold', 'retencao_cursos_unb')
     owner:
       name: Squad Observatório UnB
@@ -41,9 +42,12 @@ exposures:
     type: dashboard
     maturity: medium
     url: https://observatorio-unb.github.io/observatorio-unb/
-    description: Ficha de cada curso e simulação do efeito de reduzir a evasão.
+    description: >
+      Ficha de cada curso e simulação do efeito de reduzir a evasão. O escopo "toda a UnB" do simulador
+      usa o recorte UNB da camada semântica.
     depends_on:
       - source('gold', 'retencao_cursos_unb')
+      - ref('metricas_por_recorte')
     owner:
       name: Squad Observatório UnB
     meta: {consumidor: "DEG e coordenações de curso", leitura: "export/gold.json ou banco, papel observatorio_leitura"}
@@ -91,14 +95,19 @@ exposures:
     maturity: medium
     description: >
       Cursos em RETENÇÃO CRÍTICA levados a operacional.fila_intervencao
-      (src/etl_reverso/fila_intervencao.py). A coordenação registra responsável, plano de ação e
-      status; o DEG acompanha os cursos sem plano e se os que tiveram plano saíram da fila.
+      (src/etl_reverso/fila_intervencao.py). A coordenação a abre na tela "Fila de Intervenção" do
+      painel (ou em src/etl_reverso/coordenacao.py) e registra responsável, plano de ação e status; o
+      DEG acompanha os cursos sem plano e se os que tiveram plano saíram da fila.
     depends_on:
       - ref('painel_cursos_criticos')
       - ref('metricas_definicoes')
     owner:
       name: Squad Observatório UnB
-    meta: {consumidor: "Coordenações de curso e DEG", leitura: "papel coordenacao_academica (grava só o andamento)"}
+    meta:
+      consumidor: "Coordenações de curso e DEG"
+      leitura: "papel coordenacao_academica (grava só o andamento)"
+      # A tabela operacional que o consumidor lê, gravada fora do dbt pelo ETL reverso.
+      tabelas_fora_do_dbt: [operacional.fila_intervencao]
 
   - name: lago_delta
     label: "Lago analítico em Delta Lake (Parquet)"
