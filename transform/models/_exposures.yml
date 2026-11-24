@@ -47,6 +47,7 @@ exposures:
       usa o recorte UNB da camada semântica.
     depends_on:
       - source('gold', 'retencao_cursos_unb')
+      - source('gold', 'retencao_cursos_coorte')
       - ref('metricas_por_recorte')
     owner:
       name: Squad Observatório UnB
@@ -88,6 +89,20 @@ exposures:
     owner:
       name: Squad Observatório UnB
     meta: {consumidor: "DEG", leitura: "export/gold.json ou banco, papel observatorio_leitura"}
+
+  - name: painel_auditoria
+    label: "Painel: Auditoria e Qualidade de Dados"
+    type: dashboard
+    maturity: medium
+    url: https://observatorio-unb.github.io/observatorio-unb/
+    description: >
+      Regras de harmonização dos nomes de curso e quantos vínculos cada uma afeta, com o relatório de
+      qualidade (docs/relatorio_qualidade.md).
+    depends_on:
+      - source('gold', 'regras_harmonizacao_canonicas')
+    owner:
+      name: Squad Observatório UnB
+    meta: {consumidor: "Squad e banca (transparência do tratamento)", leitura: "export/gold.json ou banco, papel observatorio_leitura"}
 
   - name: fila_intervencao
     label: "ETL reverso: fila de intervenção (coordenação e DEG)"

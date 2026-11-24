@@ -97,12 +97,19 @@ ETAPAS: Tuple[Etapa, ...] = (
     Etapa("silver.inep_censo_superior", ("bronze.inep_censo_superior_federais",), "src/pipeline/transform_silver.py"),
 
     # Gold tabular (src/pipeline/build_gold.py -> gold.atualizar_gold, migração 0022)
-    Etapa("gold.regras_harmonizacao_canonicas", (), "src/pipeline/build_gold.py",
-          nota="regras de negócio no código (CANONICAL_RULES_METADATA, ADR 0003)"),
+    Etapa("gold.regras_harmonizacao_canonicas", ("silver.discentes_graduacao",), "src/pipeline/build_gold.py",
+          ("db/migrations/0022_gold_agregacoes_sql.sql",),
+          nota="regras de negócio no código (CANONICAL_RULES_METADATA, ADR 0003); gold.atualizar_regras "
+               "conta os vínculos afetados por cada uma"),
     Etapa("gold.retencao_cursos_unb",
           ("silver.discentes_graduacao", "silver.estrutura_curricular", "silver.cursos_graduacao",
            "silver.pibic_bolsistas", "gold.regras_harmonizacao_canonicas"),
           "src/pipeline/build_gold.py", ("db/migrations/0022_gold_agregacoes_sql.sql",)),
+    Etapa("gold.retencao_cursos_coorte",
+          ("silver.discentes_graduacao", "silver.estrutura_curricular", "gold.regras_harmonizacao_canonicas"),
+          "src/pipeline/build_gold.py",
+          ("db/migrations/0027_retencao_por_coorte.sql", "db/migrations/0022_gold_agregacoes_sql.sql"),
+          nota="retenção por ano de ingresso (silver.v_vinculo_estrutura)"),
     Etapa("gold.ativos_hoje_cursos_unb",
           ("silver.sigaa_ativos", "silver.estrutura_curricular", "gold.regras_harmonizacao_canonicas"),
           "src/pipeline/build_gold.py", ("db/migrations/0022_gold_agregacoes_sql.sql",)),
@@ -131,14 +138,14 @@ ETAPAS: Tuple[Etapa, ...] = (
 
     # ETL reverso: o analítico volta ao operacional
     Etapa("operacional.fila_intervencao", ("dbt_marts.painel_cursos_criticos", "dbt_marts.metricas_definicoes"),
-          "src/etl_reverso/fila_intervencao.py", ("db/migrations/0027_fila_intervencao.sql",),
+          "src/etl_reverso/fila_intervencao.py", ("db/migrations/0029_fila_intervencao.sql",),
           nota="fila que a coordenação opera; o andamento é dela, as métricas são do ETL reverso"),
 )
 
 
 # --- Catálogo: dado pessoal e acesso por esquema ---------------------------------------------------
 
-# Quem lê cada esquema (migração 0006, transform/dbt_project.yml, migração 0027).
+# Quem lê cada esquema (migração 0006, transform/dbt_project.yml, migração 0029).
 ACESSO_POR_ESQUEMA = {
     "bronze": "só o dono do banco",
     "silver": "só o dono do banco",

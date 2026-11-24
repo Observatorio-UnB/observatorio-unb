@@ -50,6 +50,7 @@ flowchart LR
     gold_inep_benchmark_cursos_unb["gold.inep_benchmark_cursos_unb"]
     gold_pibic_social_unb["gold.pibic_social_unb"]
     gold_regras_harmonizacao_canonicas["gold.regras_harmonizacao_canonicas"]
+    gold_retencao_cursos_coorte["gold.retencao_cursos_coorte"]
     gold_retencao_cursos_unb["gold.retencao_cursos_unb"]
   end
   subgraph dbt["dbt"]
@@ -75,6 +76,7 @@ flowchart LR
     consumo_fila_intervencao[/"fila_intervencao"/]
     consumo_lago_delta[/"lago_delta"/]
     consumo_painel_alunos_ativos[/"painel_alunos_ativos"/]
+    consumo_painel_auditoria[/"painel_auditoria"/]
     consumo_painel_benchmark_inep[/"painel_benchmark_inep"/]
     consumo_painel_comparacoes_por_grupo[/"painel_comparacoes_por_grupo"/]
     consumo_painel_detalhe_e_simulador[/"painel_detalhe_e_simulador"/]
@@ -134,10 +136,13 @@ flowchart LR
   gold_fato_retencao_curso --> consumo_lago_delta
   gold_inep_benchmark_cursos_unb --> consumo_painel_benchmark_inep
   gold_pibic_social_unb --> consumo_painel_pibic
+  gold_regras_harmonizacao_canonicas --> consumo_painel_auditoria
   gold_regras_harmonizacao_canonicas --> gold_ativos_hoje_cursos_unb
   gold_regras_harmonizacao_canonicas --> gold_pibic_social_unb
+  gold_regras_harmonizacao_canonicas --> gold_retencao_cursos_coorte
   gold_regras_harmonizacao_canonicas --> gold_retencao_cursos_unb
   gold_regras_harmonizacao_canonicas --> silver_movimentacoes_vinculos
+  gold_retencao_cursos_coorte --> consumo_painel_detalhe_e_simulador
   gold_retencao_cursos_unb --> consumo_painel_detalhe_e_simulador
   gold_retencao_cursos_unb --> consumo_painel_pibic
   gold_retencao_cursos_unb --> consumo_painel_visao_executiva
@@ -158,10 +163,13 @@ flowchart LR
   silver_cursos_graduacao --> gold_retencao_cursos_unb
   silver_cursos_graduacao --> silver_cursos
   silver_discentes --> silver_movimentacoes_vinculos
+  silver_discentes_graduacao --> gold_regras_harmonizacao_canonicas
+  silver_discentes_graduacao --> gold_retencao_cursos_coorte
   silver_discentes_graduacao --> gold_retencao_cursos_unb
   silver_discentes_graduacao --> silver_discentes
   silver_discentes_graduacao --> silver_movimentacoes_vinculos
   silver_estrutura_curricular --> gold_ativos_hoje_cursos_unb
+  silver_estrutura_curricular --> gold_retencao_cursos_coorte
   silver_estrutura_curricular --> gold_retencao_cursos_unb
   silver_estrutura_curricular --> silver_estruturas_curriculares
   silver_estruturas_curriculares --> consumo_lago_delta
@@ -184,10 +192,11 @@ flowchart LR
 |---|---|---|---|---|
 | ETL reverso: fila de intervenção (coordenação e DEG) | application | `dbt_marts.metricas_definicoes`, `dbt_marts.painel_cursos_criticos`, `operacional.fila_intervencao` | cursos_graduacao, estrutura_curricular, sigaa, sigra | Coordenações de curso e DEG |
 | Lago analítico em Delta Lake (Parquet) | analysis | `gold.dim_campus`, `gold.dim_curso`, `gold.fato_retencao_curso`, `silver.cursos`, `silver.estruturas_curriculares`, `silver.movimentacoes_vinculos` | cursos_graduacao, estrutura_curricular, sigaa, sigra | Análise exploratória fora do banco (DuckDB, Spark, Polars) |
-| Painel: Alunos Ativos | dashboard | `gold.ativos_hoje_cursos_unb` | estrutura_curricular, sigaa_ativos | Coordenações de curso |
+| Painel: Alunos Ativos | dashboard | `gold.ativos_hoje_cursos_unb` | estrutura_curricular, sigaa, sigaa_ativos, sigra | Coordenações de curso |
+| Painel: Auditoria e Qualidade de Dados | dashboard | `gold.regras_harmonizacao_canonicas` | sigaa, sigra | Squad e banca (transparência do tratamento) |
 | Painel: Benchmark Nacional (INEP) | dashboard | `gold.inep_benchmark_cursos_unb` | inep_censo_2019 | DEG |
 | Painel: Noturno vs. Diurno, grau e campus | dashboard | `dbt_marts.metricas_definicoes`, `dbt_marts.metricas_por_recorte` | cursos_graduacao, estrutura_curricular, sigaa, sigra | DEG |
-| Painel: Detalhe por Curso e Simulador What-If | dashboard | `dbt_marts.metricas_por_recorte`, `gold.retencao_cursos_unb` | cnpq_bolsas, cursos_graduacao, estrutura_curricular, pibic, sigaa, sigra | DEG e coordenações de curso |
+| Painel: Detalhe por Curso e Simulador What-If | dashboard | `dbt_marts.metricas_por_recorte`, `gold.retencao_cursos_coorte`, `gold.retencao_cursos_unb` | cnpq_bolsas, cursos_graduacao, estrutura_curricular, pibic, sigaa, sigra | DEG e coordenações de curso |
 | Painel: PIBIC e Inclusão Social na Ciência | dashboard | `gold.pibic_social_unb`, `gold.retencao_cursos_unb` | cnpq_bolsas, cursos_graduacao, estrutura_curricular, pibic, sigaa, sigra | Decanato de Pesquisa e DEG |
 | Painel: Visão Executiva (pergunta da E1) | dashboard | `dbt_marts.metricas_por_recorte`, `dbt_marts.painel_cursos_criticos`, `gold.retencao_cursos_unb` | cnpq_bolsas, cursos_graduacao, estrutura_curricular, pibic, sigaa, sigra | DEG e coordenações de curso |
 
@@ -322,7 +331,8 @@ Toda tabela do grafo, com quem a grava, se guarda registro de pessoa e quem pode
 | `gold.fato_retencao_curso` | Gold | src/db/povoar_dimensional.py | não | observatorio_leitura (painel, Supabase) |  |
 | `gold.inep_benchmark_cursos_unb` | Gold | src/pipeline/build_gold.py | não | observatorio_leitura (painel, Supabase) | Comparação de cada curso da UnB com os cursos das federais no Censo 2019 (ADR 0008). |
 | `gold.pibic_social_unb` | Gold | src/pipeline/build_gold.py | não | observatorio_leitura (painel, Supabase) | Planos de iniciação científica por curso e perfil social (k >= 5). |
-| `gold.regras_harmonizacao_canonicas` | Gold | src/pipeline/build_gold.py | não | observatorio_leitura (painel, Supabase) | regras de negócio no código (CANONICAL_RULES_METADATA, ADR 0003) |
+| `gold.regras_harmonizacao_canonicas` | Gold | src/pipeline/build_gold.py | não | observatorio_leitura (painel, Supabase) | regras de negócio no código (CANONICAL_RULES_METADATA, ADR 0003); gold.atualizar_regras conta os vínculos afetados por cada uma |
+| `gold.retencao_cursos_coorte` | Gold | src/pipeline/build_gold.py | não | observatorio_leitura (painel, Supabase) | retenção por ano de ingresso (silver.v_vinculo_estrutura) |
 | `gold.retencao_cursos_unb` | Gold | src/pipeline/build_gold.py | não | observatorio_leitura (painel, Supabase) | Uma linha por curso canônico com as métricas de retenção (gold.atualizar_gold, migração 0022). |
 | `dbt_intermediate.int_atributos_curso` | dbt | dbt (models/intermediate/int_atributos_curso.sql) | não | só o dono do banco |  |
 | `dbt_intermediate.int_bases_curso` | dbt | dbt (models/intermediate/int_bases_curso.sql) | não | só o dono do banco |  |
