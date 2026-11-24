@@ -122,7 +122,7 @@ exposures:
       consumidor: "Coordenações de curso e DEG"
       leitura: "papel coordenacao_academica (grava só o andamento)"
       # A tabela operacional que o consumidor lê, gravada fora do dbt pelo ETL reverso.
-      tabelas_fora_do_dbt: [operacional.fila_intervencao]
+      tabelas_fora_do_dbt: [operacional.fila_intervencao, operacional.fila_intervencao_episodios]
 
   - name: lago_delta
     label: "Lago analítico em Delta Lake (Parquet)"

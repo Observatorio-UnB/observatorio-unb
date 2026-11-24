@@ -83,6 +83,7 @@ flowchart LR
     consumo_painel_pibic[/"painel_pibic"/]
     consumo_painel_visao_executiva[/"painel_visao_executiva"/]
     operacional_fila_intervencao["operacional.fila_intervencao"]
+    operacional_fila_intervencao_episodios["operacional.fila_intervencao_episodios"]
   end
   bronze_bolsistas_iniciacao_cientifica --> silver_pibic_bolsistas
   bronze_cursos_graduacao --> silver_cursos_graduacao
@@ -147,6 +148,8 @@ flowchart LR
   gold_retencao_cursos_unb --> consumo_painel_pibic
   gold_retencao_cursos_unb --> consumo_painel_visao_executiva
   operacional_fila_intervencao --> consumo_fila_intervencao
+  operacional_fila_intervencao --> operacional_fila_intervencao_episodios
+  operacional_fila_intervencao_episodios --> consumo_fila_intervencao
   portal_cnpq_bolsas --> data_bronze_cnpq_valor_bolsa_ic_json
   portal_cursos_graduacao --> bronze_cursos_graduacao
   portal_estrutura_curricular --> bronze_estrutura_curricular
@@ -190,7 +193,7 @@ flowchart LR
 
 | Consumidor | Tipo | Lê | Fontes públicas na origem | Quem usa |
 |---|---|---|---|---|
-| ETL reverso: fila de intervenção (coordenação e DEG) | application | `dbt_marts.metricas_definicoes`, `dbt_marts.painel_cursos_criticos`, `operacional.fila_intervencao` | cursos_graduacao, estrutura_curricular, sigaa, sigra | Coordenações de curso e DEG |
+| ETL reverso: fila de intervenção (coordenação e DEG) | application | `dbt_marts.metricas_definicoes`, `dbt_marts.painel_cursos_criticos`, `operacional.fila_intervencao`, `operacional.fila_intervencao_episodios` | cursos_graduacao, estrutura_curricular, sigaa, sigra | Coordenações de curso e DEG |
 | Lago analítico em Delta Lake (Parquet) | analysis | `gold.dim_campus`, `gold.dim_curso`, `gold.fato_retencao_curso`, `silver.cursos`, `silver.estruturas_curriculares`, `silver.movimentacoes_vinculos` | cursos_graduacao, estrutura_curricular, sigaa, sigra | Análise exploratória fora do banco (DuckDB, Spark, Polars) |
 | Painel: Alunos Ativos | dashboard | `gold.ativos_hoje_cursos_unb` | estrutura_curricular, sigaa, sigaa_ativos, sigra | Coordenações de curso |
 | Painel: Auditoria e Qualidade de Dados | dashboard | `gold.regras_harmonizacao_canonicas` | sigaa, sigra | Squad e banca (transparência do tratamento) |
@@ -351,7 +354,8 @@ Toda tabela do grafo, com quem a grava, se guarda registro de pessoa e quem pode
 | `dbt_staging.stg_cursos` | dbt | dbt (models/staging/stg_cursos.sql) | não | só o dono do banco | Ofertas do catálogo de cursos, uma por id_curso. |
 | `dbt_staging.stg_estruturas_curriculares` | dbt | dbt (models/staging/stg_estruturas_curriculares.sql) | não | só o dono do banco | Matrizes curriculares, uma por curso canônico. |
 | `dbt_staging.stg_vinculos` | dbt | dbt (models/staging/stg_vinculos.sql) | um vínculo por linha, sem id_discente | só o dono do banco | Vínculos de graduação, um por linha, sem identificação do discente. |
-| `operacional.fila_intervencao` | Consumo | src/etl_reverso/fila_intervencao.py | não | coordenacao_academica (lê; grava só o andamento) | fila que a coordenação opera; o andamento é dela, as métricas são do ETL reverso |
+| `operacional.fila_intervencao` | Consumo | src/etl_reverso/fila_intervencao.py | nome do responsável da coordenação (servidor) e o plano de ação | coordenacao_academica (lê; grava só o andamento) | fila que a coordenação opera; o andamento é dela, as métricas são do ETL reverso |
+| `operacional.fila_intervencao_episodios` | Consumo | src/etl_reverso/fila_intervencao.py | nome do responsável da coordenação (servidor) em cada episódio | coordenacao_academica (lê; grava só o andamento) | passagens encerradas de cada curso pela fila, com o andamento e as métricas na saída |
 
 ## 5. Como manter
 

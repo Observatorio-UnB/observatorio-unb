@@ -140,6 +140,9 @@ ETAPAS: Tuple[Etapa, ...] = (
     Etapa("operacional.fila_intervencao", ("dbt_marts.painel_cursos_criticos", "dbt_marts.metricas_definicoes"),
           "src/etl_reverso/fila_intervencao.py", ("db/migrations/0029_fila_intervencao.sql",),
           nota="fila que a coordenação opera; o andamento é dela, as métricas são do ETL reverso"),
+    Etapa("operacional.fila_intervencao_episodios", ("operacional.fila_intervencao",),
+          "src/etl_reverso/fila_intervencao.py", ("db/migrations/0031_fila_intervencao_episodios.sql",),
+          nota="passagens encerradas de cada curso pela fila, com o andamento e as métricas na saída"),
 )
 
 
@@ -170,6 +173,8 @@ DADO_PESSOAL = {
     "silver.movimentacoes_vinculos": "um vínculo por linha, com id_discente",
     "dbt_staging.stg_vinculos": "um vínculo por linha, sem id_discente",
     "dbt_intermediate.int_coortes_maduras": "um vínculo por linha, sem id_discente",
+    "operacional.fila_intervencao": "nome do responsável da coordenação (servidor) e o plano de ação",
+    "operacional.fila_intervencao_episodios": "nome do responsável da coordenação (servidor) em cada episódio",
 }
 
 
