@@ -285,17 +285,42 @@ TRILHAS: Tuple[Trilha, ...] = (
 
 # --- Grafo -----------------------------------------------------------------------------------------
 
-def carregar_manifest(parse_se_faltar: bool = True) -> Optional[Dict]:
-    """O manifest do dbt; sem ele (ou desatualizado em relação aos YAML), roda `dbt parse`."""
+class ManifestDesatualizado(RuntimeError):
+    """O manifest do dbt é mais velho que o projeto e o `dbt parse` não conseguiu regerá-lo."""
+
+
+def manifest_desatualizado() -> bool:
+    """Sem manifest, ou com algum arquivo do projeto dbt mais novo que ele (o mesmo critério do Dagster)."""
+    if not MANIFEST.exists():
+        return True
     pasta = BASE_DIR / "transform"
-    fontes = [p for d in ("models", "seeds", "snapshots", "macros", "tests") for p in (pasta / d).rglob("*") if p.is_file()]
-    desatualizado = not MANIFEST.exists() or any(p.stat().st_mtime > MANIFEST.stat().st_mtime for p in fontes)
-    if desatualizado and parse_se_faltar:
+    fontes = [pasta / "dbt_project.yml",
+              *(p for d in ("models", "seeds", "snapshots", "macros", "tests") for p in (pasta / d).rglob("*")
+                if p.is_file())]
+    return any(p.stat().st_mtime > MANIFEST.stat().st_mtime for p in fontes)
+
+
+def carregar_manifest(parse_se_faltar: bool = True, exigir_atual: bool = False) -> Optional[Dict]:
+    """O manifest do dbt; ausente ou desatualizado em relação ao projeto, roda `dbt parse`.
+
+    Se o parse falhar, avisa no stderr. Com exigir_atual, levanta ManifestDesatualizado em vez de
+    seguir com um manifest velho: o --verificar não pode dizer "confere" sobre um grafo antigo
+    (revisão do #83). Sem exigir_atual (os testes), segue com o que houver, e sem manifest devolve None.
+    """
+    if manifest_desatualizado() and parse_se_faltar:
         try:
             subprocess.run(["bash", "scripts/dbt.sh", "parse", "--quiet"], cwd=BASE_DIR, check=True,
                            capture_output=True, text=True)
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            pass
+        except (subprocess.CalledProcessError, FileNotFoundError) as erro:
+            # O dbt escreve o erro no stdout; sem ele, o do processo.
+            linhas = [linha.strip() for saida in (getattr(erro, "stderr", None), getattr(erro, "stdout", None))
+                      for linha in (saida or "").splitlines() if linha.strip()]
+            detalhe = linhas[-1] if linhas else str(erro)
+            print(f"AVISO: `dbt parse` falhou; o manifest do dbt não foi regerado. {detalhe}", file=sys.stderr)
+    if exigir_atual and manifest_desatualizado():
+        raise ManifestDesatualizado(
+            "Manifest do dbt ausente ou mais velho que o projeto, e o `dbt parse` não o regerou: "
+            "a linhagem sairia de um grafo antigo. Rode `bash scripts/dbt.sh parse` e veja o erro.")
     if not MANIFEST.exists():
         return None
     return json.loads(MANIFEST.read_text(encoding="utf-8"))
@@ -561,7 +586,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                         help="Falha se a declaração divergir do código ou se o documento estiver desatualizado.")
     args = parser.parse_args(argv)
 
-    manifest = carregar_manifest()
+    try:
+        manifest = carregar_manifest(exigir_atual=True)
+    except ManifestDesatualizado as erro:
+        print(f"ERRO: {erro}", file=sys.stderr)
+        return 1
     if manifest is None:
         print("Manifest do dbt indisponível (pip install -r requirements-dbt.txt).", file=sys.stderr)
         return 1

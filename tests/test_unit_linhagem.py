@@ -8,8 +8,11 @@ Uso:
     python3 -m unittest tests/test_unit_linhagem.py
 """
 
+import io
+import subprocess
 import sys
 import unittest
+from contextlib import redirect_stderr
 from dataclasses import replace
 from pathlib import Path
 from unittest import mock
@@ -84,6 +87,36 @@ class TestLinhagem(unittest.TestCase):
         acima = L.ancestrais(self.grafo, "consumo:fila_intervencao")
         self.assertIn("operacional.fila_intervencao", acima)
         self.assertIn("dbt_marts.painel_cursos_criticos", L.ancestrais(self.grafo, "operacional.fila_intervencao"))
+
+
+class TestManifestDesatualizado(unittest.TestCase):
+    """Revisão do #83: um `dbt parse` que falha não pode deixar o --verificar dizer "confere"."""
+
+    def falhar_parse(self):
+        erro = subprocess.CalledProcessError(2, "dbt parse", stderr="Compilation Error in model x")
+        return mock.patch.object(L.subprocess, "run", side_effect=erro)
+
+    def test_01_verificar_falha_com_manifest_velho_e_parse_quebrado(self):
+        saida = io.StringIO()
+        with mock.patch.object(L, "manifest_desatualizado", return_value=True), self.falhar_parse(), \
+                redirect_stderr(saida):
+            self.assertEqual(L.main(["--verificar"]), 1)
+        self.assertIn("`dbt parse` falhou", saida.getvalue())
+        self.assertIn("mais velho que o projeto", saida.getvalue())
+
+    def test_02_sem_exigir_atual_so_avisa(self):
+        saida = io.StringIO()
+        with mock.patch.object(L, "manifest_desatualizado", return_value=True), self.falhar_parse(), \
+                redirect_stderr(saida):
+            manifest = L.carregar_manifest()
+        self.assertIsNotNone(manifest)
+        self.assertIn("Compilation Error in model x", saida.getvalue())
+
+    def test_03_manifest_em_dia_nao_roda_o_parse(self):
+        with mock.patch.object(L, "manifest_desatualizado", return_value=False), \
+                mock.patch.object(L.subprocess, "run") as run:
+            L.carregar_manifest(exigir_atual=True)
+        run.assert_not_called()
 
 
 if __name__ == "__main__":
