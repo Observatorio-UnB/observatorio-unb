@@ -193,3 +193,67 @@ def renderizar(g):
             label=f"📥 Baixar série de coortes de {selected_course} (CSV, Gold k ≥ 5)",
             key="csv_detalhe_coortes",
         )
+
+    st.markdown("---")
+    st.subheader("🧭 Cursos com perfil semelhante")
+    st.caption(
+        "Cursos próximos em perfil acadêmico e indicadores de retenção (via embeddings pgvector quando conectado "
+        "ao banco; fallback estatístico sobre a Gold no modo offline)."
+    )
+    similares = []
+    fonte_sim = "pgvector"
+    try:
+        from src.busca.buscar import cursos_semelhantes
+
+        similares = cursos_semelhantes(selected_course, k=4)
+    except Exception:
+        similares = []
+
+    if not similares:
+        fonte_sim = "estatístico (Gold)"
+        cols_num = ["taxa_evasao_pct", "taxa_formatura_pct", "desvio_medio_semestres", "indice_retencao_critica"]
+        base = df_gold[["curso", "campus", "turno", *cols_num]].dropna(subset=cols_num).copy()
+        if selected_course in set(base["curso"]):
+            matriz = base[cols_num].astype(float)
+            desvios = matriz.std(ddof=0).replace(0, 1.0)
+            norm = (matriz - matriz.mean()) / desvios
+            alvo = norm[base["curso"] == selected_course].iloc[0]
+            dist = ((norm - alvo) ** 2).sum(axis=1) ** 0.5
+            base = base.assign(_dist=dist)
+            vizinhos = base[base["curso"] != selected_course].nsmallest(4, "_dist")
+            for _, row_v in vizinhos.iterrows():
+                similares.append({
+                    "curso": row_v["curso"],
+                    "metadados": {
+                        "campus": row_v["campus"],
+                        "turno": row_v["turno"],
+                        "taxa_evasao_pct": float(row_v["taxa_evasao_pct"]),
+                        "taxa_formatura_pct": float(row_v["taxa_formatura_pct"]),
+                        "indice_retencao_critica": float(row_v["indice_retencao_critica"]),
+                    },
+                    "similaridade": round(1.0 / (1.0 + float(row_v["_dist"])), 3),
+                })
+
+    if similares:
+        cols_sim = st.columns(len(similares))
+        for idx_s, item in enumerate(similares):
+            meta_s = item["metadados"] or {}
+            with cols_sim[idx_s].container(border=True):
+                st.markdown(f"**{item['curso']}**")
+                st.caption(
+                    f"{meta_s.get('campus_norm') or meta_s.get('campus', '—')} · {meta_s.get('turno', '—')}"
+                )
+                ev_s = meta_s.get("taxa_evasao_pct")
+                fo_s = meta_s.get("taxa_formatura_pct")
+                irc_s = meta_s.get("indice_retencao_critica")
+                st.markdown(
+                    f"Evasão: **{dec(ev_s, 1) + '%' if ev_s is not None else '—'}**  \n"
+                    f"Formatura: **{dec(fo_s, 1) + '%' if fo_s is not None else '—'}**  \n"
+                    f"IRC: **{dec(irc_s, 1) if irc_s is not None else '—'}**"
+                )
+                if st.button("Abrir curso", key=f"sim_curso_{idx_s}_{item['curso']}", use_container_width=True):
+                    st.session_state["curso_selecionado"] = item["curso"]
+                    st.rerun()
+        st.caption(f"Método: {fonte_sim}.")
+    else:
+        st.caption("Sem cursos semelhantes disponíveis para o recorte atual.")
