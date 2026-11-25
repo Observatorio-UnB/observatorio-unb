@@ -163,3 +163,5 @@ def renderizar(g):
         botao_csv(df_grau, "comparativo_graus_unb.csv", "📥 Baixar Graus (CSV)", key="csv_graus")
     with c_dl3:
         botao_csv(df_campus, "comparativo_campi_unb.csv", "📥 Baixar Campi (CSV)", key="csv_campi")
+    g.mostrar_definicoes(["ingressantes", "taxa_evasao_pct", "taxa_formatura_pct", "atraso_medio_semestres",
+                          "tempo_medio_formatura_semestres", "prazo_ideal_medio_semestres"])

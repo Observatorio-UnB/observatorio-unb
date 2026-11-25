@@ -42,3 +42,14 @@ O padrão de acesso é o de análise: varreduras de colunas inteiras agregadas p
 O lago é derivado do banco e regravável a qualquer momento, então não precisa de backup. `data/` não é versionado, e o lago com vínculos individuais (id sintético) fica só na máquina ou no runner que rodou o pipeline, como a silver no banco. A nova etapa entra em `scripts/rodar_pipeline.sh` depois do povoamento dimensional.
 
 O lago é carga em lote a partir do banco. A captura de mudanças (CDC) é outro caminho e tem decisão própria.
+
+## Gatilhos de revisão
+
+- **Partição por quinquênio sair da faixa saudável** (crescer acima de 128 MB por arquivo Parquet, pedindo partição por `ano_ingresso`, ou acumular > 50 arquivos pequenos por partição sem compactação).
+  - *Estado no semestre (até 24/11/2026):* **Não disparou — decisão mantida.** Os arquivos por quinquênio ficam entre 370 KB e 560 KB (152.680 vínculos em 6 quinquênios, 2000–2025), com reprocessamento seletivo (`--janelas-alteradas`) em ~1,8 s (Semana 10) e backfill validado na Semana 13.
+- **Evolução de esquema frequente por ID de campo (renomear/reordenar colunas) ou entrada de múltiplos escritores concorrentes no lago**, cenário em que Apache Iceberg com catálogo gerenciado passaria a se pagar.
+  - *Estado no semestre (até 24/11/2026):* **Não disparou — decisão mantida.** `src/db/exportar_lago.py` segue como único escritor do lago em lote, lendo os tipos do catálogo do PostgreSQL.
+- **Tempo de escrita em ZSTD nível 3 ultrapassar 5 s ou leitura analítica de agregação no DuckDB passar de 500 ms**, justificando migrar para ZSTD nível 1 ou Snappy.
+  - *Estado no semestre (até 24/11/2026):* **Não disparou — decisão mantida.** A escrita dos vínculos segue em ~173 ms (export completo em ~0,9 s) e a leitura analítica em ~25 ms.
+- **Não-determinismo entre recargas fazendo o Delta regravar todas as partições mesmo sem mudança na fonte.**
+  - *Estado no semestre (até 24/11/2026):* **Disparou — decisão mantida com correção na carga** (Semana 10). Sem ordenação explícita na carga da Silver 3NF, os `id_vinculo` (`IDENTITY`) flutuavam entre execuções e invalidavam todas as partições do lago. A adição de `ORDER BY dg.id` eliminou a variação sem alterar o formato Delta nem o particionamento por quinquênio.

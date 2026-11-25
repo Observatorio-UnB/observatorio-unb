@@ -182,6 +182,17 @@ def renderizar(g):
     _tm_atual = _media_ponderada(df_view, "tempo_medio_real_semestres")
     _id_atual = _media_ponderada(df_view, "formados_tempo_ideal_pct")
 
+    # Camada semântica (#82): o recorte UNB tem a definição única do tempo médio e do % no prazo (macros do
+    # dbt, sobre os formados com permanência calculável). Ele é a base oficial dos deltas e, no período
+    # oficial sem filtro, o próprio número exibido: a mesma conta do ranking, das comparações e da fila.
+    # Com filtro ou outro intervalo de coortes, vale a conta sobre o recorte (df_view).
+    unb = g.unb_semantica
+    if unb:
+        _tm_base = float(unb["tempo_medio_formatura_semestres"])
+        _id_base = float(unb["formados_tempo_ideal_pct"])
+        if not filtro_ativo:
+            _tm_atual, _id_atual = _tm_base, _id_base
+
     # KPIs Globais (com deltas comparativos contra o baseline oficial quando filtrado/alterado)
     c1, c2, c3, c4 = st.columns(4)
     with c1:
@@ -203,7 +214,9 @@ def renderizar(g):
             value=f"{dec(_tm_atual, 2)} sem." if pd.notna(_tm_atual) else "—",
             delta=delta_pp(_tm_atual, _tm_base, 2, "sem.", " vs. oficial") if filtro_ativo else None,
             delta_color="inverse",
-            help="Média em semestres entre o ingresso e a formatura, só entre quem se formou (ponderada pelo nº de formados de cada curso).",
+            help=("Média em semestres entre o ingresso e a formatura, só entre quem se formou. No período oficial "
+                  "sem filtros, vem da camada semântica (formados com permanência calculável); com filtro ou outro "
+                  "intervalo, é a média dos cursos do recorte ponderada pelo nº de formados."),
         )
     with c3:
         st.metric(

@@ -50,6 +50,9 @@ class TestGrafo(unittest.TestCase):
             ("gold/dim_curso", "gold_tabular"),
             ("view_painel", "gold/fato_retencao_curso"),
             ("supabase", "view_painel"),
+            # O ETL reverso lê o mesmo mart do painel e o registro das métricas: só depois do dbt.
+            ("etl_reverso", "dbt_marts/painel_cursos_criticos"),
+            ("etl_reverso", "dbt_marts/metricas_definicoes"),
         ]:
             with self.subTest(asset=asset):
                 self.assertTrue(self.depende_de(asset, upstream), f"{asset} deveria depender de {upstream}")

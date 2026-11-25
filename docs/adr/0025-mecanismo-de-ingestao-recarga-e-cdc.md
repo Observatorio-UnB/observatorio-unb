@@ -68,3 +68,14 @@ Os dois caminhos falham de jeitos diferentes. Estas são as falhas vistas durant
 O projeto fica com um caminho barato e sempre ligado (lote) e um caro e opcional (CDC). Desligar o CDC exige `scripts/cdc.sh remover`. Parar só os containers deixa o slot segurando WAL até o limite de 2 GB. Religar com `scripts/cdc.sh registrar` refaz o snapshot inicial. Os tópicos não têm retenção por tempo, então crescem a cada recarga (378 MB depois de 3 cargas) até alguém os apagar.
 
 Se o OLTP passar a receber escrita contínua fora do pipeline, por exemplo de uma aplicação de secretaria, a conta da latência muda e o CDC passa a ser o caminho principal. Os números acima precisam ser medidos de novo nesse cenário.
+
+## Gatilhos de revisão
+
+- **O OLTP (`silver` 3NF) passar a receber escrita contínua fora do pipeline mensal** (ex.: secretaria ou sistema transacional gravando correções linha a linha, exigindo latência < 1 hora até o lago).
+  - *Estado no semestre (até 24/11/2026):* **Não disparou — decisão mantida.** O pipeline mensal continua sendo o único escritor da Silver 3NF; o papel `secretaria_campus` (E4, PR #84) é somente leitura.
+- **A fonte pública (API CKAN da UnB) passar a publicar com frequência diária/contínua ou o SLA de frescor do painel cair abaixo de 24 horas** (hoje 35 dias, `docs/frescor_sla.md`).
+  - *Estado no semestre (até 24/11/2026):* **Não disparou — decisão mantida.** A publicação da fonte segue mensal/semestral e o SLA formalizado na E3 (Semana 13) é de 35 dias (0,0/35 dias na carga de 11/2026).
+- **Retenção de WAL no slot de replicação ultrapassar 50% de `max_slot_wal_keep_size` (> 1 GB) em operação recorrente, ou o crescimento dos tópicos Kafka exigir retenção finita/compactação ativa.**
+  - *Estado no semestre (até 24/11/2026):* **Não disparou em produção — decisão mantida.** O CDC permanece opcional no profile `cdc` do `docker-compose.yml` (fora do CI e do cron mensal); nos ensaios da Semana 09 o pico de WAL foi de 239 MB e o slot é removido com `scripts/cdc.sh remover`.
+- **Recarga completa da Silver 3NF + export do lago ultrapassar 10 minutos**, tornando a substituição integral (`TRUNCATE` + `COPY` + `overwrite`) inviável na janela do job.
+  - *Estado no semestre (até 24/11/2026):* **Não disparou — decisão mantida.** A carga completa até a Silver 3NF leva ~46 s e o export do lago leva ~0,9 s.
