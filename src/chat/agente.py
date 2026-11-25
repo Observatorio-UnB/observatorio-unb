@@ -15,18 +15,33 @@ import requests
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.chat import ferramentas  # noqa: E402
+from src.chat.verificacao import numeros_sem_fonte  # noqa: E402
 from src.db.conexao import ler_variavel  # noqa: E402
 
 MAX_ITERACOES = 6
 LIMITE_RESULTADO = 6000  # caracteres de resultado de ferramenta devolvidos ao modelo
 LIMITE_ESQUEMA = 20000
+# Só as tabelas planas vão no prompt: o esquema inteiro (~14 mil caracteres) levava ~13 min na 1ª pergunta em
+# CPU. As demais continuam consultáveis por SQL (e pelo `descrever_esquema` completo), mas o modelo não as vê.
+TABELAS_PROMPT = ("gold.retencao_cursos_unb", "gold.ativos_hoje_cursos_unb", "gold.pibic_social_unb",
+                  "gold.inep_benchmark_cursos_unb")
+
+
+def esquema_prompt() -> str:
+    return ferramentas.descrever_esquema(tabelas=TABELAS_PROMPT, limite_comentario=120)[:LIMITE_ESQUEMA]
 
 SISTEMA = """Você é o assistente do Observatório UnB: responde perguntas e faz análises sobre os dados \
 agregados de cursos, retenção, alunos ativos, iniciação científica (PIBIC) e INEP da UnB.
 Regras:
 - Responda em português, só com o que as ferramentas devolveram. Se não houver dado, diga isso.
+  Nunca invente número, tabela, coluna, curso ou fonte; na dúvida, diga que não sabe. Não arredonde nem recalcule
+  de cabeça: copie os valores do resultado.
 - Para dados numéricos, CHAME a ferramenta consultar_sql (PostgreSQL, só SELECT) com o SQL; não escreva o SQL
   na resposta. Use só as tabelas e colunas do esquema abaixo. Se o banco devolver erro, corrija e tente de novo.
+- Perguntas de definição ou metodologia ("como é calculado X?") NÃO levam SQL: responda com a descrição da coluna
+  no esquema (fórmula entre os comentários) ou com buscar_documentos.
+- IRC (índice de retenção crítica) = (0,3 x atraso normalizado + 0,7 x evasão normalizada) x 100, com saturação \
+nos percentis 5 e 95; quanto maior, mais crítico o curso. Responda isso sem SQL.
 - Use buscar_documentos para perguntas sobre documentação, projetos de IC ou descrição de cursos.
 - Faça contas no SQL (COUNT, SUM, AVG, GROUP BY, ORDER BY ... LIMIT); nunca some ou conte de cabeça as linhas devolvidas.
 - Nomes de curso estão em MAIÚSCULAS e sem acento (ex.: CIENCIA DA COMPUTACAO). Para texto, prefira ILIKE '%trecho%' ou
@@ -34,12 +49,14 @@ Regras:
   com ILIKE antes de concluir que não há dado.
 - Onde procurar (tabelas planas, uma linha por curso, já com nome, campus e turno; prefira-as aos joins do star):
   retenção, evasão, formatura, IRC, tempo de curso -> gold.retencao_cursos_unb;
-  alunos ativos hoje e acima do prazo -> gold.ativos_hoje_cursos_unb;
+  alunos ativos hoje e acima do prazo ideal (NÃO use retencao_cursos_unb para isso) -> gold.ativos_hoje_cursos_unb;
   iniciação científica (planos, bolsas, valor, cotas) -> gold.pibic_social_unb;
   comparação com outras federais (INEP) -> gold.inep_benchmark_cursos_unb.
   Essas tabelas já são agregadas: cada linha é um grupo (curso, ou curso+campus), e as colunas total_* trazem a contagem.
   Para "quantos planos/alunos/formados", use SUM(total_*), nunca COUNT(*), que só conta linhas.
-  gold.dim_* e gold.fato_* são o star schema: só têm chaves (sk_*), sem nome de curso ou campus.
+  Taxas e percentuais já vêm prontos em colunas *_pct (ex.: taxa_formatura_pct, taxa_evasao_pct): use-as em vez de
+  recalcular; se precisar dividir, converta com ::numeric (divisão de inteiros dá 0).
+  gold.dim_* e gold.fato_* (star schema) não estão no esquema: não os use.
 - Cite as tabelas usadas. Mostre números com o período a que se referem.
 - Privacidade (LGPD): os dados são agregados com k>=5. Nunca tente identificar, reidentificar ou inferir \
 algo sobre pessoas.
@@ -66,7 +83,8 @@ def chamar_ollama(mensagens: List[dict]) -> dict:
         json={"model": modelo, "messages": mensagens, "tools": FERRAMENTAS, "stream": False,
               # O padrão do Ollama é um contexto de 4096 tokens, curto para esquema + resultados.
               "options": {"temperature": 0, "num_ctx": 8192}, "keep_alive": "30m"},
-        timeout=300,
+        # Em CPU, a 1ª chamada processa ~6 mil tokens de esquema (~10 min); as seguintes reaproveitam o cache.
+        timeout=int(ler_variavel("OLLAMA_TIMEOUT") or 900),
     )
     r.raise_for_status()
     return r.json()["message"]
@@ -94,9 +112,9 @@ BLOCO_SQL = re.compile(r"```sql\s*(.*?)```", re.S | re.I)
 def conversar(historico: List[dict], pergunta: str,
               llm: Callable[[List[dict]], dict] = chamar_ollama,
               ferramenta: Callable[[str, dict], str] = executar_ferramenta,
-              esquema: Callable[[], str] = lambda: ferramentas.descrever_esquema()[:LIMITE_ESQUEMA]) -> Dict[str, Any]:
+              esquema: Callable[[], str] = esquema_prompt) -> Dict[str, Any]:
     """Uma rodada: acrescenta a pergunta a `historico` (alterado no lugar) e devolve
-    {"resposta": str, "consultas": [sql, ...]}. Para após MAX_ITERACOES chamadas ao modelo."""
+    {"resposta": str, "consultas": [sql, ...], "avisos": [str, ...]}. Para após MAX_ITERACOES chamadas ao modelo."""
     if not historico:
         # O esquema vai no prompt de sistema, igual em toda conversa: o Ollama reaproveita o cache desse
         # prefixo e não reprocessa milhares de tokens a cada pergunta (em CPU, eram ~4 min por pergunta).
@@ -112,7 +130,11 @@ def conversar(historico: List[dict], pergunta: str,
             # Modelo pequeno escreveu o SQL em vez de chamar a ferramenta: executa, e ele responde com o resultado.
             chamadas = [{"function": {"name": "consultar_sql", "arguments": {"sql": bloco.group(1).strip()}}}]
         if not chamadas:
-            return {"resposta": msg.get("content", ""), "consultas": consultas}
+            resposta = msg.get("content", "")
+            fontes = [pergunta, historico[0]["content"]] + [m["content"] for m in historico if m["role"] == "tool"]
+            sem = numeros_sem_fonte(resposta, fontes)
+            avisos = [f"Números sem fonte nos resultados consultados: {', '.join(sem)}. Confira antes de usar."] if sem else []
+            return {"resposta": resposta, "consultas": consultas, "avisos": avisos}
         for c in chamadas:
             f = c["function"]
             args = f.get("arguments") or {}
@@ -122,7 +144,7 @@ def conversar(historico: List[dict], pergunta: str,
                 consultas.append(args.get("sql", ""))
             historico.append({"role": "tool", "content": ferramenta(f["name"], args)})
     return {"resposta": "Não consegui concluir a análise em poucas consultas; reformule a pergunta.",
-            "consultas": consultas}
+            "consultas": consultas, "avisos": []}
 
 
 if __name__ == "__main__":

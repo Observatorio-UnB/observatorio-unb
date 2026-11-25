@@ -7,7 +7,7 @@ segunda camada.
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
@@ -20,6 +20,15 @@ URL_PADRAO_CHAT = "postgresql://observatorio_chat:observatorio_chat@localhost:54
 PROIBIDOS = re.compile(
     r"\b(bronze|silver|dbt_staging|dbt_intermediate|dbt_snapshots|pg_catalog|information_schema)\b", re.I
 )
+
+
+# Funções que leem arquivo, abrem outra conexão ou mexem na sessão/servidor: o papel do banco já barra a
+# maioria, mas o modelo nem precisa tentar.
+FUNCOES_PROIBIDAS = re.compile(
+    r"\b(pg_read_\w+|pg_ls_\w+|pg_stat_file|lo_\w+|dblink\w*|set_config|pg_sleep\w*|pg_terminate_backend|"
+    r"pg_cancel_backend|current_setting|pg_reload_conf)\b", re.I)
+# Colunas de identificação pessoal: a gold não as tem (k >= 5), então pedir uma é tentativa de reidentificar.
+PESSOAIS = re.compile(r"\b(matricula|nome_discente|nome_aluno|cpf|email|e_mail|telefone|data_nascimento)\b", re.I)
 
 
 class SqlRecusado(ValueError):
@@ -40,6 +49,10 @@ def validar_sql(sql: str) -> str:
         raise SqlRecusado("Só SELECT ou WITH.")
     if PROIBIDOS.search(s):
         raise SqlRecusado("Só gold, dbt_marts e busca podem ser consultados.")
+    if FUNCOES_PROIBIDAS.search(s):
+        raise SqlRecusado("Função não permitida.")
+    if PESSOAIS.search(s):
+        raise SqlRecusado("Dado pessoal não é consultável: o chat só responde com dados agregados.")
     return s
 
 
@@ -54,6 +67,8 @@ def consultar_sql(sql: str, url: Optional[str] = None) -> Dict[str, Any]:
         with conn.cursor() as cur:
             cur.execute(s)
             colunas = [d.name for d in cur.description]
+            if any(PESSOAIS.search(c) for c in colunas):  # alias ou SELECT * que traga coluna pessoal
+                raise SqlRecusado("Dado pessoal não é consultável: o chat só responde com dados agregados.")
             linhas = cur.fetchmany(LIMITE_LINHAS + 1)
     return {
         "colunas": colunas,
@@ -62,8 +77,11 @@ def consultar_sql(sql: str, url: Optional[str] = None) -> Dict[str, Any]:
     }
 
 
-def descrever_esquema(url: Optional[str] = None) -> str:
-    """Tabelas e colunas de gold, dbt_marts e busca, com os COMMENT ON do catálogo."""
+def descrever_esquema(url: Optional[str] = None, tabelas: Optional[Iterable[str]] = None,
+                      limite_comentario: int = 50) -> str:
+    """Tabelas e colunas de gold, dbt_marts e busca, com os COMMENT ON do catálogo.
+    `tabelas` ("esquema.tabela") restringe a saída; `limite_comentario` é o tamanho do comentário de coluna."""
+    so = set(tabelas) if tabelas else None
     q = """
     SELECT n.nspname, c.relname, obj_description(c.oid, 'pg_class'),
            a.attname, format_type(a.atttypid, a.atttypmod), col_description(c.oid, a.attnum)
@@ -87,13 +105,13 @@ def descrever_esquema(url: Optional[str] = None) -> str:
     saida: List[str] = []
     atual = None
     for esq, tab, comt, col, tipo, ccomt in linhas:
-        if col.startswith("_"):
+        if col.startswith("_") or (so and f"{esq}.{tab}" not in so):
             continue
         if (esq, tab) != atual:
             atual = (esq, tab)
             saida.append(f"\n{esq}.{tab}" + (f" -- {_curto(comt, 90)}" if comt else ""))
         extra = f" [valores: {valores[(esq, tab, col)]}]" if tipo == "text" and (esq, tab, col) in valores else ""
-        saida.append(f"  {col} {tipo.split('(')[0]}" + (f" -- {_curto(ccomt, 50)}" if ccomt else "") + extra)
+        saida.append(f"  {col} {tipo.split('(')[0]}" + (f" -- {_curto(ccomt, limite_comentario)}" if ccomt else "") + extra)
     return "\n".join(saida)
 
 
@@ -109,5 +127,5 @@ def buscar_documentos(consulta: str, k: int = 5) -> List[Dict[str, Any]]:
 
     return [
         {"tipo": d["tipo"], "titulo": d["titulo"], "conteudo": d["conteudo"][:800]}
-        for d in buscar(consulta, k=min(max(int(k), 1), 10))
+        for d in buscar(consulta, k=min(max(int(k), 1), 10), url=url_chat())
     ]

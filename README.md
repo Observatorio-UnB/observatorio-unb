@@ -510,12 +510,11 @@ recall@5 de ao menos 0,8 por tipo. O relatório caso a caso sai com
 
 ## 💬 Chat com os dados (LLM local)
 
-Página **Chat** do painel: um modelo local (Ollama) responde perguntas consultando só a gold agregada, em modo somente leitura ([ADR 0031](docs/adr/0031-chat-llm-local.md)).
+Página **Chat** do painel: um modelo local (Ollama) responde perguntas consultando só a gold agregada, em modo somente leitura ([ADR 0033](docs/adr/0033-chat-llm-local.md)).
 
 ```bash
 docker compose up -d db && python3 src/db/migrar.py        # cria o usuário observatorio_chat (migração 0032)
-docker compose --profile chat up -d ollama
-docker compose --profile chat exec ollama ollama pull qwen2.5:7b-instruct
+docker compose --profile chat up -d ollama ollama-pull      # sobe o Ollama e baixa o modelo (1ª vez: ~4,7 GB)
 streamlit run src/dashboard/app.py                               # página Chat
 python3 src/chat/agente.py "quais os 5 cursos com maior IRC?"     # ou pelo terminal
 ```

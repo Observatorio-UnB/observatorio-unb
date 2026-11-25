@@ -1,4 +1,4 @@
-# ADR 0031: Chat com LLM local sobre a gold
+# ADR 0033: Chat com LLM local sobre a gold
 
 - **Status:** Aceita
 - **Data:** 2026-11-11
@@ -18,6 +18,8 @@ O painel mostra métricas fixas. Faltava uma forma de fazer perguntas e análise
 ## Consequências
 
 - Um modelo de 7B pode errar o SQL; o erro do banco volta ao modelo, que tenta de novo, e o SQL fica visível para conferência.
-- `buscar_documentos` usa `src.busca.buscar`, que conecta com `DATABASE_URL` (dono do banco), e não com o usuário do chat. Só lê `busca.documentos`; migrar para o usuário do chat é uma melhoria pendente.
+- `buscar_documentos` conecta com o usuário do chat (`CHAT_DATABASE_URL`), como `consultar_sql`: nenhuma ferramenta usa o dono do banco.
+- Contra vazamento: `validar_sql` recusa funções de arquivo/sessão (`pg_read_file`, `dblink`, `set_config`...) e colunas pessoais (`matricula`, `cpf`, `email`...), no texto do SQL e nas colunas devolvidas.
+- Contra alucinação: `src/chat/verificacao.py` confere se cada número da resposta aparece nos resultados das ferramentas, na pergunta ou no esquema; os sem fonte vão em `avisos` e a página mostra um alerta. É heurística (não barra a resposta), e o SQL continua visível para conferência.
 - Texto de `busca.documentos` é tratado como dado, não instrução (prompt injection), e o papel somente leitura limita o dano.
 - Pendente: conjunto de perguntas de referência para medir acerto do modelo, como em `tests/test_banco_busca.py`.

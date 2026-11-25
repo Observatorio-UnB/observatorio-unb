@@ -21,21 +21,23 @@ st.caption(
 
 if "historico" not in st.session_state:
     st.session_state.historico = []  # mensagens no formato do Ollama, incluindo as de ferramenta
-    st.session_state.exibicao = []  # (papel, texto, consultas) para desenhar a conversa
+    st.session_state.exibicao = []  # (papel, texto, consultas, avisos) para desenhar a conversa
 
 if st.sidebar.button("Nova conversa"):
     st.session_state.historico, st.session_state.exibicao = [], []
 
-for papel, texto, consultas in st.session_state.exibicao:
+for papel, texto, consultas, avisos in st.session_state.exibicao:
     with st.chat_message(papel):
         st.markdown(texto)
+        for aviso in avisos:
+            st.warning(aviso)
         for sql in consultas:
             with st.expander("SQL executado"):
                 st.code(sql, language="sql")
 
 pergunta = st.chat_input("Pergunte sobre cursos, retenção, alunos ativos, IC...")
 if pergunta:
-    st.session_state.exibicao.append(("user", pergunta, []))
+    st.session_state.exibicao.append(("user", pergunta, [], []))
     with st.chat_message("user"):
         st.markdown(pergunta)
     with st.chat_message("assistant"), st.spinner("Consultando os dados..."):
@@ -43,11 +45,13 @@ if pergunta:
             from src.chat.agente import conversar
 
             r = conversar(st.session_state.historico, pergunta)
-            resposta, consultas = r["resposta"], r["consultas"]
+            resposta, consultas, avisos = r["resposta"], r["consultas"], r["avisos"]
         except Exception as e:  # noqa: BLE001
-            resposta, consultas = f"Não consegui falar com o Ollama ou o banco: `{e}`", []
+            resposta, consultas, avisos = f"Não consegui falar com o Ollama ou o banco: `{e}`", [], []
         st.markdown(resposta)
+        for aviso in avisos:
+            st.warning(aviso)
         for sql in consultas:
             with st.expander("SQL executado"):
                 st.code(sql, language="sql")
-    st.session_state.exibicao.append(("assistant", resposta, consultas))
+    st.session_state.exibicao.append(("assistant", resposta, consultas, avisos))

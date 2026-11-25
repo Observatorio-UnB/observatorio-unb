@@ -13,6 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 from src.chat.agente import MAX_ITERACOES, conversar  # noqa: E402
 from src.chat.ferramentas import SqlRecusado, validar_sql  # noqa: E402
+from src.chat.verificacao import numeros_sem_fonte  # noqa: E402
 
 
 class TestValidarSql(unittest.TestCase):
@@ -32,6 +33,35 @@ class TestValidarSql(unittest.TestCase):
                     "SELECT * FROM dbt_staging.stg_vinculos", "SELECT * FROM pg_catalog.pg_roles"]:
             with self.assertRaises(SqlRecusado, msg=sql):
                 validar_sql(sql)
+
+
+    def test_recusa_funcoes_perigosas_e_coluna_pessoal(self):
+        for sql in ["SELECT pg_read_file('/etc/passwd')", "SELECT pg_sleep(100)", "SELECT set_config('a','b',false)",
+                    "SELECT matricula FROM gold.x", "SELECT cpf FROM gold.x"]:
+            with self.assertRaises(SqlRecusado, msg=sql):
+                validar_sql(sql)
+
+
+class TestAncoragem(unittest.TestCase):
+
+    def test_numero_vindo_da_ferramenta_passa_em_qualquer_formato(self):
+        fontes = ['{"linhas": [[12666, 43933800.00, 21.08]]}']
+        self.assertEqual(numeros_sem_fonte("São 12.666 planos, R$ 43.933.800,00 e 21,1 pp.", fontes), [])
+
+    def test_numero_inventado_e_apontado(self):
+        self.assertEqual(numeros_sem_fonte("São 9.999 planos.", ['{"linhas": [[12666]]}']), ["9.999"])
+
+    def test_inteiro_pequeno_e_ignorado(self):
+        self.assertEqual(numeros_sem_fonte("Os 5 cursos com maior IRC.", []), [])
+
+    def test_agente_devolve_aviso_para_numero_sem_fonte(self):
+        respostas = iter([{"role": "assistant", "content": "", "tool_calls": [
+            {"function": {"name": "consultar_sql", "arguments": {"sql": "SELECT 1"}}}]},
+            {"role": "assistant", "content": "São 777 cursos."}])
+        r = conversar([], "quantos?", llm=lambda m: next(respostas), ferramenta=lambda *_: '{"linhas": [[112]]}',
+                      esquema=lambda: "")
+        self.assertEqual(len(r["avisos"]), 1)
+        self.assertIn("777", r["avisos"][0])
 
 
 class TestAgente(unittest.TestCase):
