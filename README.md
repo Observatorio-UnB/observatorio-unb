@@ -290,7 +290,7 @@ camadas e três esquemas: `dbt_staging` (views que só renomeiam a silver, sem o
 
 ```bash
 pip install -r requirements-dbt.txt
-bash scripts/dbt.sh build --full-refresh     # modelos, snapshot e 65 testes de dados, na ordem do grafo
+bash scripts/dbt.sh build --full-refresh     # modelos, seed, snapshot e 79 testes de dados, na ordem do grafo
 bash scripts/dbt.sh docs generate --static   # documentação e linhagem: transform/target/static_index.html
 ```
 
@@ -311,7 +311,7 @@ Limites, origem de cada um e a tabela de injeções: [docs/testes_de_dados.md](d
 ### Orquestração (Dagster)
 O pipeline também roda como um grafo do Dagster (`orquestracao/`, ADR 0030). Cada etapa chama o
 mesmo script deste roteiro, com dependências explícitas e retry por etapa (3 novas tentativas, com
-espera exponencial). Os 12 modelos e o snapshot do dbt entram um a um, depois do star schema. O `atualiza-dados.yml`
+espera exponencial). Os 15 modelos, o seed do registro de métricas e o snapshot do dbt entram um a um, depois do star schema. O `atualiza-dados.yml`
 dispara o job `pipeline_mensal` no dia 1 de cada mês, e o lago tem backfill por quinquênio de ingresso.
 
 ```bash
@@ -559,11 +559,11 @@ derivadas (Gold) seguem os termos de uso do portal de origem.
 
 ## 📊 3. Principais Resultados e Achados
 
-Recorte: SIGRA + SIGAA, coortes de ingresso 2010-2016 (as com 8 anos ou mais de acompanhamento). Os números abaixo são da carga de 03/11/2026, a do painel publicado; a atualização mensal pode alterá-los.
+Recorte: SIGRA + SIGAA, coortes de ingresso 2010-2016 (as com 8 anos ou mais de acompanhamento). Os números abaixo são da carga de 24/11/2026, a do painel publicado, e vêm da camada semântica (`dbt_marts.metricas_por_recorte`); a atualização mensal pode alterá-los.
 
-1. **Taxa de Formatura no Tempo Ideal**: Apenas **50.36%** dos formados na UnB concluem o curso dentro do prazo regulamentar da matriz curricular.
-2. **Tempo Médio Global de Conclusão**: **11.77 semestres** (~5.9 anos).
-3. **Cursos com Maior Retenção Crítica (IRC)**: 23 cursos estão em retenção crítica, o quartil mais alto do IRC. Os primeiros da fila são *Física Computacional*, *Computação*, *Ciência da Computação* e *Línguas Estrangeiras Aplicadas - MSI* combinam atrasos médios de 2,8 a 4,3 semestres e taxas de evasão acima de 59%.
-4. **Cursos com Maior Pontualidade**: *Medicina* (83.72% no tempo ideal), *Direito* (82.75%) e *Língua de Sinais Brasileira - Português como Segunda Língua* (81.82%).
-5. **Cursos Noturnos**: Apresentam evasão média maior (**50.90%** vs. **40.85%** no diurno; cursos com oferta diurna e noturna sob o mesmo nome ficam fora da comparação).
+1. **Taxa de Formatura no Tempo Ideal**: Apenas **50,43%** dos formados na UnB concluem o curso dentro do prazo regulamentar da matriz curricular.
+2. **Tempo Médio Global de Conclusão**: **11,77 semestres** (~5,9 anos).
+3. **Cursos com Maior Retenção Crítica (IRC)**: 23 cursos estão em retenção crítica, o quartil mais alto do IRC; 22 deles têm 30 ou mais ingressantes e formam a fila de intervenção (ADR 0006). Os primeiros da fila são *Computação*, *Ciência da Computação*, *Línguas Estrangeiras Aplicadas - MSI* e *Teoria, Crítica e História da Arte*.
+4. **Cursos com Maior Pontualidade**: *Medicina* (83,72% no tempo ideal), *Direito* (82,75%) e *Língua de Sinais Brasileira - Português como Segunda Língua* (81,82%).
+5. **Cursos Noturnos**: Apresentam evasão maior (**49,99%** vs. **40,62%** no diurno), pela razão das somas dos cursos de cada turno. Cursos com oferta diurna e noturna sob o mesmo nome formam um grupo à parte (44,55%).
 6. **Taxa de Casamento dos Joins**: **100%** dos 152.680 vínculos de graduação integrados com estruturas curriculares.
