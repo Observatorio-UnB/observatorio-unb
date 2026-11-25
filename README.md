@@ -5,7 +5,7 @@
 > **Stakeholder**: Decanato de Ensino de Graduação (DEG/DAA) e Coordenações de Curso da UnB.  
 > **Portal de Origem**: [dados.unb.br](https://dados.unb.br) (API CKAN 2.11).  
 > 
-> 📄 **Relatório geral**: [RELATORIO_GERAL_PROJETO_SEMANAS_1_E_2.md](RELATORIO_GERAL_PROJETO_SEMANAS_1_E_2.md), com as semanas 1 e 2 em detalhe (a lógica das bases e o valor para o DEG) e o que foi feito de 2 em 2 semanas até a semana 14, incluindo as entregas E2 e E3.
+> 📄 **Relatório geral**: [RELATORIO_GERAL_PROJETO_SEMANAS_1_E_2.md](RELATORIO_GERAL_PROJETO_SEMANAS_1_E_2.md), com as semanas 1 e 2 em detalhe (a lógica das bases e o valor para o DEG) e o que foi feito de 2 em 2 semanas até a semana 16, incluindo as entregas E2, E3 e E4.
 
 ---
 
