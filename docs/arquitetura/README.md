@@ -75,7 +75,7 @@ Este diretório consolida a especificação técnica formal e os artefatos de en
 
 ---
 
-## Camadas acrescentadas na E2 e na E3
+## Camadas acrescentadas na E2, na E3 e na E4
 
 O diagrama acima é o núcleo relacional. Em volta dele, o projeto ganhou:
 
@@ -83,3 +83,7 @@ O diagrama acima é o núcleo relacional. Em volta dele, o projeto ganhou:
 - **Camada transformada em dbt (E3):** `transform/` reconstrói a camada de consumo a partir da Silver 3NF em quatro esquemas: `dbt_staging`, `dbt_intermediate`, `dbt_marts` (fato, dimensões e `painel_cursos_criticos`) e `dbt_snapshots` (histórico da `dim_curso`). Ver o [ADR 0029](../adr/0029-transformacoes-em-dbt.md) e [`docs/testes_de_dados.md`](../testes_de_dados.md).
 - **Orquestração (E3):** um grafo de assets do Dagster com retry e backfill ([`docs/orquestracao.md`](../orquestracao.md), [ADR 0030](../adr/0030-modelagem-analitica-e-ferramentas.md)).
 - **Frescor:** SLA de 35 dias para a view do painel ([`docs/frescor_sla.md`](../frescor_sla.md)).
+- **Camada semântica (E4):** a fórmula de cada métrica em `transform/macros/metricas.sql`, a definição versionada no seed `dbt_marts.metricas_definicoes` e os recortes acima do curso em `dbt_marts.metricas_por_recorte`, que o painel lê ([`docs/camada_semantica_e_etl_reverso.md`](../camada_semantica_e_etl_reverso.md), [ADR 0033](../adr/0033-disponibilizacao-camada-semantica-e-etl-reverso.md)).
+- **Esquema `operacional` (E4):** a fila de intervenção (`fila_intervencao` e `fila_intervencao_episodios`), escrita pelo ETL reverso e operada pela coordenação com o papel `coordenacao_academica` (migrações 0029 e 0031).
+- **Esquema `acesso` e RLS (E4):** o papel `secretaria_campus` lê `silver.movimentacoes_vinculos` só dos campi em `acesso.lotacao_campus` e sem `id_discente` (migração 0030, [`docs/controle_de_acesso.md`](../controle_de_acesso.md)).
+- **Catálogo e linhagem (E4):** da fonte pública ao consumo, em [`docs/catalogo/linhagem.md`](../catalogo/linhagem.md), gerado por `src/governanca/linhagem.py` e conferido no CI.

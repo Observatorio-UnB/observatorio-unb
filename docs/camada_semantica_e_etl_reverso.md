@@ -44,7 +44,7 @@ Os KPIs da UnB também somavam o curso-tronco ENGENHARIA, que fica fora do ranki
 
 O PR #69 corrigiu as duas coisas no próprio painel, com uma segunda implementação em Python (`agregar_ponderado`). Ela usa a razão das somas para as taxas e a média das médias dos cursos, ponderada pelos formados, para os tempos. Ficava uma diferença residual: 50,42% no prazo ideal contra 50,43% da definição, e 11,60 contra 11,59 semestres no turno NOTURNO. A razão é que ela pondera pelos formados, e não pelos formados com permanência calculável.
 
-Com a camada semântica, `agregar_ponderado` e os KPIs da Visão Executiva e do Simulador leem `metricas_por_recorte`. A conta passa a existir num lugar só, as macros do dbt, e o painel só faz a conta em Python quando o mart não está no snapshot.
+Com a camada semântica, `agregar_ponderado` e os KPIs da Visão Executiva e do Simulador leem `metricas_por_recorte`. Desde o seletor de coortes (#88), isso vale quando os grupos do recorte são os do período oficial, com os mesmos cursos e ingressantes por grupo. Com outro intervalo de coortes ou um filtro rápido, a mesma regra é calculada sobre o recorte escolhido, e o rodapé da tela indica a fonte. A conta passa a existir num lugar só, as macros do dbt, e o painel só faz a conta em Python quando o mart não está no snapshot.
 
 ### Escopo do registro
 

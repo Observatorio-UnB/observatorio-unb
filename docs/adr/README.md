@@ -2,19 +2,19 @@
 
 Cada arquivo registra uma decisão: o contexto que a motivou, o que foi decidido e o que isso custa. Uma decisão revista ganha um ADR novo que a substitui; o antigo fica, marcado como substituído.
 
-## Portfólio dos 5 ADRs (E0/E1 a E4)
+## Portfólio dos 5 ADRs (E1 a E4)
 
 Estes cinco ADRs formam o portfólio principal do semestre (um por entrega, com a E2 dividida em armazenamento e ingestão), todos com seção `## Gatilhos de revisão` explícita e estado auditado contra o semestre:
 
 | Entrega | # | Decisão | Estado dos gatilhos no semestre |
 |---|---|---|---|
-| E0/E1 | [0001](0001-arquitetura-medalhao.md) | Arquitetura medalhão (Bronze, Silver, Gold) | 2 gatilhos dispararam e geraram revisão (migração de CSV para PostgreSQL e orquestração em Dagster); 2 mantidos |
+| E1 | [0032](0032-modelagem-do-sistema-de-origem.md) | Sistema de origem em 3NF, recarregado por inteiro, com o tempo de evento em cada vínculo | Nenhum gatilho disparou: a pergunta não passou a exigir trajetória, o OLTP continua com um escritor só (a fila da E4 fica no esquema `operacional`), o volume não mudou de ordem e 0 de 152.680 vínculos divergem no `id_curso`. Decisão mantida |
 | E2 (Lago) | [0024](0024-lago-delta-parquet-zstd.md) | Camada analítica em Delta Lake, Parquet com ZSTD e partição por quinquênio | 1 gatilho disparou e foi corrigido na carga (`ORDER BY dg.id` contra não-determinismo); 3 mantidos |
 | E2 (Ingestão) | [0025](0025-mecanismo-de-ingestao-recarga-e-cdc.md) | Recarga periódica como mecanismo principal, CDC como caminho opcional | Nenhum gatilho disparou; decisão mantida |
 | E3 | [0030](0030-modelagem-analitica-e-ferramentas.md) | Modelagem estrela no grão do curso, dbt e Dagster | 1 gatilho disparou e gerou extensão (macro de arredondamento e snapshot SCD 2 no dbt); 4 mantidos |
-| E4 | *Pendente (#77)* | Disponibilização: camada semântica, forma de entrega e ETL reverso, com opção nula | A ser registrado na issue #77 (numeração prevista: `0033`, após o `0032` do PR #85) |
+| E4 | [0033](0033-disponibilizacao-camada-semantica-e-etl-reverso.md) | Camada semântica feita à mão no dbt, painel público por arquivo e ETL reverso por push, com o CSV agendado como opção nula | Decisão desta entrega: nenhum gatilho disparou. As três divergências de métrica achadas na E4 foram corrigidas antes da decisão e viraram os testes que a sustentam |
 
-Além do portfólio acima, também trazem gatilhos de revisão o [ADR 0031](0031-escopo-disponibilizacao-online-supabase-lgpd.md) (disponibilização online no Supabase e LGPD), o [ADR 0010](0010-controle-de-acesso-leitura.md) (atualizado com RLS/coluna na E4, PR #84) e o ADR `0032` (modelagem da origem em 3NF, PR #85). A consolidação na retrospectiva do ciclo de vida fica na issue #79 (`docs/diario/diario_de_bordo.md`).
+Além do portfólio acima, também trazem gatilhos de revisão o [ADR 0001](0001-arquitetura-medalhao.md) (arquitetura medalhão, base desde a E0: 2 gatilhos dispararam e geraram revisão, a migração de CSV para PostgreSQL e a orquestração em Dagster; 2 mantidos), o [ADR 0031](0031-escopo-disponibilizacao-online-supabase-lgpd.md) (disponibilização online no Supabase e LGPD), o [ADR 0010](0010-controle-de-acesso-leitura.md) (atualizado com RLS/coluna na E4, PR #84). A consolidação na retrospectiva do ciclo de vida fica na issue #79 (`docs/diario/diario_de_bordo.md`).
 
 ## Todos os ADRs
 
@@ -52,3 +52,4 @@ Além do portfólio acima, também trazem gatilhos de revisão o [ADR 0031](0031
 | 0030 | [Modelagem analítica em estrela com fato no grão do curso, transformação em dbt e orquestração em Dagster](0030-modelagem-analitica-e-ferramentas.md) | 2026-11-01 |
 | 0031 | [Escopo de disponibilização online do banco no Supabase e salvaguardas de privacidade (LGPD)](0031-escopo-disponibilizacao-online-supabase-lgpd.md) | 2026-11-02 |
 | 0032 | [Sistema de origem em 3NF, recarregado por inteiro, com o tempo de evento em cada vínculo](0032-modelagem-do-sistema-de-origem.md) | 2026-11-24 |
+| 0033 | [Camada semântica feita à mão no dbt, painel público por arquivo e ETL reverso por push](0033-disponibilizacao-camada-semantica-e-etl-reverso.md) | 2026-11-24 |

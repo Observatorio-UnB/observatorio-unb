@@ -384,3 +384,82 @@ Registro semanal de processo, medições e decisões de engenharia da Squad (Sem
 - [x] Criar a tag `e2` (22/11/2026, no commit `1ac366c`, o mesmo da release `v1.0.0-r2`).
 - [x] Regenerar `docs/dicionario_dados_banco.md` com a migração 0026 (coluna `texto_busca` da busca híbrida), a partir de uma carga do zero num banco limpo.
 
+## Semana 15 — Painel modularizado e consistência de números
+
+**O que foi medido**
+
+- Três rodadas de auditoria do painel, sem contexto prévio, mais uma auditoria geral do projeto (#69, aberto em 18/11). O IRC indexado na busca divergia do painel (85,7 contra 85,2) até o índice ser reconstruído com a carga atual.
+- Faixas de tempo dos formados exclusivas na gold (migração 0028) e retenção por coorte de ingresso (migração 0027, `gold.retencao_cursos_coorte`).
+
+**O que surpreendeu**
+
+- O mesmo número aparecia diferente em lugares diferentes: na busca e no painel, e nas faixas de tempo, que se sobrepunham. Foi o primeiro sinal do problema que a camada semântica da E4 resolveu.
+
+**O que foi decidido**
+
+- O painel foi dividido em módulos (`src/dashboard/abas/`), e o CI passou a rodar o `ruff`. Um teste confere que o IRC indexado de cada curso é igual ao da gold. Integrado em 24/11.
+
+**Pendências para a Semana seguinte**
+
+- [x] Fechar a E4 (semana 16).
+
+## Semana 16 — Disponibilização, governança e fechamento da E4
+
+**O que foi medido**
+
+- **Camada semântica** (#82): 12 métricas no registro versionado, com as fórmulas num lugar só (`transform/macros/metricas.sql`). O `dbt build` deu PASS=96.
+  - Três divergências de métrica encontradas e corrigidas, cada uma com um teste que impede a volta:
+    - média das taxas no lugar da razão das somas, até 2,88 p.p. ("DIURNO E NOTURNO");
+    - KPIs da UnB num universo com o curso-tronco (68.339 contra 67.063 ingressantes);
+    - uma segunda implementação em Python, com 0,01 de diferença.
+- **ETL reverso** (#82): a fila de intervenção recebe 22 cursos, com 2 a 4 ms de sincronização. Reexecutar dá 0 mudanças. Com o destino fora do ar, faz 4 tentativas e sai com código 2.
+- **Linhagem** (#83): 102 arestas e 9 consumidores, com 6 trilhas de coluna do painel ao arquivo do portal, e o CI falha se a linhagem quebrar.
+- **Controle de acesso** (#84): RLS por campus e `id_discente` fora do grant de colunas. A política custava 7,9 ms contra 0,8 ms do filtro à mão; com `= ANY(ARRAY(...))` passou a custar 0,4 a 0,6 ms.
+- **LGPD** (`docs/analise_lgpd.md`): dos 12.497 planos de PIBIC ligáveis aos vínculos por curso e ano, 120 (1,0%) ficam com menos de 5 candidatos ao juntar a cota. Esse cruzamento só é possível na bronze e na silver, que só o dono do banco lê.
+- **Disponibilização** (ADR 0033): ranking lido do banco em 0,23 ms; export do painel público com 1.034 KB, gerado em 50 ms e lido em 4 ms.
+- **E1 completada** (#85): caracterização da carga, declaração de histórico e ADR 0032. Suíte inteira: 311 testes.
+
+**O que surpreendeu**
+
+- O painel calculava a mesma métrica de três jeitos sem ninguém perceber. Só o teste "duas telas, mesmo número" mostrou.
+- **Os PRs cancelavam os runs uns dos outros.** O `concurrency: group: pages` era um só para o repositório, e o último commit do #84 nunca tinha rodado o pipeline (#89). Quando o pipeline passou a rodar, o deploy do Pages falhou três vezes, porque o upload e o deploy estavam no mesmo job (#91).
+- **O painel local lia o export em vez do banco**, e o painel do Docker abria sem dados: o `streamlit run` não põe a raiz do projeto no path (#82 e #85).
+- **Dois PRs abertos ao mesmo tempo criaram migrações com o mesmo número** (0029, resolvido no #90 renomeando para 0032).
+
+**O que foi decidido**
+
+- Camada semântica feita à mão no dbt, painel público por arquivo e ETL reverso por push, com o CSV agendado como opção nula medida ([ADR 0033](../adr/0033-disponibilizacao-camada-semantica-e-etl-reverso.md)).
+- Portfólio dos 5 ADRs: 0032, 0024, 0025, 0030 e 0033, cada um com o estado dos gatilhos ([docs/adr/README.md](../adr/README.md)).
+- A tag `e1` foi criada no commit da Release 1 (`0e0da90`, de 29/09), uma semana depois do prazo, porque a E1 só ficou completa nele.
+
+**Pendências para a Semana seguinte**
+
+- [ ] Criar a tag `e4` depois do merge deste fechamento (#81).
+- [ ] Defesa de 20 minutos para a banca (#80).
+- [ ] Lacunas de LGPD: retenção dos tópicos do CDC e prazo do nome do responsável nos episódios da fila (`docs/analise_lgpd.md`, seção 4).
+
+## Retrospectiva do ciclo de vida (E1 a E4)
+
+O semestre percorreu o ciclo inteiro: o dado foi **gerado** numa fonte pública, **armazenado** num OLTP modelado, **ingerido** por dois caminhos, **transformado** numa camada testada e **disponibilizado** de volta para quem decide.
+
+| Estágio | O que construímos | O que funcionou | O que não funcionou, ou chegou tarde |
+|---|---|---|---|
+| **Geração** (E1) | Vínculos do SIGRA e do SIGAA pelo portal dados.unb.br, com download pela API do CKAN | Carga reprodutível com um comando e sem passo manual, desde o início | A pergunta de gestão estava clara na semana 1, mas a caracterização da carga e o ADR da modelagem da origem só foram escritos na E4 (ADR 0032) |
+| **Armazenamento** (E1 e E2) | Silver 3NF particionada no PostgreSQL; lago Delta com Parquet e ZSTD | As restrições no esquema barraram dado ruim na carga, e não na E3. A partição por quinquênio evitou arquivos pequenos | A tag `e1` só existe sobre o commit de 29/09: no prazo (22/09), o repositório não tinha migrações |
+| **Ingestão** (E2) | Recarga mensal como caminho principal; CDC com Debezium como opcional; marca d'água para dado atrasado | A opção nula (a recarga) foi medida e venceu: 0,9 s contra 1,9 GB de RAM do Kafka | A tag `e2` só foi criada em 22/11. Os tópicos do CDC ficaram sem retenção (lacuna de LGPD da E4) |
+| **Transformação** (E3) | dbt em três camadas, 65 testes de dados, Dagster com retry e backfill, SCD 2 | A reconciliação dbt × gold pegou divergências de arredondamento antes de chegarem ao painel | A SCD 2 do dbt só veio depois de a gold já ter histórico (semana 14) |
+| **Disponibilização** (E4) | Camada semântica, fila de intervenção, linhagem, RLS e análise de LGPD | A pergunta da E1 virou trabalho: a coordenação vê o curso na fila e registra o plano, e o DEG vê quem está sem plano | O painel tinha três definições da mesma métrica até a E4. O CI cancelava runs sem ninguém notar |
+
+**Gatilhos de ADR que dispararam no semestre** (auditoria do portfólio, `docs/adr/README.md`):
+
+- **ADR 0001:** dois dispararam e geraram revisão: a migração de CSV para PostgreSQL e a orquestração em Dagster.
+- **ADR 0024:** o não determinismo dos `id_vinculo` entre recargas disparou e foi corrigido na carga (`ORDER BY`).
+- **ADR 0030:** a precisão das métricas no dbt disparou e gerou a macro de arredondamento e o snapshot SCD 2.
+- **Nenhum gatilho disparou sem revisão.** O que mais se aproximou foi a premissa de "uma definição de métrica só", que já estava quebrada antes de virar ADR: só a E4 a escreveu (ADR 0033) e a protegeu com testes.
+
+**O que faríamos diferente**
+
+- **Escrever o ADR e a caracterização junto com a entrega, e não no fim.** Os documentos da E1 só ficaram completos na E4.
+- **Ter o teste "duas telas, mesmo número" desde a E3.** Ele teria pegado as três divergências de métrica antes de o painel ser publicado.
+- **Não deixar PRs paralelos sem integração por muito tempo.** Os conflitos de migração e de painel da semana 16 vieram de branches abertas ao mesmo tempo sobre uma `main` antiga.
+- **Criar a tag no dia do prazo.** A `e1` e a `e2` foram criadas depois do prazo, sobre commits de antes, e é preciso explicar a escolha.

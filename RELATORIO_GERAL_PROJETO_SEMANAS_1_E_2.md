@@ -1,5 +1,5 @@
 # 🎓 Relatório Geral de Projeto: Retenção, Formatura e Evasão na UnB
-### Conexão Completa com o Challenge de Dados Abertos (Semanas 1 a 14 - CBL)
+### Conexão Completa com o Challenge de Dados Abertos (Semanas 1 a 16 - CBL)
 
 > **Documento Síntese da Disciplina de Banco de Dados 2 (UnB)**  
 > **Tema**: Discrepância entre o tempo regulamentar e o tempo real de conclusão nos cursos de graduação da UnB, retenção crítica e taxas de evasão.  
@@ -8,9 +8,9 @@
 
 > [!NOTE]
 > As seções 1 a 6 registram a primeira versão do projeto, das semanas 1 e 2 (só SIGRA, camadas em
-> CSV), e os números delas são daquela época. As seções 7 a 12 seguem o projeto de 2 em 2 semanas,
-> até a semana 14: PostgreSQL, SIGAA, 3NF e Star Schema, lago Delta com CDC (E2) e a camada analítica
-> em dbt orquestrada pelo Dagster (E3). Os valores atuais estão em [`docs/caderno_analise.md`](docs/caderno_analise.md)
+> CSV), e os números delas são daquela época. As seções 7 a 13 seguem o projeto de 2 em 2 semanas,
+> até a semana 16: PostgreSQL, SIGAA, 3NF e Star Schema, lago Delta com CDC (E2), a camada analítica
+> em dbt orquestrada pelo Dagster (E3) e a disponibilização governada (E4). Os valores atuais estão em [`docs/caderno_analise.md`](docs/caderno_analise.md)
 > e no [README](README.md#-3-principais-resultados-e-achados); o processo semana a semana, com as
 > medições, está no [diário de bordo](docs/diario/diario_de_bordo.md).
 
@@ -292,7 +292,29 @@ O produto final não é apenas um relatório estático; é um **painel interativ
 
 ---
 
-## 13. Como Executar os Artefatos do Projeto
+## 13. Semanas 15 e 16 — Disponibilização, Governança e Fechamento (Entrega E4)
+
+**O que foi feito**
+- **Painel modularizado** (semana 15, #69): uma tela por módulo em `src/dashboard/abas/`, auditoria dos números e `ruff` no CI.
+- **Camada semântica** ([ADR 0033](docs/adr/0033-disponibilizacao-camada-semantica-e-etl-reverso.md)): a fórmula de cada métrica num lugar só (macros do dbt) e a definição versionada de 12 métricas. Três divergências de métrica foram achadas e corrigidas:
+  - a média das taxas no lugar da razão das somas, com até 2,88 p.p. de diferença;
+  - os KPIs da UnB num universo com o curso-tronco;
+  - uma segunda implementação em Python.
+
+  Agora um teste confere que o painel, a fila e as abas da gold mostram o mesmo número para cada curso.
+- **ETL reverso:** os cursos em retenção crítica com 30 ou mais ingressantes vão para a fila de intervenção, em que a coordenação registra responsável, plano de ação e status. Na carga de 24/11/2026, são **22 cursos**, e o primeiro é Computação.
+- **Catálogo e linhagem:** da fonte pública ao consumo, com trilhas de coluna do painel ao arquivo do portal, conferidas no CI ([`docs/catalogo/linhagem.md`](docs/catalogo/linhagem.md)).
+- **Controle de acesso:** RLS por campus e o `id_discente` fora do grant de colunas, para a secretaria de campus ([`docs/controle_de_acesso.md`](docs/controle_de_acesso.md)).
+- **LGPD:** base legal, retenção e descarte de cada dado pessoal, e o risco de reidentificação por cruzamento medido ([`docs/analise_lgpd.md`](docs/analise_lgpd.md)).
+- **E1 completada:** caracterização da carga, declaração de histórico e ADR 0032. Portfólio dos 5 ADRs com gatilhos ([`docs/adr/README.md`](docs/adr/README.md)).
+- **Painel e busca** (#88 e #90): seletor de coortes, heatmap longitudinal, busca sem acento e com filtros facetados.
+- **Retrospectiva do ciclo de vida:** no [diário de bordo](docs/diario/diario_de_bordo.md).
+
+**Entrega E4:** tabela de aceite no [README](README.md).
+
+---
+
+## 14. Como Executar os Artefatos do Projeto
 
 O passo a passo completo está no [README](README.md#-2-como-reproduzir-o-projeto-do-zero). O caminho curto:
 
