@@ -2,7 +2,7 @@
 
 - **Status:** aceito
 - **Data:** 2026-11-24 (registra a modelagem adotada na migração 0011, na semana 06, que não tinha ADR próprio)
-- **Decisores:** Squad Observatório UnB (redação: Leandro de Almeida Oliveira; revisão no PR #85: vcpVitor)
+- **Decisores:** Squad Observatório UnB (redação: Leandro de Almeida Oliveira; revisão no PR #85: Vitor Carvalho Pereira)
 
 ## Contexto
 
