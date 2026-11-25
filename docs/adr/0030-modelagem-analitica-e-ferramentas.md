@@ -2,7 +2,7 @@
 
 - **Status:** aceito
 - **Data:** 2026-11-01
-- **Decisores:** Squad Observatório UnB: Felipe de Sousa Coelho, Joao Victor Marques Reis de Miranda, Leandro de Almeida Oliveira, Murilo Perazzo Barbosa Souto, Thales Germano Vargas Lima e Vitor Carvalho Pereira (redação: Leandro de Almeida Oliveira e Felipe de Sousa Coelho; gatilhos de revisão: Murilo Perazzo Barbosa Souto)
+- **Decisores:** Squad Observatório UnB (redação: Leandro de Almeida Oliveira e Felipe de Sousa Coelho; gatilhos de revisão: Murilo Perazzo Barbosa Souto)
 
 ## Contexto
 
