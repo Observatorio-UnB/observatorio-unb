@@ -112,6 +112,8 @@ observatorio-unb/
 | ETL reverso para um sistema onde alguém age | `src/etl_reverso/fila_intervencao.py` → `operacional.fila_intervencao` (migração 0029): a fila de intervenção da coordenação de curso e do DEG |
 | Catálogo e linhagem da fonte ao consumo | [docs/catalogo/linhagem.md](docs/catalogo/linhagem.md), gerado por `src/governanca/linhagem.py`: grafo do portal ao painel e à fila, catálogo de ativos (quem grava, dado pessoal, quem lê) e trilhas de coluna do painel ao arquivo do portal. Consumidores como `exposures` do dbt (`transform/models/_exposures.yml`), também no dbt docs do GitHub Pages. O CI falha se a linhagem quebrar |
 | Controle de acesso por linha e por coluna, com privilégio mínimo | Papel `secretaria_campus` (migração 0030): RLS por campus lotado e `id_discente` fora do grant de colunas em `silver.movimentacoes_vinculos`. Demonstração em `src/db/demonstrar_controle_de_acesso.py`, explicação em [docs/controle_de_acesso.md](docs/controle_de_acesso.md), atualização do [ADR 0010](docs/adr/0010-controle-de-acesso-leitura.md) |
+| Análise de LGPD do que foi construído | [docs/analise_lgpd.md](docs/analise_lgpd.md): para cada dado pessoal, base legal, retenção, descarte e quem lê; reidentificação por cruzamento medida (PIBIC × vínculos: 1,0% dos planos com menos de 5 candidatos, só na bronze e na silver restritas); lacunas encaminhadas |
+| Portfólio dos 5 ADRs com gatilhos de revisão | [docs/adr/README.md](docs/adr/README.md): 0032 (E1), 0024 e 0025 (E2), 0030 (E3) e [0033](docs/adr/0033-disponibilizacao-camada-semantica-e-etl-reverso.md) (E4, disponibilização com a opção nula), cada um com o estado dos gatilhos no semestre |
 
 ---
 
