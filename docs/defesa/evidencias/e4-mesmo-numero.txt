@@ -1,0 +1,39 @@
+# Demo 2 — Mesmo número em duas telas (fila, painel e gold, curso a curso)
+# Gerado em 24/11/2026 23:49 · banco observatorio_e4 · commit 9948c59
+
+$ python3 -m unittest -v tests/test_banco_etl_reverso.py
+23:49:49 [INFO] Aplicando 0032_busca_sem_acento_e_filtros.sql...
+23:49:49 [INFO] 1 migração(ões) aplicada(s).
+test_01_primeira_carga_e_reexecucao_sem_efeito (tests.test_banco_etl_reverso.TestCoordenacao) ... ok
+test_01_registra_andamento_como_coordenacao (tests.test_banco_etl_reverso.TestCoordenacao) ... ok
+test_02_andamento_da_coordenacao_sobrevive_a_novo_ciclo (tests.test_banco_etl_reverso.TestCoordenacao) ... ok
+test_02_recusa_status_invalido_e_curso_fora_da_fila (tests.test_banco_etl_reverso.TestCoordenacao) ... ok
+test_03_ciclo_seguinte_preserva_o_que_a_aplicacao_gravou (tests.test_banco_etl_reverso.TestCoordenacao) ... ok
+test_03_curso_que_sai_fica_com_a_data_e_volta_com_entrada_nova (tests.test_banco_etl_reverso.TestCoordenacao) ... ok
+test_04_ciclo_mais_antigo_que_o_destino_e_recusado (tests.test_banco_etl_reverso.TestCoordenacao) ... ok
+test_05_coordenacao_so_grava_o_andamento (tests.test_banco_etl_reverso.TestCoordenacao) ... ok
+test_06_volta_a_fila_e_episodio_novo_e_o_anterior_fica_guardado (tests.test_banco_etl_reverso.TestCoordenacao)
+Revisão do #82: o curso que volta não pode carregar o andamento do episódio anterior. ... ok
+test_07_reexecutar_a_saida_nao_duplica_o_episodio (tests.test_banco_etl_reverso.TestCoordenacao) ... ok
+test_01_etl_coordenacao_e_aba_usam_a_mesma_url (tests.test_banco_etl_reverso.TestMesmoBanco) ... ok
+23:49:49 [INFO] Esquema já está na versão mais recente.
+test_01_fila_igual_ao_painel_curso_a_curso (tests.test_banco_etl_reverso.TestMesmoNumero) ... ok
+test_02_painel_e_semantica_dao_a_mesma_evasao_da_unb (tests.test_banco_etl_reverso.TestMesmoNumero)
+A evasão da UnB pela camada semântica é a razão das somas do ranking do painel. ... ok
+test_03_abas_da_gold_e_ranking_dao_o_mesmo_numero (tests.test_banco_etl_reverso.TestMesmoNumero)
+Detalhe por Curso e Simulador leem gold.retencao_cursos_unb; o ranking e a fila, a camada ... ok
+23:49:49 [INFO] Esquema já está na versão mais recente.
+test_01_primeira_carga_e_reexecucao_sem_efeito (tests.test_banco_etl_reverso.TestSincronizacao) ... ok
+test_02_andamento_da_coordenacao_sobrevive_a_novo_ciclo (tests.test_banco_etl_reverso.TestSincronizacao) ... ok
+test_03_curso_que_sai_fica_com_a_data_e_volta_com_entrada_nova (tests.test_banco_etl_reverso.TestSincronizacao) ... ok
+test_04_ciclo_mais_antigo_que_o_destino_e_recusado (tests.test_banco_etl_reverso.TestSincronizacao) ... ok
+test_05_coordenacao_so_grava_o_andamento (tests.test_banco_etl_reverso.TestSincronizacao) ... ok
+test_06_volta_a_fila_e_episodio_novo_e_o_anterior_fica_guardado (tests.test_banco_etl_reverso.TestSincronizacao)
+Revisão do #82: o curso que volta não pode carregar o andamento do episódio anterior. ... ok
+test_07_reexecutar_a_saida_nao_duplica_o_episodio (tests.test_banco_etl_reverso.TestSincronizacao) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 0.175s
+
+OK
+[código de saída: 0]

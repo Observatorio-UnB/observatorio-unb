@@ -1,0 +1,45 @@
+# Demo 1 — ETL reverso: destino fora do ar, depois reexecução idempotente
+# Gerado em 24/11/2026 23:49 · banco observatorio_e4 · commit 9948c59
+
+$ ETL_REVERSO_DATABASE_URL=postgresql://x:y@127.0.0.1:5999/z python3 src/etl_reverso/fila_intervencao.py
+23:49:34 [INFO] Origem: 22 cursos em RETENÇÃO CRÍTICA, ciclo 2026-11-25 00:36, indice_retencao_critica@1.0.0;classificacao_retencao@1.0.0;taxa_evasao_pct@1.0.0;atraso_medio_semestres@1.0.0;formados_tempo_ideal_pct@1.0.0;ingressantes@1.0.0.
+23:49:34 [WARNING] Destino indisponível (tentativa 1): connection failed: connection to server at "127.0.0.1", port 5999 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?. Nova tentativa em 2 s.
+23:49:36 [WARNING] Destino indisponível (tentativa 2): connection failed: connection to server at "127.0.0.1", port 5999 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?. Nova tentativa em 4 s.
+23:49:40 [WARNING] Destino indisponível (tentativa 3): connection failed: connection to server at "127.0.0.1", port 5999 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?. Nova tentativa em 8 s.
+23:49:48 [ERROR] Destino fora do ar depois de 4 tentativas: connection failed: connection to server at "127.0.0.1", port 5999 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?. Nada foi gravado; a próxima execução leva o destino ao estado atual.
+[código de saída: 2]
+
+$ python3 src/etl_reverso/fila_intervencao.py
+23:49:48 [INFO] Origem: 22 cursos em RETENÇÃO CRÍTICA, ciclo 2026-11-25 00:36, indice_retencao_critica@1.0.0;classificacao_retencao@1.0.0;taxa_evasao_pct@1.0.0;atraso_medio_semestres@1.0.0;formados_tempo_ideal_pct@1.0.0;ingressantes@1.0.0.
+23:49:48 [INFO] Fila de intervenção sincronizada em 12 ms: 0 novos, 0 atualizados, 0 saíram da fila.
+[código de saída: 0]
+
+$ python3 src/etl_reverso/coordenacao.py   # a fila, do mais crítico ao menos
+22 cursos na fila, 22 sem andamento (NOVO).
+ posicao                                                           nome_curso status responsavel taxa_evasao_pct
+       2                                                           COMPUTACAO   NOVO        None           72.39
+       3                                                CIENCIA DA COMPUTACAO   NOVO        None           60.31
+       4                                 LINGUAS ESTRANGEIRAS APLICADAS - MSI   NOVO        None           59.43
+       5                                   TEORIA, CRITICA E HISTORIA DA ARTE   NOVO        None           63.11
+       6                                LETRAS - LINGUA E LITERATURA JAPONESA   NOVO        None           70.03
+       7                                                            FILOSOFIA   NOVO        None           65.59
+       8                     LETRAS - LINGUA FRANCESA E RESPECTIVA LITERATURA   NOVO        None           66.06
+       9                                                               FISICA   NOVO        None           71.68
+      10                                                           MATEMATICA   NOVO        None            73.4
+      11                                                           MUSEOLOGIA   NOVO        None            52.1
+      12                                                              QUIMICA   NOVO        None           64.07
+      12                                                               TEATRO   NOVO        None           66.42
+      14                                                          ESTATISTICA   NOVO        None           54.08
+      15                                               GESTAO DE AGRONEGOCIOS   NOVO        None           65.82
+      16                                                            GEOFISICA   NOVO        None           67.73
+      17                                          LETRAS - TRADUCAO - FRANCES   NOVO        None           48.39
+      18 LETRAS - LINGUA ESPANHOLA E LITERATURA ESPANHOLA E HISPANO-AMERICANA   NOVO        None            65.8
+      19                                                  QUIMICA TECNOLOGICA   NOVO        None           64.79
+      20                        ENGENHARIA MECATRONICA - CONTROLE E AUTOMACAO   NOVO        None           46.08
+      21                     LETRAS - PORTUGUES DO BRASIL COMO SEGUNDA LINGUA   NOVO        None           59.54
+      22                                                        ARTES VISUAIS   NOVO        None           51.85
+      23                                                  CIENCIAS AMBIENTAIS   NOVO        None           53.24

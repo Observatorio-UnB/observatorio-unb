@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Defesa E4 · Observatório UnB</title>
+<style>
+  :root {
+    color-scheme: light;
+    --azul: #003366;
+    --azul-2: #0b4f8a;
+    --azul-claro: #e8f0f8;
+    --verde: #00703c;
+    --verde-claro: #e6f4ec;
+    --crit: #b42318;
+    --crit-claro: #fdecea;
+    --ambar: #9a6700;
+    --ambar-claro: #fff6dd;
+    --ink: #0f172a;
+    --ink-2: #334155;
+    --muted: #64748b;
+    --line: #dbe3ec;
+    --bg: #ffffff;
+    --palco: #0b1220;
+    --mono: ui-monospace, "JetBrains Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+    --sans: "Inter", "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", "DejaVu Sans", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--palco); font-family: var(--sans); color: var(--ink); }
+  #deck { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .slide {
+    position: absolute; width: 1280px; height: 720px; background: var(--bg);
+    padding: 56px 72px 48px; display: none; flex-direction: column;
+    transform-origin: center center; overflow: hidden;
+  }
+  .slide.ativo { display: flex; }
+  .topo { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; font-size: 15px; color: var(--muted); }
+  .chip { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; }
+  .chip.gestao { background: var(--verde-claro); color: var(--verde); }
+  .chip.tecnico { background: var(--azul-claro); color: var(--azul-2); }
+  .chip.dois { background: var(--ambar-claro); color: var(--ambar); }
+  .chip.reserva { background: #eef2f6; color: var(--ink-2); }
+  .bloco { margin-left: auto; font-variant-numeric: tabular-nums; }
+  h1 { font-size: 46px; line-height: 1.12; margin: 0 0 14px; color: var(--azul); letter-spacing: -.01em; }
+  h2 { font-size: 22px; margin: 0 0 10px; color: var(--ink); }
+  p, li { font-size: 22px; line-height: 1.45; color: var(--ink-2); }
+  p { margin: 0 0 12px; }
+  ul { margin: 0; padding-left: 26px; }
+  li { margin-bottom: 8px; }
+  code { font-family: var(--mono); font-size: .86em; background: #f1f5f9; padding: 1px 6px; border-radius: 4px; color: var(--ink); }
+  strong { color: var(--ink); }
+  .lead { font-size: 26px; color: var(--ink-2); max-width: 1050px; }
+  .rodape {
+    margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; font-size: 14px; color: var(--muted);
+  }
+  .rodape .evid { font-family: var(--mono); font-size: 13px; }
+  .grade { display: grid; gap: 20px; }
+  .g2 { grid-template-columns: 1fr 1fr; }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .kpi { border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .kpi .v { font-size: 54px; font-weight: 800; color: var(--azul); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .kpi .v.crit { color: var(--crit); }
+  .kpi .v.verde { color: var(--verde); }
+  .kpi .r { font-size: 17px; color: var(--ink-2); margin-top: 10px; line-height: 1.35; }
+  .caixa { border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px; }
+  .caixa.destaque { border-color: var(--crit); background: var(--crit-claro); }
+  .caixa.azul { border-color: #b9cde3; background: var(--azul-claro); }
+  .caixa.verde { border-color: #b5dcc6; background: var(--verde-claro); }
+  .caixa h2 { font-size: 19px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 8px; }
+  .caixa p, .caixa li { font-size: 19px; }
+  table { border-collapse: collapse; width: 100%; font-size: 18px; }
+  th { text-align: left; font-size: 14px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; padding: 8px 10px; border-bottom: 2px solid var(--line); }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--line); color: var(--ink-2); vertical-align: top; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.hl td { background: var(--crit-claro); color: var(--ink); font-weight: 600; }
+  tr.apagado td { color: var(--muted); }
+  .frase { font-size: 30px; line-height: 1.35; color: var(--azul); font-weight: 650; border-left: 6px solid var(--verde); padding: 6px 0 6px 22px; }
+  .limite { font-size: 18px; color: var(--ambar); background: var(--ambar-claro); border-radius: 10px; padding: 10px 16px; }
+  .limite strong { color: var(--ambar); }
+  .demo { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: #fff; background: var(--crit); padding: 5px 12px; border-radius: 999px; letter-spacing: .04em; }
+
+  /* fluxos */
+  .fluxo { display: flex; align-items: stretch; gap: 0; }
+  .fluxo .no { flex: 1; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: #fff; position: relative; }
+  .fluxo .no b { display: block; font-size: 16px; color: var(--ink); margin-bottom: 4px; }
+  .fluxo .no span { font-size: 14px; color: var(--muted); line-height: 1.35; display: block; }
+  .fluxo .seta { width: 28px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 22px; flex: none; }
+  .fluxo .no.fim { background: var(--verde-claro); border-color: #b5dcc6; }
+  .fluxo .no.ini { background: var(--azul-claro); border-color: #b9cde3; }
+  .estagio { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--azul-2); margin-bottom: 6px; }
+
+  .status { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .st { font-family: var(--mono); font-size: 17px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: #fff; }
+  .st.novo { background: var(--crit-claro); border-color: #f3b8b1; color: var(--crit); font-weight: 700; }
+  .st.fim { background: var(--verde-claro); border-color: #b5dcc6; color: var(--verde); font-weight: 700; }
+
+  /* trilha vertical */
+  .trilha { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 36px; }
+  .passo { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: start; padding: 7px 0; border-bottom: 1px dashed var(--line); }
+  .passo .num { width: 30px; height: 30px; border-radius: 50%; background: var(--azul); color: #fff; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .passo .num.v { background: var(--verde); }
+  .passo .t { font-family: var(--mono); font-size: 15px; color: var(--ink); }
+  .passo .c { font-size: 14px; color: var(--muted); margin-top: 2px; }
+
+  /* capa */
+  .capa { background: linear-gradient(135deg, #003366 0%, #0b4f8a 62%, #00703c 140%); color: #fff; justify-content: center; }
+  .capa h1 { color: #fff; font-size: 60px; max-width: 980px; }
+  .capa p { color: #dbe7f5; font-size: 24px; }
+  .capa .logo { position: absolute; top: 48px; right: 64px; background: #fff; border-radius: 10px; padding: 10px 14px; }
+  .capa .logo img { height: 52px; display: block; }
+  .capa .meta { margin-top: 36px; display: flex; gap: 40px; font-size: 18px; color: #cfe0f2; }
+  .capa .meta b { display: block; color: #fff; font-size: 20px; }
+
+  /* notas e barra */
+  #notas {
+    position: fixed; left: 0; right: 0; bottom: 0; max-height: 34vh; overflow: auto;
+    background: #111827; color: #e5e7eb; font-size: 17px; line-height: 1.5; padding: 14px 24px 18px;
+    display: none; border-top: 3px solid #f59e0b; z-index: 5;
+  }
+  #notas.ver { display: block; }
+  #notas h3 { margin: 0 0 6px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #fbbf24; }
+  #barra { position: fixed; left: 0; top: 0; height: 4px; background: #f59e0b; z-index: 6; transition: width .2s; }
+  #ajuda { position: fixed; right: 14px; bottom: 10px; font-size: 12px; color: #94a3b8; z-index: 4; font-family: var(--mono); }
+  aside.notas { display: none; }
+
+  @media print {
+    @page { size: 1280px 720px; margin: 0; }
+    html, body { background: #fff; height: auto; }
+    #deck { position: static; display: block; }
+    .slide { display: flex !important; position: relative; transform: none !important; page-break-after: always; break-after: page; }
+    #notas, #barra, #ajuda { display: none !important; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div id="barra"></div>
+<div id="deck">
+
+<!-- 1 · CAPA -->
+<section class="slide capa" data-bloco="Abertura">
+  <div class="logo"><img src="assets/unb.png" alt="UnB"></div>
+  <p style="text-transform:uppercase;letter-spacing:.12em;font-size:16px;font-weight:700;color:#9fc3e8">Banco de Dados 2 · 2026/2 · Entrega E4</p>
+  <h1>Observatório de Retenção, Formatura e Evasão da UnB</h1>
+  <p class="lead" style="color:#dbe7f5">Onde intervir primeiro, e como saber se a intervenção funcionou.</p>
+  <div class="meta">
+    <div><b>Stakeholder</b>DEG/DAA e coordenações de curso</div>
+    <div><b>Fonte</b>dados.unb.br (SIGRA + SIGAA)</div>
+    <div><b>Squad</b>Observatório UnB</div>
+  </div>
+  <aside class="notas">Apresentar a Squad em uma frase. "Vamos mostrar o que o DEG consegue decidir com a plataforma e como garantimos cada número que aparece na tela."</aside>
+</section>
+
+<!-- 2 · O PROBLEMA -->
+<section class="slide" data-bloco="1 · O problema e a resposta · 0:00–3:00">
+  <div class="topo"><span class="chip gestao">Gestão</span><span class="bloco">Bloco 1 · 0:00–1:30</span></div>
+  <h1>O DEG precisa decidir em quais cursos intervir primeiro</h1>
+  <p class="lead">"Em quais cursos a retenção e o atraso na integralização são mais críticos, demandando intervenção institucional prioritária?"</p>
+  <div class="grade g4" style="margin-top:22px">
+    <div class="kpi"><div class="v">50,43%</div><div class="r">dos formados concluem <strong>no prazo ideal</strong> da matriz</div></div>
+    <div class="kpi"><div class="v">11,77</div><div class="r">semestres em média para se formar (o ideal médio é 10,95)</div></div>
+    <div class="kpi"><div class="v crit">43,14%</div><div class="r">dos ingressantes saem <strong>sem diploma</strong></div></div>
+    <div class="kpi"><div class="v">67.063</div><div class="r">ingressantes de 94 cursos, coortes de 2010 a 2016</div></div>
+  </div>
+  <div class="rodape"><span>Coortes com 8 anos de acompanhamento (ADR 0014) · carga de 24/11/2026</span><span class="evid">dbt_marts.metricas_por_recorte · recorte UNB</span></div>
+  <aside class="notas">Ficar no problema de gestão. A média de 11,77 semestres esconde a diferença entre cursos, e é por isso que o DEG precisa de um ranking, não de uma média. A base: 152.680 vínculos do SIGRA e do SIGAA; só entram coortes com 8 anos de acompanhamento, senão o curso parece melhor do que é porque os alunos ainda não saíram.</aside>
+</section>
+
+<!-- 3 · A RESPOSTA -->
+<section class="slide" data-bloco="1 · O problema e a resposta · 0:00–3:00">
+  <div class="topo"><span class="chip gestao">Gestão</span><span class="bloco">Bloco 1 · 1:30–3:00</span></div>
+  <h1>23 cursos em retenção crítica; 22 entram na fila</h1>
+  <div class="grade" style="grid-template-columns: 1.55fr 1fr; align-items:start">
+    <table>
+      <thead><tr><th class="n">#</th><th>Curso</th><th class="n">Ingres.</th><th class="n">Evasão</th><th class="n">Formatura</th><th class="n">IRC</th></tr></thead>
+      <tbody>
+        <tr class="apagado"><td class="n">1</td><td>Física Computacional <em>(fora da fila: 21 ingressantes)</em></td><td class="n">21</td><td class="n">76,19%</td><td class="n">19,05%</td><td class="n">100</td></tr>
+        <tr class="hl"><td class="n">2</td><td>Computação (licenciatura, noturno)</td><td class="n">710</td><td class="n">72,39%</td><td class="n">21,41%</td><td class="n">89,8</td></tr>
+        <tr><td class="n">3</td><td>Ciência da Computação</td><td class="n">713</td><td class="n">60,31%</td><td class="n">32,96%</td><td class="n">85,2</td></tr>
+        <tr><td class="n">4</td><td>Línguas Estrangeiras Aplicadas – MSI</td><td class="n">387</td><td class="n">59,43%</td><td class="n">35,66%</td><td class="n">83,1</td></tr>
+        <tr><td class="n">5</td><td>Teoria, Crítica e História da Arte</td><td class="n">412</td><td class="n">63,11%</td><td class="n">30,83%</td><td class="n">81,0</td></tr>
+        <tr><td class="n">6</td><td>Letras – Japonês (licenciatura)</td><td class="n">357</td><td class="n">70,03%</td><td class="n">27,45%</td><td class="n">80,0</td></tr>
+      </tbody>
+    </table>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="caixa destaque"><h2>O caso que vamos seguir</h2><p><strong>Computação:</strong> de cada 10 ingressantes, 7 saem sem diploma e 2 se formam.</p></div>
+      <div class="caixa"><h2>Como o ranking é feito</h2><p>IRC = 0,7 × evasão + 0,3 × atraso, normalizados; crítico = quartil mais alto. Fila = crítico com 30+ ingressantes.</p></div>
+      <div class="limite"><strong>Limite:</strong> o dado diz <em>onde</em> agir, não <em>por que</em> o aluno sai.</div>
+    </div>
+  </div>
+  <div class="rodape"><span>ADR 0006 (IRC) · ADR 0013 (evasão = saída sem diploma) · k ≥ 5 (ADR 0005)</span><span class="evid">dbt_marts.painel_cursos_criticos</span></div>
+  <aside class="notas">MOSTRAR: painel do GitHub Pages, Visão Executiva (plano B: este slide). Física Computacional é a primeira do IRC, mas tem 21 ingressantes: com tão pouca gente, uma ou duas saídas mudam a taxa; por isso a fila exige 30 ou mais. Dizer o limite em voz alta.</aside>
+</section>
+
+<!-- 4 · A FILA -->
+<section class="slide" data-bloco="2 · O dado volta · 3:00–6:00">
+  <div class="topo"><span class="chip gestao">Gestão</span><span class="demo">● AO VIVO</span><span class="bloco">Bloco 2 · 3:00–4:30</span></div>
+  <h1>O ranking vira trabalho: a fila de intervenção</h1>
+  <p class="lead">Cada curso crítico vira uma linha onde a coordenação registra <strong>responsável</strong> e <strong>plano de ação</strong>, e o DEG acompanha quem está parado.</p>
+  <div class="status" style="margin:18px 0 26px">
+    <span class="st novo">NOVO</span><span style="color:var(--muted)">→</span>
+    <span class="st">EM_ANALISE</span><span style="color:var(--muted)">→</span>
+    <span class="st">PLANO_EM_EXECUCAO</span><span style="color:var(--muted)">→</span>
+    <span class="st fim">CONCLUIDO</span><span style="color:var(--muted)">ou</span><span class="st">DESCARTADO</span>
+  </div>
+  <div class="grade g3">
+    <div class="kpi"><div class="v crit">22 / 22</div><div class="r">cursos da fila estão hoje em <strong>NOVO</strong>: ninguém responsável ainda</div></div>
+    <div class="kpi"><div class="v">Saiu</div><div class="r">curso que melhora sai com data de saída; o episódio fica guardado com o plano e as métricas</div></div>
+    <div class="kpi"><div class="v">Voltou</div><div class="r">curso que volta abre um episódio novo, em NOVO, e o DEG vê o plano anterior</div></div>
+  </div>
+  <div class="rodape"><span>Quem consome: coordenação de curso (edita) e DEG (acompanha) · tela "Fila de Intervenção" e <code>coordenacao.py</code></span><span class="evid">operacional.fila_intervencao · migrações 0029 e 0031</span></div>
+  <aside class="notas">DEMO: aba Fila de Intervenção no painel local. Mudar Computação para EM_ANALISE com um responsável e salvar. Mostrar que as métricas estão bloqueadas: a coordenação só edita status, responsável e plano. Frase: "o painel informa; a fila muda o que acontece amanhã". Plano B: e4-etl-reverso.txt e print da tela.</aside>
+</section>
+
+<!-- 5 · ETL REVERSO -->
+<section class="slide" data-bloco="2 · O dado volta · 3:00–6:00">
+  <div class="topo"><span class="chip tecnico">Técnico</span><span class="demo">● AO VIVO</span><span class="bloco">Bloco 2 · 4:30–6:00</span></div>
+  <h1>ETL reverso: push, por estado, idempotente</h1>
+  <div class="grade g2" style="align-items:start">
+    <div>
+      <table>
+        <tbody>
+          <tr><td><strong>Origem</strong></td><td>a mesma tabela do painel: o número da fila <em>é</em> o do painel</td></tr>
+          <tr><td><strong>Quando</strong></td><td>push depois de cada carga (Dagster, shell, CI); 3 a 12 ms</td></tr>
+          <tr><td><strong>Reexecutar</strong></td><td><code>0 novos, 0 atualizados, 0 saíram</code></td></tr>
+          <tr><td><strong>Destino fora</strong></td><td>4 tentativas (2, 4 e 8 s), sai com código 2; a próxima execução cobre tudo</td></tr>
+          <tr><td><strong>Proteções</strong></td><td>recusa origem vazia e ciclo mais antigo; nunca sobrescreve o andamento</td></tr>
+          <tr><td><strong>Rastreio</strong></td><td>cada número vai com a versão da definição: <code>taxa_evasao_pct@1.0.0</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="caixa azul">
+        <h2>A opção nula: CSV agendado</h2>
+        <table>
+          <thead><tr><th></th><th>CSV</th><th>Fila no banco</th></tr></thead>
+          <tbody>
+            <tr><td>Tempo</td><td>&lt; 1 s</td><td>3–12 ms</td></tr>
+            <tr><td>Andamento</td><td>planilha à parte</td><td>na mesma linha</td></tr>
+            <tr><td>Curso que sai</td><td>some</td><td>fica, com data</td></tr>
+            <tr><td>Quem altera</td><td>quem tem o arquivo</td><td>privilégio por coluna</td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:12px"><strong>O CSV basta para avisar; não basta para acompanhar.</strong></p>
+      </div>
+    </div>
+  </div>
+  <div class="rodape"><span>ADR 0033 · <code>python3 src/etl_reverso/fila_intervencao.py</code></span><span class="evid">docs/camada_semantica_e_etl_reverso.md</span></div>
+  <aside class="notas">DEMO no terminal (copiar do arquivo de comandos): 1) ETL_REVERSO_DATABASE_URL apontando para a porta 5999 → 4 tentativas, código 2; o pipeline não cai. 2) Rodar contra o banco real → 0 novos, 0 atualizados, 0 saíram (idempotente). Plano B: e4-etl-reverso.txt.</aside>
+</section>
+
+<!-- 6 · UMA MÉTRICA -->
+<section class="slide" data-bloco="3 · Uma métrica, um número · 6:00–9:00">
+  <div class="topo"><span class="chip dois">Gestão + técnico</span><span class="bloco">Bloco 3 · 6:00–7:30</span></div>
+  <h1>Uma métrica, uma definição, um número</h1>
+  <p class="lead">Se duas telas mostram números diferentes, a plataforma perde a autoridade. As fórmulas existem <strong>num lugar só</strong>.</p>
+  <div class="fluxo" style="margin-top:14px">
+    <div class="no ini"><b>Fórmula</b><span><code>transform/macros/metricas.sql</code><br>uma macro por métrica</span></div>
+    <div class="seta">→</div>
+    <div class="no"><b>Definição versionada</b><span><code>metricas_definicoes.csv</code><br>12 métricas: fórmula, unidade, versão, ADR</span></div>
+    <div class="seta">→</div>
+    <div class="no"><b>Bases aditivas</b><span><code>int_bases_curso</code><br>contagens que se somam</span></div>
+    <div class="seta">→</div>
+    <div class="no"><b>Tabelas de consumo</b><span><code>painel_cursos_criticos</code><br><code>metricas_por_recorte</code></span></div>
+    <div class="seta">→</div>
+    <div class="no fim"><b>Consumidores</b><span>painel (local e Pages)<br>fila de intervenção</span></div>
+  </div>
+  <div class="grade g3" style="margin-top:26px">
+    <div class="caixa"><h2>Nenhum consumidor refaz a conta</h2><p>Painel e fila leem as mesmas tabelas.</p></div>
+    <div class="caixa"><h2>Métrica sem registro</h2><p>O <code>dbt build</code> falha (<code>metricas_registro_completo</code>).</p></div>
+    <div class="caixa"><h2>Mudou a definição?</h2><p>Sobe a versão; a fila grava a versão nova ao lado do número.</p></div>
+  </div>
+  <div class="rodape"><span>Camada semântica feita à mão no dbt, contra MetricFlow e contra a opção nula (ADR 0033) · dbt build PASS=96</span><span class="evid">docs/camada_semantica_e_etl_reverso.md</span></div>
+  <aside class="notas">Para a gestão: "o número que a coordenação vê na fila é o mesmo do painel, por construção". Para a banca técnica: as taxas acima do curso são razão das somas das bases aditivas, aplicando as mesmas macros.</aside>
+</section>
+
+<!-- 7 · AS DIVERGÊNCIAS -->
+<section class="slide" data-bloco="3 · Uma métrica, um número · 6:00–9:00">
+  <div class="topo"><span class="chip tecnico">Técnico</span><span class="bloco">Bloco 3 · 7:30–9:00</span></div>
+  <h1>Achamos três divergências no nosso próprio painel</h1>
+  <table style="margin-top:6px">
+    <thead><tr><th>Divergência</th><th>Medida</th><th>Correção</th><th>Teste que impede a volta</th></tr></thead>
+    <tbody>
+      <tr><td>Média simples das taxas por turno e grau (curso de 20 pesava igual a um de 2.000)</td><td class="n"><strong>+2,88 p.p.</strong><br><span style="font-size:14px;color:var(--muted)">DIURNO E NOTURNO</span></td><td>razão das somas</td><td><code>metricas_recortes_fecham_com_o_painel</code></td></tr>
+      <tr><td>KPIs da UnB com o curso-tronco Engenharia, que fica fora do ranking</td><td class="n"><strong>68.339</strong> vs <strong>67.063</strong><br><span style="font-size:14px;color:var(--muted)">ingressantes</span></td><td>mesmo universo do ranking</td><td><code>metricas_recortes_fecham_com_o_painel</code></td></tr>
+      <tr><td>Segunda implementação em Python (pesava pelos formados, não pelos com permanência calculável)</td><td class="n"><strong>0,01</strong><br><span style="font-size:14px;color:var(--muted)">50,42 vs 50,43%</span></td><td>painel lê o mart</td><td><code>test_unit_metricas_painel</code></td></tr>
+    </tbody>
+  </table>
+  <div class="caixa verde" style="margin-top:22px">
+    <p style="margin:0"><strong><code>TestMesmoNumero</code></strong>: fila, ranking do painel, Detalhe por Curso e Simulador comparados <strong>curso a curso</strong> contra a gold, um caminho SQL independente do dbt. IRC, evasão, atraso, % no prazo, ingressantes e posição.</p>
+  </div>
+  <div class="rodape"><span>Medido na carga de 24/11/2026 · só o teste "duas telas, mesmo número" mostrou</span><span class="evid">tests/test_banco_etl_reverso.py</span></div>
+  <aside class="notas">Este é o diferencial: "métrica sem definição única" é o primeiro erro da lista da E4, e nós o achamos no nosso painel com número. Mostrar a saída do teste (plano B: e4-mesmo-numero.txt). Se perguntarem se é circular: não, compara com a gold, que vem do SQL nativo (migração 0022), e não do dbt.</aside>
+</section>
+
+<!-- 8 · LINHAGEM -->
+<section class="slide" data-bloco="4 · Linhagem · 9:00–11:00">
+  <div class="topo"><span class="chip dois">Gestão + técnico</span><span class="bloco">Bloco 4 · 9:00–11:00</span></div>
+  <h1>De onde vem os 72,39% de Computação?</h1>
+  <div class="trilha">
+    <div>
+      <div class="passo"><div class="num v">1</div><div><div class="t">operacional.fila_intervencao</div><div class="c">Disponibilização · copiada pelo ETL reverso; lida pela coordenação</div></div></div>
+      <div class="passo"><div class="num v">2</div><div><div class="t">dbt_marts.painel_cursos_criticos</div><div class="c">lida pelo painel e pelo ETL reverso</div></div></div>
+      <div class="passo"><div class="num">3</div><div><div class="t">dbt_marts.fct_retencao_curso</div><div class="c">Transformação · fato no grão do curso</div></div></div>
+      <div class="passo"><div class="num">4</div><div><div class="t">int_metricas_curso</div><div class="c">metrica_taxa_evasao_pct(evadidos, ingressantes)</div></div></div>
+      <div class="passo"><div class="num">5</div><div><div class="t">int_bases_curso.evadidos</div><div class="c">tipo_saida_grupo = 'EVASAO', coortes maduras, k ≥ 5</div></div></div>
+      <div class="passo"><div class="num">6</div><div><div class="t">dbt_staging.stg_vinculos</div><div class="c">renomeia e tipa</div></div></div>
+    </div>
+    <div>
+      <div class="passo"><div class="num">7</div><div><div class="t">silver.movimentacoes_vinculos</div><div class="c">Armazenamento · OLTP em 3NF, particionado</div></div></div>
+      <div class="passo"><div class="num">8</div><div><div class="t">silver.discentes_graduacao</div><div class="c">forma de saída → grupo (ADR 0013)</div></div></div>
+      <div class="passo"><div class="num">9</div><div><div class="t">bronze.sigra_discentes.forma_saida</div><div class="c">Ingestão · texto como veio do portal</div></div></div>
+      <div class="passo"><div class="num">10</div><div><div class="t">bronze.sigaa_discentes.status_aluno</div><div class="c">texto como veio do portal</div></div></div>
+      <div class="passo"><div class="num">11</div><div><div class="t">dados.unb.br · sigra.csv / sigaa.csv</div><div class="c">Geração · API CKAN</div></div></div>
+      <div class="grade g2" style="margin-top:12px;gap:12px">
+        <div class="kpi" style="padding:12px 14px"><div class="v" style="font-size:36px">102</div><div class="r" style="font-size:15px">arestas, 9 consumidores</div></div>
+        <div class="kpi" style="padding:12px 14px"><div class="v" style="font-size:36px">CI</div><div class="r" style="font-size:15px">falha se a linhagem quebrar</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="rodape"><span>Gerado por <code>src/governanca/linhagem.py</code> · consumidores como exposures do dbt · dbt docs no Pages</span><span class="evid">docs/catalogo/linhagem.md §3</span></div>
+  <aside class="notas">MOSTRAR: docs/catalogo/linhagem.md, trilha "Evasão (%)", e o grafo no dbt docs do Pages. A trilha passa pelos cinco estágios do ciclo de vida: geração, ingestão, armazenamento, transformação e disponibilização. As colunas citadas são conferidas contra o catálogo do banco (test_banco_linhagem). Se o tempo apertar, este bloco é o primeiro a sair.</aside>
+</section>
+
+<!-- 9 · LGPD -->
+<section class="slide" data-bloco="5 · LGPD e acesso · 11:00–13:00">
+  <div class="topo"><span class="chip gestao">Gestão</span><span class="bloco">Bloco 5 · 11:00–12:00</span></div>
+  <h1>LGPD: qual dado é pessoal, por que, até quando</h1>
+  <table>
+    <thead><tr><th>Onde</th><th>Dado de pessoa</th><th>Base legal</th><th>Retenção e descarte</th><th>Quem lê</th></tr></thead>
+    <tbody>
+      <tr><td>bronze e silver</td><td>pseudônimo, nascimento, sexo, <strong>raça/cor</strong>, cota</td><td>art. 7º, IV (pesquisa); art. 11, II, c</td><td>última publicação; <code>TRUNCATE</code> a cada carga</td><td>só o dono</td></tr>
+      <tr><td>fila de intervenção</td><td>nome do servidor responsável</td><td>art. 7º, III; art. 23</td><td>enquanto a fila existir</td><td><code>coordenacao_academica</code></td></tr>
+      <tr><td>gold, marts, painel, Supabase</td><td><strong>nenhum</strong>: agregado com k ≥ 5</td><td>—</td><td>—</td><td>público</td></tr>
+    </tbody>
+  </table>
+  <div class="grade g2" style="margin-top:20px">
+    <div class="caixa azul"><h2>Reidentificação por cruzamento</h2><p>PIBIC × vínculos: de 12.497 planos, <strong>120 (1,0%)</strong> ficam com menos de 5 candidatos. Só é possível na bronze e na silver, que só o dono lê.</p></div>
+    <div class="caixa"><h2>Necessidade</h2><p>Nome, CPF e matrícula são descartados em memória na ingestão e <strong>nunca chegam ao disco</strong> (ADR 0017 e 0020).</p></div>
+  </div>
+  <div class="rodape"><span>Análise técnica da Squad, não parecer jurídico · lacunas no slide final</span><span class="evid">docs/analise_lgpd.md</span></div>
+  <aside class="notas">Nomear o dado, a base, o prazo e o descarte; nada de "seguimos a LGPD". A regra que sustenta tudo: dado individual não sai do banco local, nem para o Supabase, nem para o export, nem para o repositório.</aside>
+</section>
+
+<!-- 10 · ACESSO -->
+<section class="slide" data-bloco="5 · LGPD e acesso · 11:00–13:00">
+  <div class="topo"><span class="chip tecnico">Técnico</span><span class="bloco">Bloco 5 · 12:00–13:00</span></div>
+  <h1>Privilégio mínimo: recorte de linha e de coluna</h1>
+  <div class="grade g2" style="align-items:start">
+    <div>
+      <div class="caixa" style="margin-bottom:14px"><h2>Linha (RLS)</h2><p>A <code>secretaria_campus</code> só vê os vínculos dos campi em que está lotada. Sem lotação, nenhuma linha. Revogar é um <code>DELETE</code> e vale na hora.</p></div>
+      <div class="caixa"><h2>Coluna</h2><p><code>id_discente</code> fica fora do grant: <code>SELECT id_discente</code> → <strong style="color:var(--crit)">permission denied</strong>. É a chave que levaria a nascimento, sexo e raça/cor.</p></div>
+    </div>
+    <div class="caixa azul">
+      <h2>O custo da política, medido</h2>
+      <div class="grade g2" style="margin:10px 0 14px">
+        <div><div class="v" style="font-size:48px;font-weight:800;color:var(--crit)">7,9 ms</div><div style="font-size:16px;color:var(--ink-2)"><code>IN (SELECT …)</code><br>subplano linha a linha</div></div>
+        <div><div class="v" style="font-size:48px;font-weight:800;color:var(--verde)">0,4–0,6</div><div style="font-size:16px;color:var(--ink-2)">ms com <code>= ANY(ARRAY(…))</code><br>InitPlan + índice</div></div>
+      </div>
+      <p>O filtro escrito à mão custa 0,6–0,7 ms: a política passou a custar o mesmo. O <code>test_10</code> falha se o plano voltar ao subplano.</p>
+    </div>
+  </div>
+  <div class="rodape"><span>Migração 0030 · ADR 0010 atualizado · <code>python3 src/db/demonstrar_controle_de_acesso.py</code></span><span class="evid">docs/controle_de_acesso.md</span></div>
+  <aside class="notas">Mostrar a saída da demonstração (plano B: e4-acesso.txt): um campus, dois campi, nenhum, e a coluna negada. Na fila, o papel coordenacao_academica só tem UPDATE em status, responsável e plano, e nenhum DELETE.</aside>
+</section>
+
+<!-- 11 · DECISÕES -->
+<section class="slide" data-bloco="6 · Decisões · 13:00–14:00">
+  <div class="topo"><span class="chip dois">Gestão + técnico</span><span class="bloco">Bloco 6 · 13:00–14:00</span></div>
+  <h1>Medimos antes de escolher: 5 ADRs, um por estágio</h1>
+  <table>
+    <thead><tr><th>Entrega</th><th>ADR</th><th>Decisão</th><th>Gatilhos no semestre</th></tr></thead>
+    <tbody>
+      <tr><td>E1</td><td>0032</td><td>Origem em 3NF, recarregada por inteiro</td><td>nenhum disparou</td></tr>
+      <tr><td>E2 lago</td><td>0024</td><td>Delta Lake, Parquet ZSTD, partição por quinquênio</td><td><strong>1 disparou</strong> → <code>ORDER BY</code> nos <code>id_vinculo</code></td></tr>
+      <tr><td>E2 ingestão</td><td>0025</td><td>Recarga mensal; CDC opcional</td><td>nenhum disparou</td></tr>
+      <tr><td>E3</td><td>0030</td><td>Estrela no grão do curso, dbt e Dagster</td><td><strong>1 disparou</strong> → macro de arredondamento e SCD 2</td></tr>
+      <tr><td>E4</td><td>0033</td><td>Semântica à mão no dbt, painel por arquivo, ETL reverso por push</td><td>decisão desta entrega</td></tr>
+    </tbody>
+  </table>
+  <div class="grade g2" style="margin-top:18px">
+    <div class="caixa verde"><h2>A opção nula venceu quando devia</h2><p>Recarga: <strong>0,9 s</strong>, contra <strong>1,9 GB</strong> de RAM de Kafka + Connect para um dado que muda uma vez por mês.</p></div>
+    <div class="caixa"><h2>E perdeu quando não bastava</h2><p>CSV agendado avisa, mas não guarda o andamento da coordenação.</p></div>
+  </div>
+  <div class="rodape"><span>Também revisto: ADR 0001 (CSV → PostgreSQL; Dagster) · nenhum gatilho disparou sem revisão</span><span class="evid">docs/adr/README.md</span></div>
+  <aside class="notas">Um minuto só. A mensagem: cada decisão tem a opção nula medida e gatilhos de revisão, e os que dispararam foram revistos.</aside>
+</section>
+
+<!-- 12 · LIMITES -->
+<section class="slide" data-bloco="7 · Limites e próximo passo · 14:00–15:00">
+  <div class="topo"><span class="chip gestao">Gestão</span><span class="bloco">Bloco 7 · 14:00–15:00</span></div>
+  <h1>O que ainda não resolvemos</h1>
+  <div class="grade g2" style="align-items:start">
+    <ul>
+      <li><strong>O motivo da evasão</strong> não está no dado aberto: trabalho, saúde, renda e reprovação pontual ficam de fora.</li>
+      <li><strong>Validar a fila</strong> com uma coordenação real, com login próprio por coordenação.</li>
+      <li><strong>LGPD:</strong> os tópicos do CDC não têm retenção, e o nome do responsável fica nos episódios sem prazo (proposta: trocar pela função após 2 anos).</li>
+      <li><strong>Faríamos diferente:</strong> o teste "duas telas, mesmo número" desde a E3, e os ADRs escritos junto com a entrega.</li>
+    </ul>
+    <div class="frase" style="margin-top:6px">O DEG sai da reunião sabendo em qual curso agir primeiro, com quem está o plano e se ele funcionou.</div>
+  </div>
+  <div class="rodape"><span>Retrospectiva do ciclo de vida no diário de bordo</span><span class="evid">docs/diario/diario_de_bordo.md · docs/analise_lgpd.md §4</span></div>
+  <aside class="notas">Fechar com a frase de gestão, devagar. Depois: "Obrigado, ficamos à disposição para as perguntas."</aside>
+</section>
+
+<!-- 13 · ARGUIÇÃO -->
+<section class="slide capa" data-bloco="Arguição · 15:00–20:00">
+  <div class="logo"><img src="assets/unb.png" alt="UnB"></div>
+  <h1>Obrigado. Perguntas?</h1>
+  <p>Painel público: observatorio-unb.github.io/observatorio-unb</p>
+  <p>Repositório: github.com/Observatorio-UnB/observatorio-unb · tag <code style="background:rgba(255,255,255,.15);color:#fff">e4</code></p>
+  <aside class="notas">Respostas de 30 a 40 segundos: o número primeiro, depois a explicação. Slides de reserva a seguir (R1 a R4).</aside>
+</section>
+
+<!-- R1 · IRC E GRÃO -->
+<section class="slide" data-bloco="Reserva">
+  <div class="topo"><span class="chip reserva">Reserva · R1</span><span class="bloco">IRC e grão do fato</span></div>
+  <h1>Por que o grão é o curso</h1>
+  <div class="grade g2" style="align-items:start">
+    <div class="caixa">
+      <h2>Índice de Retenção Crítica (ADR 0006)</h2>
+      <p><code>IRC = (0,3 × atraso_norm + 0,7 × evasão_norm) × 100</code></p>
+      <p>Min-max saturado nos percentis 5 e 95, para um curso extremo não comprimir a escala. Classificação por quartis.</p>
+      <p>Os pesos são uma <strong>escolha de valor</strong>: perder o aluno é pior que ele se formar devagar.</p>
+    </div>
+    <div class="caixa">
+      <h2>Grão medido (ADR 0030)</h2>
+      <p>Imposto por <code>UNIQUE (sk_curso)</code>. A pergunta da E1 é um ranking de cursos.</p>
+      <ul>
+        <li>curso: <strong>0,0%</strong> dos vínculos perdidos para k &lt; 5 (12 de 68.339)</li>
+        <li>curso × coorte × desfecho × semestre de saída: <strong>28%</strong> perdidos</li>
+        <li>vínculo: já existe na silver e no lago, fora do público</li>
+      </ul>
+    </div>
+  </div>
+  <div class="rodape"><span>Estrela, e não Data Vault (uma fonte, esquema estável) nem OBT</span><span class="evid">docs/adr/0006 · docs/adr/0030</span></div>
+</section>
+
+<!-- R2 · CICLO DE VIDA -->
+<section class="slide" data-bloco="Reserva">
+  <div class="topo"><span class="chip reserva">Reserva · R2</span><span class="bloco">Ciclo de vida</span></div>
+  <h1>O ciclo inteiro, da fonte de volta a quem decide</h1>
+  <div class="fluxo" style="margin-top:10px">
+    <div class="no ini"><div class="estagio">Geração · E1</div><b>dados.unb.br</b><span>SIGRA + SIGAA pela API CKAN</span></div>
+    <div class="seta">→</div>
+    <div class="no"><div class="estagio">Armazenamento · E1</div><b>Silver 3NF</b><span>152.680 vínculos, particionada, FKs e CHECK</span></div>
+    <div class="seta">→</div>
+    <div class="no"><div class="estagio">Ingestão · E2</div><b>Recarga + CDC</b><span>lago Delta, Parquet ZSTD; Debezium opcional; marca d'água</span></div>
+    <div class="seta">→</div>
+    <div class="no"><div class="estagio">Transformação · E3</div><b>dbt + Dagster</b><span>staging, intermediate, marts; SCD 2; retry e backfill</span></div>
+    <div class="seta">→</div>
+    <div class="no fim"><div class="estagio">Disponibilização · E4</div><b>Semântica + fila</b><span>painel, fila de intervenção, linhagem, RLS</span></div>
+  </div>
+  <table style="margin-top:24px">
+    <thead><tr><th>Estágio</th><th>O que funcionou</th><th>O que chegou tarde</th></tr></thead>
+    <tbody>
+      <tr><td>Geração</td><td>carga reprodutível com um comando desde o início</td><td>caracterização e ADR da origem só na E4</td></tr>
+      <tr><td>Ingestão</td><td>opção nula medida e vencedora</td><td>tópicos do CDC sem retenção</td></tr>
+      <tr><td>Transformação</td><td>reconciliação dbt × gold pegou arredondamento</td><td>SCD 2 no dbt só na semana 14</td></tr>
+      <tr><td>Disponibilização</td><td>a pergunta da E1 virou trabalho na fila</td><td>três definições da mesma métrica até a E4</td></tr>
+    </tbody>
+  </table>
+  <div class="rodape"><span>311 testes na suíte · 65 testes de dados no dbt</span><span class="evid">docs/diario/diario_de_bordo.md · Retrospectiva</span></div>
+</section>
+
+<!-- R3 · EXPLAIN -->
+<section class="slide" data-bloco="Reserva">
+  <div class="topo"><span class="chip reserva">Reserva · R3</span><span class="bloco">Desempenho</span></div>
+  <h1>EXPLAIN (ANALYZE, BUFFERS): antes e depois</h1>
+  <div class="grade g2">
+    <div class="kpi"><div class="v crit" style="font-size:64px">1.566 → 14</div><div class="r">buffers lidos no detalhamento dos vínculos de um curso (coortes 2010–2016)</div></div>
+    <div class="kpi"><div class="v verde" style="font-size:64px">35,6 → 0,42 ms</div><div class="r">Seq Scan + Hash Join vira Index Only Scan nas 2 partições</div></div>
+  </div>
+  <div class="caixa" style="margin-top:22px"><p style="margin:0">O curso chega ao vínculo por <code>id_estrutura</code>, que não tinha índice. Migração 0024: <code>(id_estrutura, tipo_saida_grupo, ano_ingresso) INCLUDE (semestres_permanencia_valida)</code>. O <code>test_09</code> falha se alguma partição voltar ao Seq Scan.</p></div>
+  <div class="rodape"><span>Planos completos, com a consulta</span><span class="evid">docs/explain/ · 03_ENGENHARIA_FISICA_E_TUNING_SGBD.md §5</span></div>
+</section>
+
+<!-- R4 · ACESSO NA FILA / CUSTO -->
+<section class="slide" data-bloco="Reserva">
+  <div class="topo"><span class="chip reserva">Reserva · R4</span><span class="bloco">Operação</span></div>
+  <h1>Quanto custa manter e quem garante o quê</h1>
+  <div class="grade g2" style="align-items:start">
+    <div class="caixa">
+      <h2>Custo</h2>
+      <ul>
+        <li>GitHub Actions recarrega no <strong>dia 1 de cada mês</strong> e roda os testes</li>
+        <li>GitHub Pages hospeda o painel (stlite, Python no navegador)</li>
+        <li>Zero de servidor; o painel público lê <code>export/gold.json</code>, não o banco</li>
+      </ul>
+    </div>
+    <div class="caixa">
+      <h2>Privilégio na fila</h2>
+      <ul>
+        <li><code>coordenacao_academica</code>: <code>UPDATE</code> só em status, responsável e plano; nenhum <code>DELETE</code></li>
+        <li>No projeto, a tela usa <code>SET LOCAL ROLE</code>: o banco recusa, mas a troca é do código</li>
+        <li>Em produção: um login por coordenação, e o banco garante sozinho</li>
+      </ul>
+    </div>
+  </div>
+  <div class="rodape"><span>ADR 0007 (painel no Pages) · ADR 0018 (atualização mensal) · ADR 0031 (Supabase)</span><span class="evid">.github/workflows/atualiza-dados.yml</span></div>
+</section>
+
+</div>
+
+<div id="notas"><h3>Notas do apresentador</h3><div id="notas-texto"></div></div>
+<div id="ajuda">← → navegar · F tela cheia · N notas</div>
+
+<script>
+(function () {
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var barra = document.getElementById('barra');
+  var notas = document.getElementById('notas');
+  var notasTexto = document.getElementById('notas-texto');
+  var atual = 0;
+
+  function lerHash() {
+    var n = parseInt((location.hash || '').replace('#', ''), 10);
+    return isNaN(n) ? 0 : Math.min(Math.max(n - 1, 0), slides.length - 1);
+  }
+
+  function escalar() {
+    var reservaNotas = notas.classList.contains('ver') ? notas.offsetHeight : 0;
+    var w = window.innerWidth, h = window.innerHeight - reservaNotas;
+    var s = Math.min(w / 1280, h / 720);
+    slides.forEach(function (el) {
+      el.style.transform = 'scale(' + s + ')';
+      el.style.top = ((h - 720) / 2) + 'px';
+      el.style.left = ((w - 1280) / 2) + 'px';
+    });
+  }
+
+  function mostrar(i) {
+    atual = Math.min(Math.max(i, 0), slides.length - 1);
+    slides.forEach(function (el, k) { el.classList.toggle('ativo', k === atual); });
+    barra.style.width = ((atual + 1) / slides.length * 100) + '%';
+    var a = slides[atual].querySelector('aside.notas');
+    notasTexto.innerHTML = '<strong>' + (atual + 1) + '/' + slides.length + ' · ' +
+      (slides[atual].getAttribute('data-bloco') || '') + '</strong><br>' + (a ? a.innerHTML : '—');
+    if (location.hash !== '#' + (atual + 1)) history.replaceState(null, '', '#' + (atual + 1));
+  }
+
+  document.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'Enter') { e.preventDefault(); mostrar(atual + 1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'Backspace') { e.preventDefault(); mostrar(atual - 1); }
+    else if (k === 'Home') mostrar(0);
+    else if (k === 'End') mostrar(slides.length - 1);
+    else if (k === 'f' || k === 'F') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+      else document.exitFullscreen && document.exitFullscreen();
+    }
+    else if (k === 'n' || k === 'N') { notas.classList.toggle('ver'); escalar(); }
+  });
+
+  document.getElementById('deck').addEventListener('click', function (e) {
+    if (e.clientX > window.innerWidth / 2) mostrar(atual + 1); else mostrar(atual - 1);
+  });
+
+  window.addEventListener('resize', escalar);
+  window.addEventListener('hashchange', function () { mostrar(lerHash()); });
+  escalar();
+  mostrar(lerHash());
+})();
+</script>
+</body>
+</html>

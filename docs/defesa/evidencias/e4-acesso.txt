@@ -1,0 +1,25 @@
+# Demo 3 — Controle de acesso por linha (RLS por campus) e por coluna (id_discente)
+# Gerado em 24/11/2026 23:49 · banco observatorio_e4 · commit 9948c59
+
+$ python3 src/db/demonstrar_controle_de_acesso.py
+Dono do banco: 152.680 vínculos em 4 campi.
+
+| Usuário | Lotação | Vínculos vistos | Esperado (dono, mesmos campi) |
+|---|---|---|---|
+| demo_secretaria_fcte | FACULDADE DE CIENCIAS E TECNOLOGIAS EM ENGENHARIA (FCTE) | 8620 | 8620 |
+| demo_secretaria_fcts_fup | FACULDADE DE CIENCIAS E TECNOLOGIAS EM SAUDE (FCTS), FACULDADE DE PLANALTINA (FUP) | 18096 | 18096 |
+| demo_sem_lotacao | (nenhuma) | 0 | 0 |
+
+| Tentativa (como demo_secretaria_fcte) | Resultado |
+|---|---|
+| coluna id_discente | negada |
+| partição direta | negada |
+| silver.discentes | negada |
+| escrita no vínculo | negada |
+| gold sem papel de leitura | negada |
+| demais colunas do vínculo | permitidas |
+
+Contagem dos vínculos da FCTE, mediana de 15: 0.5 ms pela política (RLS) contra 0.7 ms com o filtro escrito à mão pelo dono.
+
+Transação desfeita: papéis e lotação de exemplo removidos.
+[código de saída: 0]
