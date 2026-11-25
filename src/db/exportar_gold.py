@@ -42,6 +42,9 @@ TABELAS = (
     "gold.inep_benchmark_cursos_unb",
     # Tabela de consumo da camada transformada (dbt), que responde à pergunta da E1 no painel.
     "dbt_marts.painel_cursos_criticos",
+    # Camada semântica: recortes acima do curso e o registro versionado das definições (E4).
+    "dbt_marts.metricas_por_recorte",
+    "dbt_marts.metricas_definicoes",
 )
 
 

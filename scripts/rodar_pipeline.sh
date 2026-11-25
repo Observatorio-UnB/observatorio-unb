@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pipeline completo, do portal ao banco. Cada etapa lê a camada anterior do
 # PostgreSQL e grava a sua nele: migrações -> bronze (CKAN e INEP) -> silver -> gold
-# -> auditoria -> privacidade -> Silver 3NF e Star Schema -> camadas dbt -> lago Delta -> vetorização
+# -> auditoria -> privacidade -> Silver 3NF e Star Schema -> camadas dbt -> ETL reverso -> lago Delta -> vetorização
 # -> dicionário do banco.
 #
 # A ordem que vale é a do grafo do Dagster (orquestracao/definicoes.py), que roda no agendamento
@@ -59,8 +59,13 @@ etapa "Gold: refresh da view do painel"
 etapa "Transformações dbt: staging, intermediate e marts"
 if command -v dbt >/dev/null 2>&1 || [ -x .venv/bin/dbt ]; then
   bash scripts/dbt.sh build --full-refresh
+
+  # ETL reverso: lê o mart do painel, então só roda depois do dbt. Destino: ETL_REVERSO_DATABASE_URL
+  # (padrão: este banco). Sem o dbt, a fila fica como estava, e não esvaziada.
+  etapa "ETL reverso: fila de intervenção da coordenação e do DEG"
+  "$PYTHON" src/etl_reverso/fila_intervencao.py
 else
-  echo "AVISO: dbt não instalado; camadas dbt não reconstruídas (pip install -r requirements-dbt.txt)."
+  echo "AVISO: dbt não instalado; camadas dbt e fila de intervenção não atualizadas (pip install -r requirements-dbt.txt)."
 fi
 
 # Só as tabelas e as janelas (quinquênios de ingresso) que mudaram desde a última exportação, como

@@ -1,0 +1,23 @@
+version: 2
+
+seeds:
+  - name: metricas_definicoes
+    description: >
+      Registro versionado da camada semântica: uma linha por métrica publicada, com definição de
+      negócio, fórmula, unidade, recortes em que vale, se é aditiva, versão e o ADR que a sustenta.
+      A fórmula executável está em macros/metricas.sql; este registro é o que o painel mostra e o
+      que o ETL reverso grava ao lado de cada número (a versão). Mudou a fórmula, sobe a versão.
+    config:
+      column_types:
+        aditiva: boolean
+        vigente_desde: text
+    columns:
+      - name: metrica
+        description: Nome da coluna em que a métrica é publicada nos marts.
+        data_tests: [unique, not_null]
+      - name: versao
+        description: Versão semântica da definição (maior.menor.correção).
+        data_tests: [not_null]
+      - name: recortes_validos
+        description: Recortes em que a métrica existe, separados por ponto e vírgula.
+        data_tests: [not_null]

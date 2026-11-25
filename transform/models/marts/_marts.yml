@@ -161,3 +161,65 @@ models:
         data_type: bigint
       - name: na_fila_de_intervencao
         data_type: boolean
+
+  - name: metricas_por_recorte
+    description: >
+      Camada semântica, recortes acima do curso (UnB, campus, grau, área, turno). Cada métrica é
+      recalculada das bases aditivas dos cursos terminais publicados, pelas macros de
+      macros/metricas.sql: a taxa de um grupo é a razão das somas, e não a média das taxas. É de onde
+      o painel tira as comparações entre grupos. Definições versionadas em metricas_definicoes.
+      Fecha com o painel (tests/metricas_recortes_fecham_com_o_painel.sql).
+    config:
+      contract:
+        enforced: true
+    data_tests:
+      # Um registro por grupo de cada recorte.
+      - unique:
+          arguments:
+            column_name: "recorte || '|' || valor"
+    columns:
+      - name: recorte
+        data_type: text
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["UNB", "CAMPUS", "CATEGORIA_GRAU", "AREA_CONHECIMENTO", "TURNO"]
+      - name: valor
+        data_type: text
+        description: "O grupo dentro do recorte, por exemplo NOTURNO. No recorte UNB, o valor é UNB."
+        data_tests: [not_null]
+      - name: cursos
+        data_type: bigint
+      - name: ingressantes
+        data_type: bigint
+        data_tests:
+          - entre:
+              arguments: {minimo: 5, maximo: 1000000}
+      - name: formados
+        data_type: bigint
+      - name: evadidos
+        data_type: bigint
+      - name: ativos
+        data_type: bigint
+      - name: taxa_formatura_pct
+        data_type: numeric
+        data_tests:
+          - entre:
+              arguments: {minimo: 0, maximo: 100}
+      - name: taxa_evasao_pct
+        data_type: numeric
+        data_tests:
+          - entre:
+              arguments: {minimo: 0, maximo: 100}
+      - name: formados_tempo_ideal_pct
+        data_type: numeric
+        data_tests:
+          - entre:
+              arguments: {minimo: 0, maximo: 100}
+      - name: atraso_medio_semestres
+        data_type: numeric
+      - name: tempo_medio_formatura_semestres
+        data_type: numeric
+      - name: prazo_ideal_medio_semestres
+        data_type: numeric

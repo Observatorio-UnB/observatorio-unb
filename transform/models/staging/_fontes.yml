@@ -5,13 +5,41 @@ sources:
     description: Silver 3NF, carregada por src/db/povoar_silver_3nf.py a partir da silver tabular.
     # Trocado só pelo teste de dado ruim (tests/test_dbt_dado_ruim.py), que lê uma cópia adulterada.
     schema: "{{ var('esquema_silver', 'silver') }}"
+    # A montante desta fonte (portal -> bronze -> silver tabular -> Silver 3NF) o dado passa por
+    # scripts Python que o dbt não enxerga. A linhagem completa, até o recurso do portal, está em
+    # docs/catalogo/linhagem.md, gerada por src/governanca/linhagem.py; o meta abaixo é o elo.
     tables:
       - name: cursos
         description: Uma linha por oferta de curso do catálogo (id_curso).
+        meta:
+          carregada_por: src/db/povoar_silver_3nf.py
+          derivada_de: [silver.cursos_graduacao]
+          origem_publica: "dados.unb.br: cursos-de-graduacao"
+          dado_pessoal: false
       - name: estruturas_curriculares
         description: Uma matriz curricular por curso canônico, com os prazos regulamentares.
+        meta:
+          carregada_por: src/db/povoar_silver_3nf.py
+          derivada_de: [silver.estrutura_curricular]
+          origem_publica: "dados.unb.br: estrutura-curricular"
+          dado_pessoal: false
       - name: movimentacoes_vinculos
         description: Um vínculo de graduação por linha (SIGRA + SIGAA), particionado por ano de ingresso.
+        meta:
+          carregada_por: src/db/povoar_silver_3nf.py
+          derivada_de: [silver.discentes_graduacao, silver.estruturas_curriculares, gold.regras_harmonizacao_canonicas]
+          origem_publica: "dados.unb.br: dados-referente-aos-alunos-de-graduacao-pos-graduacao-latu-sensu-mestrado-e-doutorado (sigra.csv e sigaa.csv)"
+          dado_pessoal: true
+        columns:
+          - name: tipo_saida_grupo
+            description: >
+              FORMATURA, EVASAO, ATIVO ou OUTROS. SIGRA: forma_saida classificada por
+              categorize_forma_saida; SIGAA: status_aluno mapeado por STATUS_SIGAA_GRUPO
+              (src/pipeline/transform_silver.py, ADR 0013).
+          - name: semestres_permanencia_valida
+            description: >
+              2 x (ano_saida - ano_ingresso) + semestre_saida, só entre 1 e 30. A saída vem do
+              periodo_saida do SIGRA, ou da data_registro_diploma do SIGAA (ADR 0015).
 
   - name: gold
     description: Gold gerada pelo pipeline Python. Só serve de referência para a reconciliação.
@@ -20,3 +48,23 @@ sources:
       - name: fato_retencao_curso
       - name: dim_curso
       - name: dim_campus
+      # Tabelas da gold que o painel lê pelo export (src/db/exportar_gold.py), declaradas aqui para
+      # as exposures ligarem as abas do painel à sua origem.
+      - name: retencao_cursos_unb
+        description: Uma linha por curso canônico com as métricas de retenção (gold.atualizar_gold, migração 0022).
+        meta: {carregada_por: src/pipeline/build_gold.py, dado_pessoal: false}
+      - name: regras_harmonizacao_canonicas
+        description: Regras de harmonização dos nomes de curso (ADR 0003), semeadas do código por build_gold.py.
+        meta: {carregada_por: src/pipeline/build_gold.py, dado_pessoal: false}
+      - name: retencao_cursos_coorte
+        description: Retenção de cada curso por ano de ingresso, com a marca de turma madura (migração 0027).
+        meta: {carregada_por: src/pipeline/build_gold.py, dado_pessoal: false}
+      - name: ativos_hoje_cursos_unb
+        description: Alunos ativos hoje por curso, com a contagem de atraso (ADR 0019).
+        meta: {carregada_por: src/pipeline/build_gold.py, dado_pessoal: false}
+      - name: pibic_social_unb
+        description: Planos de iniciação científica por curso e perfil social (k >= 5).
+        meta: {carregada_por: src/pipeline/build_gold.py, dado_pessoal: false}
+      - name: inep_benchmark_cursos_unb
+        description: Comparação de cada curso da UnB com os cursos das federais no Censo 2019 (ADR 0008).
+        meta: {carregada_por: src/pipeline/build_gold.py, dado_pessoal: false}

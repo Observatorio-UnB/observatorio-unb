@@ -111,3 +111,16 @@ Para medir os grãos, calculei cada nível sobre as coortes maduras da base atua
 - O fato curso × coorte fica medido e documentado como próximo passo. Ele entra quando a pergunta de tendência for feita e houver mais coortes maduras.
 - Novas dependências: `dagster` e `dagster-dbt`, em `requirements-orquestracao.txt`. O agendamento continua no GitHub Actions, sem servidor novo.
 - As medições de grão foram feitas sobre a base de 10/10/2026 (silver local). Com uma carga nova, os números mudam, mas a ordem de grandeza da supressão não.
+
+## Gatilhos de revisão
+
+- **O DEG demandar série temporal de tendência por coorte (curso × ano de ingresso) ou o conjunto de coortes maduras ultrapassar 10 anos** (hoje são 7 coortes, 2010–2016).
+  - *Estado no semestre (até 24/11/2026):* **Não disparou — decisão mantida.** A pergunta da E1 segue atendida pelo ranking por curso (`painel_cursos_criticos`, 94 cursos no export de 03/11/2026); o fato `curso × coorte` (perda medida de 0,1% por k-anonimato) permanece como próximo passo documentado.
+- **Supressão por k-anonimato ($k < 5$) no grão do fato ultrapassar 5% dos vínculos maduros.**
+  - *Estado no semestre (até 24/11/2026):* **Não disparou — decisão mantida.** No grão do curso, a perda medida é de 0,0% (12 de 68.339 vínculos maduros).
+- **Divergência numérica (> 0,00 pp) entre a Gold SQL e os marts do dbt, ou perda do histórico SCD tipo 2 em execuções com `--full-refresh`.**
+  - *Estado no semestre (até 24/11/2026):* **Disparou — decisão revista/estendida** (Semanas 13–14, PRs #57 e #64). A reconciliação acusou divergência de arredondamento em `AUDIOVISUAL` (31,88% vs. 31,87%), corrigida com macro de arredondamento no dbt (PR #57); e o `--full-refresh` do Dagster apagava o histórico da `dim_curso` no dbt, resolvido com o snapshot `snap_atributos_curso` (PR #64, 1 snapshot, 12 modelos, 65 testes).
+- **A orquestração exigir múltiplos agendamentos independentes, sensores por evento ou frequência maior que o cron mensal do GitHub Actions** (justificando manter `dagster-daemon` em servidor dedicado).
+  - *Estado no semestre (até 24/11/2026):* **Não disparou — decisão mantida.** `dagster asset materialize` roda como biblioteca dentro do job mensal no GitHub Actions, com retry por asset e backfill das 6 partições do lago comprovados em `docs/orquestracao/evidencias/`.
+- **Entrada de novas fontes com chaves de negócio distintas ou schema drift frequente que deixe de ser absorvível na Silver** (reabrindo a avaliação de Data Vault 2.0).
+  - *Estado no semestre (até 24/11/2026):* **Não disparou — decisão mantida.** As 8 fontes continuam convergindo na chave única do curso.

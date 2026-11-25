@@ -46,6 +46,14 @@ def database_url() -> str:
     return ler_variavel("DATABASE_URL") or URL_PADRAO
 
 
+def url_fila_intervencao() -> str:
+    """Banco da fila de intervenção (operacional.fila_intervencao): ETL_REVERSO_DATABASE_URL ou, vazia,
+    o banco da plataforma. É a mesma URL para quem grava a fila (src/etl_reverso/fila_intervencao.py)
+    e para quem a opera (src/etl_reverso/coordenacao.py e a aba do painel): com o destino separado,
+    os dois lados precisam abrir o mesmo banco."""
+    return ler_variavel("ETL_REVERSO_DATABASE_URL") or database_url()
+
+
 def variaveis_dbt(url: Optional[str] = None) -> Dict[str, str]:
     """As variáveis que transform/profiles.yml lê, a partir da URL do banco (padrão: DATABASE_URL)."""
     u = urlsplit(url or database_url())
