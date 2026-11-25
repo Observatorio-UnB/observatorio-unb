@@ -11,7 +11,8 @@ from formatacao import br, dec, grafico, mostrar_tabela
 def renderizar(g):
     """g: namespace com o que o app.py carregou (dados, metadados e helpers)."""
     _COORTES = g._COORTES
-    df_gold = g.df_gold
+    EH_COORTE_OFICIAL = getattr(g, "EH_COORTE_OFICIAL", True)
+    df_gold = getattr(g, "df_gold_oficial", g.df_gold)
     df_pibic = g.df_pibic
     mostrar_escopo = g.mostrar_escopo
     n_pibic_evasao = g.n_pibic_evasao
@@ -22,6 +23,11 @@ def renderizar(g):
     st.subheader(
         "🔬 Iniciação Científica & Democratização da Ciência na UnB (PIBIC / PIVIC)")
     mostrar_escopo("pibic")
+    if not EH_COORTE_OFICIAL:
+        st.caption(
+            f"ℹ️ Esta tela cruza planos de IC (2018–2023) com o recorte oficial de coortes maduras (**{_COORTES}**) "
+            "e não é filtrada pelo seletor lateral."
+        )
     if pibic_meta:
         anos_pibic = [int(a["ano"])
                       for a in pibic_meta.get("evolucao_anual", [])]

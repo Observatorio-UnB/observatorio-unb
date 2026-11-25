@@ -2,12 +2,13 @@
 
 import plotly.express as px
 import streamlit as st
-from formatacao import br, dec, grafico, mostrar_tabela
+from formatacao import botao_csv, br, dec, grafico, mostrar_tabela
 
 
 def renderizar(g):
     """g: namespace com o que o app.py carregou (dados, metadados e helpers)."""
     EXCLUDED_GENERIC_COURSES = g.EXCLUDED_GENERIC_COURSES
+    EH_COORTE_OFICIAL = getattr(g, "EH_COORTE_OFICIAL", True)
     df_ativos = g.df_ativos
     global_meta = g.global_meta
     mostrar_escopo = g.mostrar_escopo
@@ -15,6 +16,11 @@ def renderizar(g):
     ref = global_meta.get("ativos_hoje_referencia", "")
     st.subheader(f"🎒 Quem Está no Curso Agora ({ref})")
     mostrar_escopo("ativos")
+    if not EH_COORTE_OFICIAL:
+        st.caption(
+            f"ℹ️ Esta tela retrata a fotografia atual de ativos no SIGAA ({ref}) e **não é filtrada** "
+            "pelo seletor de intervalo de coortes da barra lateral."
+        )
     st.markdown(
         "Discentes de graduação na **lista de ativos mais recente do SIGAA**, de todas "
         "as turmas de ingresso. As outras abas olham só turmas antigas, que já tiveram tempo de "
@@ -77,7 +83,7 @@ def renderizar(g):
             "pct_acima_prazo_ideal", ascending=False)
         st.caption(f"Tabela: {len(_tabela_at)} de {len(df_at)} cursos com {min_ativos}+ ativos (mesmo filtro do gráfico, "
                    "que mostra os 20 primeiros).")
-        mostrar_tabela(_tabela_at.rename(columns={
+        _tabela_exib = _tabela_at.rename(columns={
             "curso": "Curso",
             "periodo_referencia": "Semestre de referência",
             "semestre_ideal_previsto": "Prazo ideal (semestres)",
@@ -86,4 +92,11 @@ def renderizar(g):
             "ativos_acima_prazo_ideal": "Acima do prazo ideal",
             "ativos_acima_prazo_maximo": "Acima do prazo máximo",
             "pct_acima_prazo_ideal": "% acima do prazo ideal",
-        }), width="stretch", hide_index=True)
+        })
+        mostrar_tabela(_tabela_exib, width="stretch", hide_index=True)
+        botao_csv(
+            _tabela_exib,
+            f"ativos_unb_{str(ref).replace('/', '_')}.csv",
+            label="📥 Baixar tabela de ativos filtrada (CSV, Gold k ≥ 5)",
+            key="csv_ativos",
+        )

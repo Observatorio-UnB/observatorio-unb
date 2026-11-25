@@ -2,7 +2,7 @@
 
 import plotly.express as px
 import streamlit as st
-from formatacao import br, dec, grafico
+from formatacao import botao_csv, br, dec, grafico
 
 
 def renderizar(g):
@@ -156,5 +156,12 @@ def renderizar(g):
         grafico(fig_campus_alunos, width="stretch")
     st.caption("Cursos por campus: " + " · ".join(
         f"{c} ({int(n)})" for c, n in zip(df_campus["campus"], df_campus["cursos"])) + ".")
+    c_dl1, c_dl2, c_dl3 = st.columns(3)
+    with c_dl1:
+        botao_csv(df_turno, "comparativo_turnos_unb.csv", "📥 Baixar Turnos (CSV)", key="csv_turnos")
+    with c_dl2:
+        botao_csv(df_grau, "comparativo_graus_unb.csv", "📥 Baixar Graus (CSV)", key="csv_graus")
+    with c_dl3:
+        botao_csv(df_campus, "comparativo_campi_unb.csv", "📥 Baixar Campi (CSV)", key="csv_campi")
     g.mostrar_definicoes(["ingressantes", "taxa_evasao_pct", "taxa_formatura_pct", "atraso_medio_semestres",
                           "tempo_medio_formatura_semestres", "prazo_ideal_medio_semestres"])

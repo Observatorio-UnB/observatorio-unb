@@ -12,11 +12,16 @@ def renderizar(g):
     """g: namespace com o que o app.py carregou (dados, metadados e helpers)."""
     UNB_GREEN = g.UNB_GREEN
     UNB_NAVY = g.UNB_NAVY
+    EH_COORTE_OFICIAL = getattr(g, "EH_COORTE_OFICIAL", True)
     df_inep = g.df_inep
     mostrar_escopo = g.mostrar_escopo
 
     st.subheader("🇧🇷 A UnB Perde Mais Alunos que as Outras Federais?")
     mostrar_escopo("inep")
+    if not EH_COORTE_OFICIAL:
+        st.caption(
+            "ℹ️ Esta tela usa o Censo da Educação Superior de 2019 (INEP/MEC) e não é filtrada pelo seletor de coortes."
+        )
     st.markdown(
         "Cada curso da UnB comparado com **o mesmo curso nas demais universidades federais**, "
         "usando os microdados do Censo da Educação Superior de 2019 (INEP/MEC). A referência "
