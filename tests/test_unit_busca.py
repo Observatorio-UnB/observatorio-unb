@@ -13,12 +13,19 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
-from src.busca.buscar import consulta_de_cobertura, sem_acento  # noqa: E402
+from src.busca.buscar import (  # noqa: E402
+    _montar_filtros_sql,
+    consulta_de_cobertura,
+    expandir_consulta,
+    sem_acento,
+)
 from src.busca.vetorizar import (  # noqa: E402
     SOBREPOSICAO_TRECHO,
     TAMANHO_MAX_TRECHO,
+    _limpar_markdown,
     _trechos,
     documentos_da_documentacao,
+    normalizar_campus,
 )
 
 
@@ -107,6 +114,55 @@ class TestConsultaPorTexto(unittest.TestCase):
 
     def test_sem_acento(self):
         self.assertEqual(sem_acento("Evasão em Ciência da Computação"), "Evasao em Ciencia da Computacao")
+
+    def test_expandir_consulta_siglas_unb(self):
+        expandida, expansoes = expandir_consulta("cursos na FGA com alto IRC")
+        self.assertIn("gama", expandida)
+        self.assertIn("fcte", expandida)
+        self.assertIn("retencao", expandida)
+        self.assertEqual([orig for orig, _ in expansoes], ["FGA", "IRC"])
+
+    def test_expandir_consulta_sem_sigla_nao_altera(self):
+        expandida, expansoes = expandir_consulta("medicina veterinaria")
+        self.assertEqual(expandida, "medicina veterinaria")
+        self.assertEqual(expansoes, [])
+
+    def test_normalizar_campus_unifica_gold_e_pibic(self):
+        self.assertEqual(
+            normalizar_campus("FACULDADE DE CIENCIAS E TECNOLOGIAS EM ENGENHARIA (FCTE)"),
+            "GAMA (FGA/FCTE)",
+        )
+        self.assertEqual(normalizar_campus("FGA - GAMA"), "GAMA (FGA/FCTE)")
+        self.assertEqual(
+            normalizar_campus("FACULDADE DE CIENCIAS E TECNOLOGIAS EM SAUDE (FCTS)"),
+            "CEILÂNDIA (FCE/FCTS)",
+        )
+        self.assertEqual(normalizar_campus("FCE - CEILANDIA"), "CEILÂNDIA (FCE/FCTS)")
+        self.assertEqual(normalizar_campus("FUP - PLANALTINA"), "PLANALTINA (FUP)")
+        self.assertEqual(normalizar_campus("DARCY RIBEIRO"), "DARCY RIBEIRO")
+
+    def test_montar_filtros_sql_facetados(self):
+        clausula, params = _montar_filtros_sql(
+            tipo=None,
+            tipos=("curso", "projeto_pibic"),
+            filtros={"campus": "FGA - GAMA", "turno": "NOTURNO", "evasao_min": 50, "ano_min": 2021},
+        )
+        sql_txt = clausula.as_string(None)
+        self.assertIn("tipo = ANY", sql_txt)
+        self.assertIn("campus_norm", sql_txt)
+        self.assertIn("turno", sql_txt)
+        self.assertIn("taxa_evasao_pct", sql_txt)
+        self.assertEqual(params["tipos"], ["curso", "projeto_pibic"])
+        self.assertEqual(params["campus_norm"], "GAMA (FGA/FCTE)")
+        self.assertEqual(params["evasao_min"], 50.0)
+        self.assertEqual(params["ano_min"], 2021)
+
+    def test_limpar_markdown_remove_urls_e_separadores_tabela(self):
+        bruto = "Veja [ADR 0011](docs/adr/0011.md).\n| a | b |\n|---|---|\n| 1 | 2 |"
+        limpo = _limpar_markdown(bruto)
+        self.assertIn("Veja ADR 0011.", limpo)
+        self.assertNotIn("docs/adr/0011.md", limpo)
+        self.assertNotIn("|---|---|", limpo)
 
 
 if __name__ == "__main__":

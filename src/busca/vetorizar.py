@@ -4,11 +4,12 @@ Vetorização para busca semântica (pgvector).
 Monta um documento de texto por entidade pesquisável, a partir do próprio banco,
 e grava o embedding em busca.documentos:
 
-- curso:          uma linha de gold.retencao_cursos_unb, descrita em frase;
+- curso:          uma linha de gold.retencao_cursos_unb enriquecida com ativos hoje,
+                  PIBIC e benchmark INEP (todos agregados com k >= 5);
 - projeto_pibic:  cada plano de IC distinto de silver.pibic_bolsistas (título, ano,
-                  curso, linha de pesquisa), sem nome, matrícula ou orientador;
+                  curso, campus, linha de pesquisa), sem nome, matrícula ou orientador;
 - documentacao:   cada seção dos .md de docs/, inclusive as subpastas (ADRs, arquitetura,
-                  diário), e do README.md da raiz.
+                  diário), e do README.md da raiz, preservando o título do documento pai.
 
 É incremental: o embedding só é recalculado quando o texto ou o modelo mudam
 (hash_conteudo), e documentos que deixaram de existir na fonte são apagados.
@@ -28,7 +29,7 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 import numpy as np
 import psycopg
@@ -101,6 +102,37 @@ def _fmt(valor, sufixo: str = "") -> str:
     return "sem dado" if valor is None else f"{float(valor):g}{sufixo}"
 
 
+def normalizar_campus(campus: Optional[str]) -> str:
+    """Agrupa as variações de nome de campus entre Gold (FCTE/FCTS) e PIBIC (FGA/FCE)."""
+    if not campus:
+        return "NÃO INFORMADO"
+    c = campus.upper()
+    if "FCTE" in c or "FGA" in c or "GAMA" in c:
+        return "GAMA (FGA/FCTE)"
+    if "FCTS" in c or "FCE" in c or "CEILANDIA" in c or "CEILÂNDIA" in c:
+        return "CEILÂNDIA (FCE/FCTS)"
+    if "FUP" in c or "PLANALTINA" in c:
+        return "PLANALTINA (FUP)"
+    if "DARCY" in c:
+        return "DARCY RIBEIRO"
+    if "MULTI" in c:
+        return "MULTICAMPUS"
+    return campus.strip().upper()
+
+
+def _apelido_campus(campus: Optional[str]) -> str:
+    """Texto descritivo com sigla e cidade para que buscas por 'Gama', 'FGA' ou 'FCTE' casem."""
+    norm = normalizar_campus(campus)
+    mapa = {
+        "GAMA (FGA/FCTE)": "gama (fga, fcte, faculdade de ciências e tecnologias em engenharia)",
+        "CEILÂNDIA (FCE/FCTS)": "ceilândia (fce, fcts, faculdade de ciências e tecnologias em saúde)",
+        "PLANALTINA (FUP)": "planaltina (fup, faculdade unb planaltina)",
+        "DARCY RIBEIRO": "darcy ribeiro (plano piloto)",
+        "MULTICAMPUS": "multicampus",
+    }
+    return mapa.get(norm, (campus or "").lower())
+
+
 # O embedding capta palavras, não grandezas: "49,92%" não fica perto de "muita evasão".
 # As faixas abaixo dão à busca um vocabulário para os números (limiares fixos, não quartis,
 # para que a descrição de um curso não mude quando outro curso muda).
@@ -131,30 +163,37 @@ def _faixa_atraso(desvio) -> str:
 def documentos_de_cursos(conn: psycopg.Connection) -> List[Documento]:
     linhas = conn.execute(
         """
-        SELECT curso, categoria_grau, grau_academico, campus, turno, area_conhecimento,
-               classificacao_retencao, indice_retencao_critica, taxa_evasao_pct, taxa_formatura_pct,
-               total_discentes_registrados, formados_tempo_ideal_pct, semestre_ideal_previsto,
-               tempo_medio_real_semestres, desvio_medio_semestres
-        FROM gold.retencao_cursos_unb
+        SELECT r.curso, r.departamento, r.categoria_grau, r.grau_academico, r.campus, r.turno,
+               r.area_conhecimento, r.classificacao_retencao, r.indice_retencao_critica,
+               r.taxa_evasao_pct, r.taxa_formatura_pct, r.total_discentes_registrados,
+               r.formados_tempo_ideal_pct, r.semestre_ideal_previsto,
+               r.tempo_medio_real_semestres, r.desvio_medio_semestres,
+               r.pibic_total_projetos,
+               a.total_ativos_hoje, a.pct_acima_prazo_ideal,
+               i.taxa_desvinculacao_unb_pct, i.mediana_desvinculacao_federais_pct
+        FROM gold.retencao_cursos_unb r
+        LEFT JOIN gold.ativos_hoje_cursos_unb a ON a.curso = r.curso
+        LEFT JOIN gold.inep_benchmark_cursos_unb i ON i.curso_inep = r.curso
         -- Cursos-tronco (ingresso comum) não têm prazo próprio e ficam fora das telas: o cartão deles
         -- na busca mostraria evasão de 93% sem aviso.
-        WHERE curso NOT IN (
+        WHERE r.curso NOT IN (
             SELECT jsonb_array_elements_text(conteudo->'cursos_tronco')
             FROM gold.relatorios WHERE nome = 'metricas_gerais_unb')
         """
     ).fetchall()
     docs = []
-    for (curso, categoria, grau, campus, turno, area, classe, irc, evasao, formatura,
-         total, no_ideal, ideal, tempo_medio, desvio) in linhas:
-        # Frase em minúsculas: o tokenizador do modelo lida mal com texto todo em caixa alta.
+    for (curso, departamento, categoria, grau, campus, turno, area, classe, irc, evasao, formatura,
+         total, no_ideal, ideal, tempo_medio, desvio, pibic_proj, ativos_hoje, pct_acima_ideal,
+         inep_unb, inep_fed) in linhas:
+        # Texto enxuto (< ~430 caracteres) para caber inteiro na janela de 128 tokens do MiniLM
+        # sem diluir o nome do curso, campus, turno e faixas de evasão/atraso. Os indicadores
+        # complementares (ativos, PIBIC, INEP, departamento) ficam em metadados para cards/filtros.
         conteudo = (
-            f"curso de {curso.lower()} ({', '.join(dict.fromkeys([categoria.lower(), grau.lower()]))}), campus {campus.lower()}, "
-            f"turno {turno.lower()}, área de {area.lower()}. "
+            f"curso de {curso.lower()} ({', '.join(dict.fromkeys([categoria.lower(), grau.lower()]))}), "
+            f"campus {_apelido_campus(campus)}, turno {turno.lower()}, área de {area.lower()}. "
             f"{classe.lower()}, {_faixa_evasao(evasao)}, {_faixa_atraso(desvio)}. "
-            f"índice de retenção crítica {_fmt(irc)}. "
-            f"evasão de {_fmt(evasao, '%')} e formatura de {_fmt(formatura, '%')} entre {total} vínculos. "
-            f"{_fmt(no_ideal, '%')} dos formados concluem no tempo ideal de {_fmt(ideal)} semestres; "
-            f"tempo médio real de {_fmt(tempo_medio)} semestres ({_fmt(desvio)} de atraso médio)."
+            f"evasão de {_fmt(evasao, '%')}, formatura de {_fmt(formatura, '%')}, irc {_fmt(irc)} "
+            f"({total} vínculos, tempo médio {_fmt(tempo_medio)} semestres)."
         )
         docs.append(Documento(
             tipo="curso",
@@ -162,11 +201,24 @@ def documentos_de_cursos(conn: psycopg.Connection) -> List[Documento]:
             titulo=curso,
             conteudo=conteudo,
             metadados={
-                "campus": campus, "turno": turno, "area_conhecimento": area,
+                "campus": campus,
+                "campus_norm": normalizar_campus(campus),
+                "turno": turno,
+                "area_conhecimento": area,
+                "departamento": departamento,
+                "categoria_grau": categoria,
+                "grau_academico": grau,
                 "classificacao_retencao": classe,
                 "indice_retencao_critica": float(irc) if irc is not None else None,
                 "taxa_evasao_pct": float(evasao) if evasao is not None else None,
                 "taxa_formatura_pct": float(formatura) if formatura is not None else None,
+                "total_discentes_registrados": int(total) if total is not None else None,
+                "semestre_ideal_previsto": float(ideal) if ideal is not None else None,
+                "tempo_medio_real_semestres": float(tempo_medio) if tempo_medio is not None else None,
+                "desvio_medio_semestres": float(desvio) if desvio is not None else None,
+                "total_ativos_hoje": int(ativos_hoje) if ativos_hoje is not None else None,
+                "pct_acima_prazo_ideal": float(pct_acima_ideal) if pct_acima_ideal is not None else None,
+                "pibic_total_projetos": int(pibic_proj) if pibic_proj is not None else None,
             },
         ))
     return docs
@@ -189,6 +241,8 @@ def documentos_de_projetos_pibic(conn: psycopg.Connection) -> List[Documento]:
         contexto = [f"iniciação científica de {ano}"]
         if curso:
             contexto.append(f"curso de {curso.lower()}")
+        if campus:
+            contexto.append(f"campus {_apelido_campus(campus)}")
         if linha:
             contexto.append(f"linha {linha.lower()}")
         docs.append(Documento(
@@ -196,10 +250,24 @@ def documentos_de_projetos_pibic(conn: psycopg.Connection) -> List[Documento]:
             chave=chave,
             titulo=titulo.capitalize(),
             conteudo=f"{titulo.lower()}. {', '.join(contexto)}.",
-            metadados={"ano": ano, "curso": curso or None, "campus": campus,
-                       "linha_pesquisa": linha or None, "planos": planos},
+            metadados={
+                "ano": ano,
+                "curso": curso or None,
+                "campus": campus,
+                "campus_norm": normalizar_campus(campus),
+                "linha_pesquisa": linha or None,
+                "planos": planos,
+            },
         ))
     return docs
+
+
+def _limpar_markdown(texto: str) -> str:
+    """Remove ruído sintático de Markdown (URLs de links, separadores de tabela) mantendo o texto."""
+    texto = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", texto)
+    texto = re.sub(r"^\s*\|?(?:\s*:?-+:?\s*\|)+\s*$", "", texto, flags=re.MULTILINE)
+    texto = re.sub(r"`([^`]+)`", r"\1", texto)
+    return texto
 
 
 def _cortar_bloco(bloco: str, limite: int, sobreposicao: int) -> List[str]:
@@ -254,6 +322,9 @@ def documentos_da_documentacao(docs_dir: Path = DOCS_DIR, readme: Path = README)
         # mudou não é vetorizado de novo.
         nome = caminho.removeprefix("docs/")
         texto = arquivo.read_text(encoding="utf-8")
+        # Título principal (# ...) do documento, para manter o contexto nas subseções (## / ###).
+        m_doc = re.search(r"^# (.+)$", texto, flags=re.MULTILINE)
+        titulo_doc = m_doc.group(1).strip() if m_doc else arquivo.stem
         # Uma seção por título de nível 1 a 3; o que vem antes do primeiro título é a introdução.
         partes = re.split(r"^(#{1,3} .+)$", texto, flags=re.MULTILINE)
         secao, corpo_acumulado = arquivo.stem, [partes[0]]
@@ -267,8 +338,14 @@ def documentos_da_documentacao(docs_dir: Path = DOCS_DIR, readme: Path = README)
         secoes.append((secao, "".join(corpo_acumulado)))
 
         for i, (titulo_secao, corpo) in enumerate(secoes):
-            for j, trecho in enumerate(_trechos(corpo)):
-                conteudo = f"{titulo_secao}\n{trecho}"
+            corpo_limpo = _limpar_markdown(corpo)
+            cabecalho = (
+                titulo_secao
+                if titulo_secao == titulo_doc or titulo_secao == arquivo.stem
+                else f"{titulo_doc} — {titulo_secao}"
+            )
+            for j, trecho in enumerate(_trechos(corpo_limpo)):
+                conteudo = f"{cabecalho}\n{trecho}"
                 # Com o título: a seção de abertura de um ADR tem corpo curto (status e data), e o
                 # título é o que ela tem de melhor para a busca.
                 if sum(c.isalpha() for c in conteudo) < FRACAO_MINIMA_DE_LETRAS * len(conteudo):
@@ -278,7 +355,7 @@ def documentos_da_documentacao(docs_dir: Path = DOCS_DIR, readme: Path = README)
                     chave=f"{nome}#{i}.{j}",
                     titulo=f"{nome} › {titulo_secao}",
                     conteudo=conteudo,
-                    metadados={"arquivo": caminho, "secao": titulo_secao},
+                    metadados={"arquivo": caminho, "secao": titulo_secao, "documento": titulo_doc},
                 ))
     return docs
 

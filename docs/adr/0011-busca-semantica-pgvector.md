@@ -50,3 +50,18 @@ Um conjunto de 20 consultas com o documento esperado (`tests/test_banco_busca.py
 - Uma consulta cujas palavras estão espalhadas por trechos diferentes e que fica abaixo de 0,55 no vetor volta vazia. Exemplo: "pergunta de gestão do decanato no challenge canvas", em que cada trecho do canvas tem um só dos termos.
 - O teste acompanha esse caso: é o 1 de 20 que falta.
 
+## Revisão de 2026-11-24: FTS sem acento, chunking hierárquico, expansão UnB e busca facetada
+
+Para melhorar a qualidade percebida e a utilidade prática para o DEG sem sair do orçamento de disco do Supabase nem adicionar APIs externas:
+
+- **FTS sem acento com pesos (migração 0032):** `busca.documentos.texto_busca` passa a usar `busca.sem_acento()` (wrapper `IMMUTABLE` de `unaccent`, compatível com Docker local e Supabase) e `setweight` (`A` para título, `B` para conteúdo), eliminando falhas silenciosas entre consultas acentuadas e títulos sem acento da Silver.
+- **Chunking hierárquico na documentação:** subseções `##/###` preservam o título principal (`#`) do documento e removem ruído sintático de Markdown (URLs de links e separadores de tabela) antes da vetorização.
+- **Enriquecimento enxuto e normalização de campus:** cursos recebem apelidos de campus (`FGA/FCTE/Gama`, `FCE/FCTS/Ceilândia`, `FUP/Planaltina`, `Darcy Ribeiro`) mantendo o texto dentro da janela de 128 tokens do `MiniLM`, com métricas complementares (ativos hoje, PIBIC, INEP, departamento) em `metadados` indexados por GIN (`jsonb_path_ops`).
+- **Expansão determinística de siglas UnB + filtros facetados:** `src/busca/buscar.py` expande siglas/sinônimos locais (`DEG`, `NDE`, `ABI`, `IRC`, `FGA/FCTE`, `FCE/FCTS`, `FUP`, `PIBIC`, `LGPD`, etc.), aplica filtros estruturados (`campus`, `turno`, `classificacao_retencao`, faixa de evasão, ano de PIBIC) e multi-tipo diretamente nas CTEs com `hnsw.iterative_scan = strict_order`, e retorna explicabilidade das fontes e *highlights* via `ts_headline`.
+- **Descoberta e acionabilidade no painel:** `busca_semantica.py` exibe chips de consultas sugeridas, filtros facetados, relevância normalizada (0–100%), badges de explicabilidade, deep-link para **Detalhe por Curso** e links pré-preenchidos para RIUnB/Google Acadêmico nos planos de PIBIC (além de cursos/projetos semelhantes via pgvector).
+
+**Medido nas 20 consultas (`tests/test_banco_busca.py`):**
+- `recall@5` subiu de **19/20 para 20/20 (100%)** — o caso do *Challenge Canvas* passou a retornar em 1º lugar;
+- tamanho de `busca.documentos` no banco local: **75 MB** (+9 MB sobre os 66 MB anteriores), mantendo ampla margem dentro da cota de 500 MB do Supabase (ADR 0031).
+
+
