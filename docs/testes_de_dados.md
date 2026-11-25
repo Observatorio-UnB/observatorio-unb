@@ -1,12 +1,12 @@
 # Testes de dados da camada transformada
 
-Os testes ficam no projeto dbt (`transform/`) e rodam a cada `dbt build`: no CI (`medalhao.yml`), no job mensal do Dagster (onde viram checagens dos assets), no `rodar_pipeline.sh` e no Docker. Teste que falha interrompe o build, e o dbt pula os modelos que dependem do dado reprovado. São 65 testes. Um deles (`dominio_saida_estimada_antes_do_ingresso`) avisa sem falhar, porque cobre uma anomalia conhecida da fonte.
+Os testes ficam no projeto dbt (`transform/`) e rodam a cada `dbt build`: no CI (`medalhao.yml`), no job mensal do Dagster (onde viram checagens dos assets), no `rodar_pipeline.sh` e no Docker. Teste que falha interrompe o build, e o dbt pula os modelos que dependem do dado reprovado. São 79 testes. Um deles (`dominio_saida_estimada_antes_do_ingresso`) avisa sem falhar, porque cobre uma anomalia conhecida da fonte.
 
 ## Por tipo
 
 | Tipo | Testes | O que pega |
 |---|---|---|
-| **Esquema** | Contrato de nomes e tipos (`contract: enforced`) em `stg_vinculos`, `fct_retencao_curso` e `painel_cursos_criticos`; `accepted_values` em categoria, desfecho, fonte e classificação | Coluna renomeada ou com outro tipo na silver; categoria nova que ninguém mapeou |
+| **Esquema** | Contrato de nomes e tipos (`contract: enforced`) em `stg_vinculos`, `fct_retencao_curso`, `painel_cursos_criticos` e `metricas_por_recorte`; `accepted_values` em categoria, desfecho, fonte e classificação | Coluna renomeada ou com outro tipo na silver; categoria nova que ninguém mapeou |
 | **Volume** | `volume_entre` em `stg_cursos` (100 a 300), `stg_estruturas_curriculares` (80 a 200), `stg_vinculos` (100 mil a 300 mil), `dim_curso` (80 a 200 versões atuais), `fct_retencao_curso` e `painel_cursos_criticos` (60 a 150) | Carga parcial, arquivo truncado, duplicação em massa |
 | **Unicidade** | `unique` nas chaves de todos os modelos e no nome canônico | Vínculo ou curso duplicado, que conta duas vezes no fato |
 | **Integridade referencial** | `relationships` do vínculo para a matriz, da matriz para o curso, e do fato para as duas dimensões | Vínculo sem matriz, fato apontando para curso que não está na dimensão |
@@ -14,6 +14,7 @@ Os testes ficam no projeto dbt (`transform/`) e rodam a cada `dbt build`: no CI 
 | **Domínio (o que o dado tem de sujo)** | Permanência entre 1 e 35 semestres; prazo ideal entre 4 e 16; ano de ingresso plausível; saída antes do ingresso; desfechos que somam mais que os ingressantes; taxas e IRC entre 0 e 100; k ≥ 5 no fato | Valor negativo onde não cabe, saída antes de entrar, contagem dupla na junção |
 | **Histórico (SCD tipo 2)** | `scd_dim_curso_uma_versao_atual`, `scd_dim_curso_vigencias_encadeadas`, `scd_fato_aponta_versao_atual` | Dimensão sobrescrita ou versão apagada, que reescreve a série para trás; curso duplicado no fato; painel com a classificação antiga |
 | **Reconciliação** | `reconcilia_fato_retencao_com_a_gold` | O fato do dbt diverge, em qualquer curso ou medida, do fato do pipeline Python |
+| **Definição única (camada semântica, E4)** | `metricas_registro_completo`; `metricas_recortes_fecham_com_o_painel`; `unique` em recorte e valor de `metricas_por_recorte`; `unique` e `not_null` no registro `metricas_definicoes`. Fora do dbt: `tests/test_banco_etl_reverso.py::TestMesmoNumero` | Métrica publicada sem definição versionada (ou o contrário); recorte que não fecha com o ranking; taxa refeita fora da macro; o painel, a fila e as abas da gold mostrando números diferentes para o mesmo curso ([docs/camada_semantica_e_etl_reverso.md](camada_semantica_e_etl_reverso.md)) |
 
 ## Distribuição: os limites e de onde vêm
 
