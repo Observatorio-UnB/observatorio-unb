@@ -178,7 +178,7 @@ st.markdown(
 st.caption("Sugestões rápidas:")
 cols_ex = st.columns(len(EXEMPLOS))
 for idx, (texto_ex, onde_ex) in enumerate(EXEMPLOS):
-    if cols_ex[idx].button(texto_ex, key=f"ex_{idx}", use_container_width=True):
+    if cols_ex[idx].button(texto_ex, key=f"ex_{idx}", width="stretch"):
         st.session_state["busca_consulta"] = texto_ex
         st.session_state["busca_onde"] = onde_ex
         st.rerun()
@@ -375,7 +375,7 @@ if consulta.strip():
                     if st.button(
                         "🔍 Ver no Detalhe por Curso",
                         key=f"abrir_curso_{idx}_{r['titulo']}",
-                        use_container_width=True,
+                        width="stretch",
                     ):
                         _abrir_no_detalhe(r["titulo"])
             elif r["tipo"] == "projeto_pibic":
@@ -385,13 +385,13 @@ if consulta.strip():
                         if st.button(
                             "🔍 Ver curso no Detalhe",
                             key=f"abrir_curso_ic_{idx}_{r['chave']}",
-                            use_container_width=True,
+                            width="stretch",
                         ):
                             _abrir_no_detalhe(curso_ic)
                     if st.button(
                         "🔬 Abrir aba PIBIC",
                         key=f"abrir_pibic_{idx}_{r['chave']}",
-                        use_container_width=True,
+                        width="stretch",
                     ):
                         _abrir_aba_pibic()
 

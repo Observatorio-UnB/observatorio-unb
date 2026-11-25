@@ -251,7 +251,7 @@ def renderizar(g):
                     f"Formatura: **{dec(fo_s, 1) + '%' if fo_s is not None else '—'}**  \n"
                     f"IRC: **{dec(irc_s, 1) if irc_s is not None else '—'}**"
                 )
-                if st.button("Abrir curso", key=f"sim_curso_{idx_s}_{item['curso']}", use_container_width=True):
+                if st.button("Abrir curso", key=f"sim_curso_{idx_s}_{item['curso']}", width="stretch"):
                     st.session_state["curso_selecionado"] = item["curso"]
                     st.rerun()
         st.caption(f"Método: {fonte_sim}.")

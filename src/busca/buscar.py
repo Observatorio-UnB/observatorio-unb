@@ -1,7 +1,7 @@
 """
 Busca semântica em busca.documentos.
 
-A busca é híbrida, com três listas de candidatos (migrações 0026 e 0029):
+A busca é híbrida, com três listas de candidatos (migrações 0026 e 0032):
   - vetorial: a consulta (expandida com siglas/sinônimos da UnB) é vetorizada com o mesmo modelo
     dos documentos e comparada por distância de cosseno (operador <=> do pgvector);
   - texto completo: trechos com ao menos metade dos termos da consulta (sem acento, em português,
@@ -335,7 +335,7 @@ def buscar(
                CASE
                  WHEN %(qualquer_termo_original)s::tsquery IS NOT NULL THEN
                    ts_headline(
-                       'portuguese',
+                       'busca.portugues_sem_acento',
                        conteudo,
                        %(qualquer_termo_original)s::tsquery,
                        'StartSel=<mark>, StopSel=</mark>, MaxFragments=2, MaxWords=38, MinWords=15, FragmentDelimiter= … '
@@ -384,12 +384,11 @@ def buscar(
                 # com os sinônimos), enquanto o ranking e o highlight consideram também os sinônimos.
                 parametros["cobertura"] = consulta_de_cobertura(termos_originais)
                 parametros["qualquer_termo"] = consulta_de_cobertura(termos_expandidos, 0)
-                # Para ts_headline, usa os termos originais com acento para destacar o texto original.
-                termos_hl = cur.execute(
-                    "SELECT tsvector_to_array(to_tsvector('portuguese', %s))",
-                    (consulta,),
-                ).fetchone()[0]
-                parametros["qualquer_termo_original"] = consulta_de_cobertura(termos_hl, 0)
+                # Para ts_headline, os termos sem acento: ele usa a configuração busca.portugues_sem_acento
+                # (migração 0032), que tira o acento do texto do documento antes do radical sem mudar o que
+                # é exibido. Assim o realce funciona com e sem acento dos dois lados: documentação tem
+                # acento, cursos e projetos vêm sem acento da Silver.
+                parametros["qualquer_termo_original"] = consulta_de_cobertura(termos_originais, 0)
                 linhas = cur.execute(consulta_sql, parametros).fetchall()
 
     return [

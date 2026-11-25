@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migração 0029: FTS sem acento, pesos (título > conteúdo) e índice de metadados
+-- Migração 0032: FTS sem acento, pesos (título > conteúdo) e índice de metadados
 --
 -- Corrige duas limitações da migração 0026:
 --   1. Cursos e projetos PIBIC vêm sem acento da Silver, enquanto consultas do
@@ -26,6 +26,31 @@ SET search_path = public, extensions
 AS $$
     SELECT unaccent('unaccent'::regdictionary, texto);
 $$;
+
+-- Configuração de busca textual que ignora acento (unaccent, depois o radical em português). É a do
+-- ts_headline: ele normaliza o texto do documento sem alterar o que é exibido, e o realce funciona com
+-- e sem acento dos dois lados ("evasao" realça "evasão", "ciência" realça "CIENCIA"). O dicionário
+-- unaccent fica no esquema da extensão (public no Docker, extensions no Supabase), achado pelo catálogo.
+DO $$
+DECLARE
+    esquema_unaccent text;
+BEGIN
+    SELECT n.nspname INTO esquema_unaccent
+    FROM pg_ts_dict d JOIN pg_namespace n ON n.oid = d.dictnamespace
+    WHERE d.dictname = 'unaccent';
+    IF NOT EXISTS (SELECT 1 FROM pg_ts_config c JOIN pg_namespace n ON n.oid = c.cfgnamespace
+                   WHERE n.nspname = 'busca' AND c.cfgname = 'portugues_sem_acento') THEN
+        CREATE TEXT SEARCH CONFIGURATION busca.portugues_sem_acento (COPY = pg_catalog.portuguese);
+    END IF;
+    EXECUTE format(
+        'ALTER TEXT SEARCH CONFIGURATION busca.portugues_sem_acento '
+        'ALTER MAPPING FOR hword, hword_part, word WITH %I.unaccent, pg_catalog.portuguese_stem',
+        esquema_unaccent);
+END
+$$;
+
+COMMENT ON TEXT SEARCH CONFIGURATION busca.portugues_sem_acento IS
+  'portuguese com unaccent antes do radical: usada pelo ts_headline para realçar com e sem acento.';
 
 DO $$
 BEGIN
@@ -57,5 +82,7 @@ COMMENT ON FUNCTION busca.sem_acento(TEXT) IS
   'Wrapper IMMUTABLE de unaccent() compatível com PostgreSQL local e Supabase para colunas geradas e consultas FTS.';
 COMMENT ON COLUMN busca.documentos.texto_busca IS
   'Título (peso A) e conteúdo (peso B) sem acento em texto completo (português), gerado automaticamente.';
+COMMENT ON INDEX busca.documentos_texto_busca IS
+  'Busca em texto completo (@@) da busca híbrida, sobre título e conteúdo sem acento.';
 COMMENT ON INDEX busca.documentos_metadados_gin IS
   'Acelera filtros facetados sobre busca.documentos.metadados (campus, turno, área, classificação, ano).';
