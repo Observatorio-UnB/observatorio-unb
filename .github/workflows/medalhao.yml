@@ -196,13 +196,15 @@ jobs:
             docs/analise_social_pibic.md
             transform/target/static_index.html
 
-  deploy:
+  # Monta o site e envia o artefato do Pages. O deploy fica num job separado (o formato oficial do
+  # GitHub Pages): no mesmo job, o deploy-pages listava os artefatos um instante depois do upload, a
+  # API ainda não mostrava o github-pages, e o deploy falhava ("No artifacts named github-pages",
+  # run #166). Separados, o artefato já está registrado quando o deploy começa, e um re-run do deploy
+  # não envia um segundo github-pages (o que dava "Multiple artifacts named github-pages").
+  site:
     needs: pipeline
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -229,5 +231,13 @@ jobs:
         with:
           path: _site
 
+  deploy:
+    needs: site
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
       - id: deploy
         uses: actions/deploy-pages@v4
