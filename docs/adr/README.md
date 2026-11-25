@@ -35,3 +35,4 @@ Cada arquivo registra uma decisão: o contexto que a motivou, o que foi decidido
 | 0029 | [Transformações da gold em dbt, em três camadas](0029-transformacoes-em-dbt.md) | 2026-11-01 (revista em 2026-11-09) |
 | 0030 | [Modelagem analítica em estrela com fato no grão do curso, transformação em dbt e orquestração em Dagster](0030-modelagem-analitica-e-ferramentas.md) | 2026-11-01 |
 | 0031 | [Escopo de disponibilização online do banco no Supabase e salvaguardas de privacidade (LGPD)](0031-escopo-disponibilizacao-online-supabase-lgpd.md) | 2026-11-02 |
+| 0032 | [Sistema de origem em 3NF, recarregado por inteiro, com o tempo de evento em cada vínculo](0032-modelagem-do-sistema-de-origem.md) | 2026-11-24 |
