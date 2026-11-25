@@ -194,7 +194,7 @@ def manifest_desatualizado() -> bool:
     if not MANIFEST.exists():
         return True
     fontes = [DBT_DIR / "dbt_project.yml",
-              *(p for pasta in ("models", "tests", "macros") for p in (DBT_DIR / pasta).rglob("*") if p.is_file())]
+              *(p for pasta in ("models", "tests", "macros", "seeds", "snapshots") for p in (DBT_DIR / pasta).rglob("*") if p.is_file())]
     return any(p.stat().st_mtime > MANIFEST.stat().st_mtime for p in fontes)
 
 
@@ -234,6 +234,14 @@ def vetorizacao(context: AssetExecutionContext) -> None:
     rodar(context, "src/busca/vetorizar.py")
 
 
+@asset(group_name="consumo", deps=[camadas_dbt], retry_policy=RETRY_PORTAL,
+       description="ETL reverso: cursos em RETENÇÃO CRÍTICA para a fila de intervenção da coordenação e do "
+                   "DEG (operacional.fila_intervencao), com os números do painel e a versão de cada métrica. "
+                   "Push por estado, idempotente; destino fora do ar sai com erro e o retry repete.")
+def etl_reverso(context: AssetExecutionContext) -> None:
+    rodar(context, "src/etl_reverso/fila_intervencao.py")
+
+
 @asset(group_name="publicacao", deps=[camadas_dbt, view_painel], retry_policy=RETRY_BANCO,
        description="Dicionário de dados gerado do catálogo do banco.")
 def dicionario(context: AssetExecutionContext) -> None:
@@ -252,7 +260,8 @@ def supabase(context: AssetExecutionContext) -> None:
 pipeline_mensal = define_asset_job(
     "pipeline_mensal",
     selection=[migracoes, bronze_ckan, bronze_inep, bronze_cnpq, silver, gold_tabular, auditoria_qualidade,
-               privacidade, star_schema, view_painel, camadas_dbt, lago, vetorizacao, dicionario, supabase],
+               privacidade, star_schema, view_painel, camadas_dbt, etl_reverso, lago, vetorizacao, dicionario,
+               supabase],
     description="Pipeline completo, do portal ao Supabase, na ordem do grafo.",
 )
 
@@ -270,7 +279,7 @@ agenda_mensal = ScheduleDefinition(
 
 defs = Definitions(
     assets=[migracoes, bronze_ckan, bronze_inep, bronze_cnpq, silver, gold_tabular, auditoria_qualidade,
-            privacidade, star_schema, view_painel, camadas_dbt, lago, lago_vinculos_por_quinquenio,
+            privacidade, star_schema, view_painel, camadas_dbt, etl_reverso, lago, lago_vinculos_por_quinquenio,
             vetorizacao, dicionario, supabase],
     jobs=[pipeline_mensal, backfill_lago],
     schedules=[agenda_mensal],

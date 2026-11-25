@@ -15,9 +15,14 @@ permissions:
   pages: write
   id-token: write
 
+# Na main (push e workflow_dispatch), um grupo só, "pages": as publicações no GitHub Pages saem em
+# fila, uma de cada vez, e nenhuma é cancelada. Nos PRs, um grupo por PR: o GitHub só guarda um run
+# pendente por grupo, e com o "pages" para todos os PRs cancelavam os runs uns dos outros (o #84 ficou
+# sem o pipeline completo no último commit). Um push novo no mesmo PR cancela o run anterior dele, que
+# já não interessa; o deploy nunca roda em PR (if do job deploy).
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   pipeline:
@@ -89,6 +94,19 @@ jobs:
 
       - name: "dbt — documentação e linhagem"
         run: bash scripts/dbt.sh docs generate --static
+
+      # Linhagem da fonte pública ao consumo (docs/catalogo/linhagem.md): falha se uma etapa declarada
+      # não bater com o script, se uma fonte do dbt ficar sem origem, se um consumidor não chegar ao
+      # portal ou se o documento publicado estiver desatualizado.
+      - name: "Catálogo e linhagem — da fonte pública ao consumo"
+        run: python src/governanca/linhagem.py --verificar
+
+      # ETL reverso: a fila de intervenção (operacional.fila_intervencao) no banco do runner. Prova a
+      # sincronização e a idempotência; o destino de verdade vem de ETL_REVERSO_DATABASE_URL.
+      - name: "ETL reverso — fila de intervenção (coordenação e DEG)"
+        run: |
+          python src/etl_reverso/fila_intervencao.py
+          python src/etl_reverso/fila_intervencao.py
 
       # O lago fica no runner, como bronze e silver: prova o export, não publica dado.
       - name: "Lago — Silver 3NF e Star Schema em Delta Lake"
@@ -184,13 +202,15 @@ jobs:
             docs/analise_social_pibic.md
             transform/target/static_index.html
 
-  deploy:
+  # Monta o site e envia o artefato do Pages. O deploy fica num job separado (o formato oficial do
+  # GitHub Pages): no mesmo job, o deploy-pages listava os artefatos um instante depois do upload, a
+  # API ainda não mostrava o github-pages, e o deploy falhava ("No artifacts named github-pages",
+  # run #166). Separados, o artefato já está registrado quando o deploy começa, e um re-run do deploy
+  # não envia um segundo github-pages (o que dava "Multiple artifacts named github-pages").
+  site:
     needs: pipeline
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -217,5 +237,13 @@ jobs:
         with:
           path: _site
 
+  deploy:
+    needs: site
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
       - id: deploy
         uses: actions/deploy-pages@v4

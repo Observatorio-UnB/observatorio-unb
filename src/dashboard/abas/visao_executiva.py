@@ -71,25 +71,39 @@ def renderizar(g):
 
     st.markdown("---")
 
-    # KPIs Globais
+    # KPIs Globais: o recorte UNB da camada semântica (dbt_marts.metricas_por_recorte), mesma fórmula e
+    # mesmo universo do ranking e das comparações. Sem o mart, a mesma conta sobre a gold.
+    unb = g.unb_semantica
+    if unb:
+        kpi_ingressantes = float(unb["ingressantes"])
+        kpi_tempo = float(unb["tempo_medio_formatura_semestres"])
+        kpi_prazo = float(unb["formados_tempo_ideal_pct"])
+        kpi_formados, kpi_evadidos, kpi_ativos = (float(unb[c]) for c in ("formados", "evadidos", "ativos"))
+    else:
+        kpi_ingressantes = float(df_gold["total_discentes_registrados"].sum())
+        kpi_tempo = _media_ponderada(df_gold, "tempo_medio_real_semestres")
+        kpi_prazo = _media_ponderada(df_gold, "formados_tempo_ideal_pct")
+        kpi_formados = float(df_gold["total_formados"].sum())
+        kpi_evadidos = float(df_gold["total_evadidos_desligados"].sum())
+        kpi_ativos = float(df_gold["total_ainda_ativos"].sum())
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.metric(
             label="Alunos que ingressaram (turmas analisadas)",
-            value=f"{br(int(df_gold['total_discentes_registrados'].sum()))}",
+            value=f"{br(int(kpi_ingressantes))}",
             help=(f"Ingressantes de {_COORTES} nos cursos com 5+ alunos, sem cursos-tronco. É uma parte dos "
                   "vínculos de graduação auditados (aba Auditoria), que somam todas as turmas."),
         )
     with c2:
         st.metric(
             label="Tempo Médio Real de Formatura",
-            value=f"{dec(_media_ponderada(df_gold, 'tempo_medio_real_semestres'), 2)} sem.",
-            help="Média em semestres entre o ingresso e a formatura, só entre quem se formou (ponderada pelo nº de formados de cada curso).",
+            value=f"{dec(kpi_tempo, 2)} sem.",
+            help="Média em semestres entre o ingresso e a formatura, entre os formados com permanência calculável.",
         )
     with c3:
         st.metric(
             label="Formados até o prazo ideal",
-            value=f"{dec(_media_ponderada(df_gold, 'formados_tempo_ideal_pct'), 1)}%",
+            value=f"{dec(kpi_prazo, 1)}%",
             help=("% dos formados que concluíram até o tempo ideal da matriz, **incluindo** quem fechou no tempo "
                   "mínimo (acumulado). Na aba Detalhe, as faixas são exclusivas: 'Do mínimo ao ideal' é só uma "
                   "parte deste número."),
@@ -106,19 +120,19 @@ def renderizar(g):
         )
 
     # Desfecho global do mesmo universo dos KPIs: o número central da retenção.
-    _tot = float(df_gold["total_discentes_registrados"].sum())
+    _tot = kpi_ingressantes
     g1, g2, g3, g4 = st.columns(4)
     g1.metric("Formatura (turmas analisadas)",
-              f"{dec(df_gold['total_formados'].sum() / _tot * 100, 1)}%".replace(".", ","),
+              f"{dec(kpi_formados / _tot * 100, 1)}%".replace(".", ","),
               help="Formados ÷ alunos que ingressaram em " + str(_COORTES) + ".")
     g2.metric("Evasão (turmas analisadas)",
-              f"{dec(df_gold['total_evadidos_desligados'].sum() / _tot * 100, 1)}%".replace(
+              f"{dec(kpi_evadidos / _tot * 100, 1)}%".replace(
                   ".", ","),
               help="Evadidos ou desligados ÷ alunos que ingressaram. Inclui mudança de curso.")
     g3.metric("Ainda ativos (turmas analisadas)",
-              f"{dec(df_gold['total_ainda_ativos'].sum() / _tot * 100, 1)}%".replace(".", ","),
+              f"{dec(kpi_ativos / _tot * 100, 1)}%".replace(".", ","),
               help="Alunos dessas turmas que seguem com vínculo ativo. Não é a lista de ativos de hoje (aba Alunos Ativos).")
-    _outros = _tot - df_gold["total_formados"].sum() - df_gold["total_evadidos_desligados"].sum() - df_gold["total_ainda_ativos"].sum()
+    _outros = _tot - kpi_formados - kpi_evadidos - kpi_ativos
     g4.metric("Outros desfechos",
               f"{dec(_outros / _tot * 100, 1)}%",
               help="O que não é formatura, evasão nem vínculo ativo (por exemplo, transferências e falecimentos). Fecha os 100% com os três números ao lado.")

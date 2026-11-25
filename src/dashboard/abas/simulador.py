@@ -62,6 +62,17 @@ def renderizar(g):
         pibic_projetos = int(df_curr.get("pibic_total_projetos", 0))
     else:
         nome_curso = "Toda a UnB (Graduação Consolidada)"
+    if escopo != "🏛️ Curso Específico" and g.unb_semantica:
+        # Camada semântica (recorte UNB): os mesmos números da Visão Executiva e das comparações.
+        unb = g.unb_semantica
+        total_discentes = int(unb["ingressantes"])
+        total_formados = int(unb["formados"])
+        desvio_medio_atual = float(unb["atraso_medio_semestres"])
+        tempo_real_atual = float(unb["tempo_medio_formatura_semestres"])
+        sem_ideal = float(unb["prazo_ideal_medio_semestres"])
+        taxa_evasao_atual = float(unb["taxa_evasao_pct"])
+        pibic_projetos = int(df_gold.get("pibic_total_projetos", pd.Series([0])).sum())
+    elif escopo != "🏛️ Curso Específico":
         total_discentes = int(df_gold["total_discentes_registrados"].sum())
         total_formados = int(df_gold["total_formados"].sum())
         desvio_medio_atual = float(global_meta.get(
