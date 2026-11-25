@@ -1,7 +1,8 @@
-# ADR 0025: Recarga periódica como mecanismo principal de ingestão, CDC como caminho opcional
+# 0025 — Recarga periódica como mecanismo principal de ingestão, CDC como caminho opcional
 
-- **Status:** Aceita
+- **Status:** aceito
 - **Data:** 2026-10-10
+- **Decisores:** Squad Observatório UnB (redação: Leandro de Almeida Oliveira; gatilhos de revisão: murilopbs)
 
 ## Contexto
 
@@ -14,7 +15,31 @@ O dado chega ao lago analítico (`data/lake/`, Delta Lake sobre Parquet, ADR 002
 
 A pergunta é qual dos dois é o mecanismo de ingestão do projeto, e o que se paga por cada um. A opção nula é não ter CDC: uma recarga agendada (`INSERT ... SELECT`, ou o export do lote) depois de cada carga.
 
-## Medições
+## Alternativas consideradas
+
+### A. Opção nula — continuar como está
+
+Recarga periódica: o pipeline mensal recarrega a Silver 3NF inteira (`TRUNCATE` + `INSERT ... SELECT`) e regrava o lago em lote (`exportar_lago.py`) depois de cada carga. Nenhum serviço novo.
+
+### B. CDC por decodificação lógica do WAL
+
+Debezium lê o WAL (`pgoutput`, publicação `observatorio_cdc`), publica no Kafka, e `src/cdc/consumidor.py` aplica as mudanças no lago por `MERGE`. Leva cada INSERT, UPDATE e DELETE ao lago em menos de 1 s.
+
+### C. Recarga periódica mais frequente (cron de hora em hora)
+
+O mesmo caminho da A, com agendamento de hora em hora. Baixaria a latência para até 1 hora, ainda sem Kafka nem slot de replicação.
+
+## Medição
+
+Como reproduzir:
+
+```bash
+docker compose --profile cdc up -d db kafka connect
+bash scripts/cdc.sh registrar
+python3 src/cdc/demonstrar.py                 # INSERT, UPDATE e DELETE atravessando o fluxo
+python3 src/cdc/demonstrar_reprocessamento.py # reprocessamento forçado: o lago não muda
+bash scripts/cdc.sh remover
+```
 
 Ambiente local: PostgreSQL 16, Kafka 3.7 (KRaft) e Debezium 2.7 no `docker-compose.yml`, com 152.680 vínculos, 158 cursos e 112 matrizes.
 
@@ -30,20 +55,8 @@ Ambiente local: PostgreSQL 16, Kafka 3.7 (KRaft) e Debezium 2.7 no `docker-compo
 
 O dado de origem muda uma vez por mês. O único processo que escreve no OLTP é o próprio pipeline, que recarrega a Silver 3NF inteira (`TRUNCATE` + `INSERT ... SELECT`). Para o CDC, cada recarga mensal vira 152.953 eventos e 1,9 GB de RAM em serviços. O export do lote entrega o mesmo resultado em menos de 1 segundo.
 
-## Decisão
+### Como cada caminho falhou
 
-- **A recarga periódica é o mecanismo principal.** O lago em lote é regravado depois de cada carga (`rodar_pipeline.sh` e `medalhao.yml`). A latência de até um mês é a da própria fonte: chegar ao lago em 0,5 s não adianta quando a UnB publica uma vez por mês. Esse mês vem do agendamento, e não do mecanismo: o export leva 0,9 s, e com `--janelas-alteradas` uma execução sem mudança não grava versão nova no lago. Um cron de hora em hora custaria praticamente o mesmo e baixaria a latência para até 1 hora, ainda sem Kafka nem slot de replicação.
-- **O CDC fica como caminho opcional**, fora do pipeline e do CI, no profile `cdc` do compose. Ele se justifica quando alguém escreve no OLTP fora do pipeline, como numa correção manual de um curso ou de uma matriz. Nesse caso, a recarga só levaria a correção ao lago no mês seguinte, e o CDC a leva em menos de 1 s, sem reprocessar nada.
-- **A semântica de entrega do CDC é "no mínimo uma vez" no transporte e "exatamente uma vez" no efeito.** O offset só é confirmado no Kafka depois da gravação no lago, e o `MERGE` só aplica um evento mais novo, pela posição no WAL, que a linha do lago. `src/cdc/demonstrar_reprocessamento.py` comprova isso com três reprocessamentos:
-  - o consumidor cai depois de gravar e antes de confirmar, e o Kafka entrega de novo o lote de 100 mensagens;
-  - o grupo relê os tópicos inteiros desde o primeiro offset (766 mil eventos na última execução);
-  - os sentinelas são excluídos, e o grupo relê tudo outra vez, com os INSERTs antigos, sem ressuscitar nenhum.
-
-  Nos três casos o sha256 do lago não muda, nem com a hora de gravação de cada linha (`_gravado_em`): a entrega repetida não regrava nada. A demonstração também confere o conteúdo. O lote muda o lago e chega com o valor do UPDATE, que é gravado num `MERGE` separado do INSERT e vence pelo commit da transação. "No máximo uma vez", confirmando antes de gravar, perderia o lote em silêncio numa queda. Só um reprocessamento manual do tópico o recuperaria, e só enquanto o tópico tiver o histórico. Não há transação entre o Kafka e o Delta, então o "exatamente uma vez" de ponta a ponta vem da idempotência do `MERGE`.
-- **O lote é idempotente por substituição.** O banco faz `TRUNCATE` + `COPY` numa transação, e o lago faz `overwrite` numa versão nova. Rodar duas vezes dá as mesmas linhas.
-- **O formato é Delta Lake, e não Iceberg.** Os critérios de evolução de esquema e de ecossistema de leitura estão no ADR 0024.
-
-## Como cada caminho falhou
 
 Os dois caminhos falham de jeitos diferentes. Estas são as falhas vistas durante a construção e na revisão do CDC, e o que foi feito com cada uma.
 
@@ -63,13 +76,43 @@ Os dois caminhos falham de jeitos diferentes. Estas são as falhas vistas durant
 | CDC | Cada `MERGE` grava arquivos novos (arquivos pequenos) | Compactação a cada 50 lotes e ao esvaziar os tópicos |
 | CDC | Um processo que lê o lago e sai logo em seguida abortava (`terminate called without an active exception`): o pyarrow desmontava a leitura numa thread própria, que precisa do Python já finalizado | Leitura do lago sem as threads do pyarrow (`lago._ler_delta`) |
 
+## Decisão
+
+Escolhemos **a recarga periódica (A) como mecanismo principal e o CDC (B) como caminho opcional**:
+
+
+- **A recarga periódica é o mecanismo principal.** O lago em lote é regravado depois de cada carga (`rodar_pipeline.sh` e `medalhao.yml`). A latência de até um mês é a da própria fonte: chegar ao lago em 0,5 s não adianta quando a UnB publica uma vez por mês. Esse mês vem do agendamento, e não do mecanismo: o export leva 0,9 s, e com `--janelas-alteradas` uma execução sem mudança não grava versão nova no lago. Um cron de hora em hora custaria praticamente o mesmo e baixaria a latência para até 1 hora, ainda sem Kafka nem slot de replicação.
+- **O CDC fica como caminho opcional**, fora do pipeline e do CI, no profile `cdc` do compose. Ele se justifica quando alguém escreve no OLTP fora do pipeline, como numa correção manual de um curso ou de uma matriz. Nesse caso, a recarga só levaria a correção ao lago no mês seguinte, e o CDC a leva em menos de 1 s, sem reprocessar nada.
+- **A semântica de entrega do CDC é "no mínimo uma vez" no transporte e "exatamente uma vez" no efeito.** O offset só é confirmado no Kafka depois da gravação no lago, e o `MERGE` só aplica um evento mais novo, pela posição no WAL, que a linha do lago. `src/cdc/demonstrar_reprocessamento.py` comprova isso com três reprocessamentos:
+  - o consumidor cai depois de gravar e antes de confirmar, e o Kafka entrega de novo o lote de 100 mensagens;
+  - o grupo relê os tópicos inteiros desde o primeiro offset (766 mil eventos na última execução);
+  - os sentinelas são excluídos, e o grupo relê tudo outra vez, com os INSERTs antigos, sem ressuscitar nenhum.
+
+  Nos três casos o sha256 do lago não muda, nem com a hora de gravação de cada linha (`_gravado_em`): a entrega repetida não regrava nada. A demonstração também confere o conteúdo. O lote muda o lago e chega com o valor do UPDATE, que é gravado num `MERGE` separado do INSERT e vence pelo commit da transação. "No máximo uma vez", confirmando antes de gravar, perderia o lote em silêncio numa queda. Só um reprocessamento manual do tópico o recuperaria, e só enquanto o tópico tiver o histórico. Não há transação entre o Kafka e o Delta, então o "exatamente uma vez" de ponta a ponta vem da idempotência do `MERGE`.
+- **O lote é idempotente por substituição.** O banco faz `TRUNCATE` + `COPY` numa transação, e o lago faz `overwrite` numa versão nova. Rodar duas vezes dá as mesmas linhas.
+- **O formato é Delta Lake, e não Iceberg.** Os critérios de evolução de esquema e de ecossistema de leitura estão no ADR 0024.
+
 ## Consequências
 
-O projeto fica com um caminho barato e sempre ligado (lote) e um caro e opcional (CDC). Desligar o CDC exige `scripts/cdc.sh remover`. Parar só os containers deixa o slot segurando WAL até o limite de 2 GB. Religar com `scripts/cdc.sh registrar` refaz o snapshot inicial. Os tópicos não têm retenção por tempo, então crescem a cada recarga (378 MB depois de 3 cargas) até alguém os apagar.
+**O que ganhamos:**
+
+- Um caminho barato e sempre ligado: um cron que já existe, export em 0,9 s, idempotente por substituição.
+- O CDC pronto e demonstrado para o dia em que alguém escrever no OLTP fora do pipeline, com a semântica de entrega comprovada.
+
+**O que perdemos:**
+
+- Latência de até um mês entre uma mudança no OLTP e o lago, pelo agendamento (o CDC levaria 0,25 a 0,87 s).
+- O CDC custa 1,9 GB de RAM em serviços (Kafka e Kafka Connect) quando está ligado.
+- Parar só os containers do CDC deixa o slot segurando WAL até o limite de 2 GB; desligar exige `scripts/cdc.sh remover`. Religar com `scripts/cdc.sh registrar` refaz o snapshot inicial.
+- Os tópicos não têm retenção por tempo, então crescem a cada recarga (378 MB depois de 3 cargas) até alguém os apagar.
+
+**O que se torna irreversível:**
+
+Nada no dado: o lago é regerado do banco a qualquer momento. O que fica fixado é o contrato de idempotência do lago em lote (substituição inteira a cada carga). Uma carga incremental no futuro precisaria de chave estável entre publicações da fonte, o que a recarga inteira dispensa.
 
 Se o OLTP passar a receber escrita contínua fora do pipeline, por exemplo de uma aplicação de secretaria, a conta da latência muda e o CDC passa a ser o caminho principal. Os números acima precisam ser medidos de novo nesse cenário.
 
-## Gatilhos de revisão
+## Gatilho de revisão
 
 - **O OLTP (`silver` 3NF) passar a receber escrita contínua fora do pipeline mensal** (ex.: secretaria ou sistema transacional gravando correções linha a linha, exigindo latência < 1 hora até o lago).
   - *Estado no semestre (até 24/11/2026):* **Não disparou — decisão mantida.** O pipeline mensal continua sendo o único escritor da Silver 3NF; o papel `secretaria_campus` (E4, PR #84) é somente leitura.
