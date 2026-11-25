@@ -2,7 +2,7 @@
 
 - **Status:** aceito
 - **Data:** 2026-11-01
-- **Decisores:** Squad Observatório UnB (redação: Leandro de Almeida Oliveira e Felipe de Sousa; gatilhos de revisão: Murilo Perazzo Barbosa Souto)
+- **Decisores:** Squad Observatório UnB (redação: Leandro de Almeida Oliveira e Felipe de Sousa Coelho; gatilhos de revisão: Murilo Perazzo Barbosa Souto)
 
 ## Contexto
 
