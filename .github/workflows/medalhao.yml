@@ -95,6 +95,12 @@ jobs:
       - name: "dbt — documentação e linhagem"
         run: bash scripts/dbt.sh docs generate --static
 
+      # Linhagem da fonte pública ao consumo (docs/catalogo/linhagem.md): falha se uma etapa declarada
+      # não bater com o script, se uma fonte do dbt ficar sem origem, se um consumidor não chegar ao
+      # portal ou se o documento publicado estiver desatualizado.
+      - name: "Catálogo e linhagem — da fonte pública ao consumo"
+        run: python src/governanca/linhagem.py --verificar
+
       # ETL reverso: a fila de intervenção (operacional.fila_intervencao) no banco do runner. Prova a
       # sincronização e a idempotência; o destino de verdade vem de ETL_REVERSO_DATABASE_URL.
       - name: "ETL reverso — fila de intervenção (coordenação e DEG)"
