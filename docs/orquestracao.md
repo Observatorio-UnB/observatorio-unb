@@ -10,9 +10,10 @@ O pipeline roda como um grafo de assets do Dagster (`orquestracao/definicoes.py`
 migracoes ─┬─ bronze_ckan ─┐
            ├─ bronze_inep ─┼─ silver ─┬─ gold_tabular ─┬─ star_schema ─┬─ view_painel ─────────┐
            └─ bronze_cnpq ─┘          │                 │  (10 tabelas: │                       │
-                                      ├─ auditoria ─────┤   silver 3NF  ├─ camadas_dbt ─ dicionario ─┤
-                                      └─ privacidade ───┘   e gold)     │  (12 modelos e         │
-                                                                        │   1 snapshot)          │
+                                      ├─ auditoria ─────┤   silver 3NF  ├─ camadas_dbt ─┬─ dicionario ─┤
+                                      └─ privacidade ───┘   e gold)     │  (15 modelos, └─ etl_reverso │
+                                                                        │   1 seed e      (fila de     │
+                                                                        │   1 snapshot)   intervenção) │
                                                                         ├─ lago ─────────────────┼─ supabase
                                                                         └─ lago_vinculos_por_quinquenio
                                                                            (partições; backfill)  │
@@ -20,7 +21,8 @@ migracoes ─┬─ bronze_ckan ─┐
 ```
 
 - **`star_schema`** é um asset múltiplo: declara as 10 tabelas que `povoar_dimensional.py` grava numa transação (Silver 3NF e o star schema da gold).
-- **Os 12 modelos e o snapshot do dbt** entram um a um, pelo `dagster-dbt`. As fontes do dbt têm as mesmas chaves das tabelas do `star_schema` (`silver/movimentacoes_vinculos`, `gold/dim_curso`, ...), e é isso que faz o dbt rodar só depois dele. Os testes do dbt aparecem como checagens dos assets.
+- **Os 15 modelos, o seed do registro de métricas e o snapshot do dbt** entram um a um, pelo `dagster-dbt`. As fontes do dbt têm as mesmas chaves das tabelas do `star_schema` (`silver/movimentacoes_vinculos`, `gold/dim_curso`, ...), e é isso que faz o dbt rodar só depois dele. Os testes do dbt aparecem como checagens dos assets.
+- **`etl_reverso`** (grupo `consumo`) depende das camadas do dbt: lê `painel_cursos_criticos` e o registro das métricas e leva os cursos em retenção crítica à fila de intervenção (`src/etl_reverso/fila_intervencao.py`, ADR 0033). Tem o retry do portal (3 tentativas), além das 4 tentativas do próprio script contra o destino.
 - **Uma etapa por vez** (`in_process_executor`): o pipeline usa um banco só, e as etapas pesadas disputariam memória no runner.
 - **Etapa que falha de vez** impede as que dependem dela. As que não dependem dela seguem.
 
