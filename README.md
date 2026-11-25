@@ -98,6 +98,7 @@ observatorio-unb/
 | Consumo duplo: painel e camada semântica de métricas, com definição versionada | Fórmulas em `transform/macros/metricas.sql`, registro versionado em `transform/seeds/metricas_definicoes.csv`, recortes em `dbt_marts.metricas_por_recorte`, que o painel lê. Ver [docs/camada_semantica_e_etl_reverso.md](docs/camada_semantica_e_etl_reverso.md) |
 | ETL reverso para um sistema onde alguém age | `src/etl_reverso/fila_intervencao.py` → `operacional.fila_intervencao` (migração 0029): a fila de intervenção da coordenação de curso e do DEG |
 | Catálogo e linhagem da fonte ao consumo | [docs/catalogo/linhagem.md](docs/catalogo/linhagem.md), gerado por `src/governanca/linhagem.py`: grafo do portal ao painel e à fila, catálogo de ativos (quem grava, dado pessoal, quem lê) e trilhas de coluna do painel ao arquivo do portal. Consumidores como `exposures` do dbt (`transform/models/_exposures.yml`), também no dbt docs do GitHub Pages. O CI falha se a linhagem quebrar |
+| Controle de acesso por linha e por coluna, com privilégio mínimo | Papel `secretaria_campus` (migração 0030): RLS por campus lotado e `id_discente` fora do grant de colunas em `silver.movimentacoes_vinculos`. Demonstração em `src/db/demonstrar_controle_de_acesso.py`, explicação em [docs/controle_de_acesso.md](docs/controle_de_acesso.md), atualização do [ADR 0010](docs/adr/0010-controle-de-acesso-leitura.md) |
 
 ---
 

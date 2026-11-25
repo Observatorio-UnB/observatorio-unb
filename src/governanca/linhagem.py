@@ -160,6 +160,23 @@ ACESSO_POR_ESQUEMA = {
     "operacional": "coordenacao_academica (lê; grava só o andamento)",
 }
 
+# Exceções por tabela ao acesso do esquema: recortes de linha e de coluna (migração 0030, ADR 0010).
+ACESSO_POR_TABELA = {
+    "silver.movimentacoes_vinculos": "dono do banco; secretaria_campus só os vínculos dos campi lotados (RLS) e sem "
+                                     "id_discente (coluna)",
+    "silver.cursos": "dono do banco; secretaria_campus (catálogo, sem dado pessoal)",
+    "silver.estruturas_curriculares": "dono do banco; secretaria_campus (catálogo, sem dado pessoal)",
+}
+
+# Tabelas de controle de acesso: fora da linhagem (não vêm de fonte pública), mas no catálogo de ativos.
+# (ativo, gravado por, registro de pessoa, quem lê, descrição)
+TABELAS_DE_CONTROLE = (
+    ("acesso.lotacao_campus", "administrador do banco (migração 0030)",
+     "login de servidor da secretaria e o campus em que está lotado",
+     "secretaria_campus, só as próprias linhas (RLS)",
+     "Campi cujos vínculos cada usuário de secretaria_campus enxerga; apagar a linha revoga o acesso"),
+)
+
 # Tabelas com registro de pessoa (mesmo pseudonimizado). As demais são catálogo ou agregado (k >= 5).
 DADO_PESSOAL = {
     "bronze.sigra_discentes": "pseudônimo, nascimento, sexo, raça/cor, curso e saída",
@@ -551,11 +568,14 @@ def documento(g: Grafo) -> str:
                 continue
             esquema = no.split(".")[0] if "." in no and ":" not in no else ""
             pessoal = DADO_PESSOAL.get(no, "não")
-            acesso = "público" if no.startswith("portal:") else ACESSO_POR_ESQUEMA.get(esquema, "só o dono do banco")
+            acesso = ("público" if no.startswith("portal:")
+                      else ACESSO_POR_TABELA.get(no) or ACESSO_POR_ESQUEMA.get(esquema, "só o dono do banco"))
             desc = g.descricao.get(no, "").replace("|", "/")
             partes.append(f"| `{_rotulo(no) if no.startswith('portal:') else no}` | {camada} | "
                           f"{g.gravado_por.get(no, 'portal' if no.startswith('portal:') else '')} | {pessoal} | "
                           f"{acesso} | {desc} |")
+    for ativo, gravado_por, pessoal, acesso, desc in TABELAS_DE_CONTROLE:
+        partes.append(f"| `{ativo}` | Controle de acesso | {gravado_por} | {pessoal} | {acesso} | {desc} |")
     partes += [
         "",
         "## 5. Como manter",

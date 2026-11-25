@@ -324,10 +324,10 @@ Toda tabela do grafo, com quem a grava, se guarda registro de pessoa e quem pode
 | `silver.inep_censo_superior` | Silver | src/pipeline/transform_silver.py | não | só o dono do banco |  |
 | `silver.pibic_bolsistas` | Silver | src/pipeline/transform_silver.py | um registro por plano de IC, com cota e faixa de renda | só o dono do banco | valor da bolsa pela vigência do CNPq (ADR 0023) |
 | `silver.sigaa_ativos` | Silver | src/pipeline/transform_silver.py | um registro por aluno ativo | só o dono do banco |  |
-| `silver.cursos` | Silver 3NF (OLTP) | src/db/povoar_silver_3nf.py | não | só o dono do banco | Uma linha por oferta de curso do catálogo (id_curso). |
+| `silver.cursos` | Silver 3NF (OLTP) | src/db/povoar_silver_3nf.py | não | dono do banco; secretaria_campus (catálogo, sem dado pessoal) | Uma linha por oferta de curso do catálogo (id_curso). |
 | `silver.discentes` | Silver 3NF (OLTP) | src/db/povoar_silver_3nf.py | nascimento, sexo e raça/cor por pseudônimo | só o dono do banco | nascimento, sexo e raça/cor por pseudônimo; não sai da silver |
-| `silver.estruturas_curriculares` | Silver 3NF (OLTP) | src/db/povoar_silver_3nf.py | não | só o dono do banco | Uma matriz curricular por curso canônico, com os prazos regulamentares. |
-| `silver.movimentacoes_vinculos` | Silver 3NF (OLTP) | src/db/povoar_silver_3nf.py | um vínculo por linha, com id_discente | só o dono do banco | curso do vínculo pela harmonização canônica |
+| `silver.estruturas_curriculares` | Silver 3NF (OLTP) | src/db/povoar_silver_3nf.py | não | dono do banco; secretaria_campus (catálogo, sem dado pessoal) | Uma matriz curricular por curso canônico, com os prazos regulamentares. |
+| `silver.movimentacoes_vinculos` | Silver 3NF (OLTP) | src/db/povoar_silver_3nf.py | um vínculo por linha, com id_discente | dono do banco; secretaria_campus só os vínculos dos campi lotados (RLS) e sem id_discente (coluna) | curso do vínculo pela harmonização canônica |
 | `gold.ativos_hoje_cursos_unb` | Gold | src/pipeline/build_gold.py | não | observatorio_leitura (painel, Supabase) | Alunos ativos hoje por curso, com a contagem de atraso (ADR 0019). |
 | `gold.dim_campus` | Gold | src/db/povoar_dimensional.py | não | observatorio_leitura (painel, Supabase) |  |
 | `gold.dim_curso` | Gold | src/db/povoar_dimensional.py | não | observatorio_leitura (painel, Supabase) | SCD tipo 2 (ADR 0028) |
@@ -356,6 +356,7 @@ Toda tabela do grafo, com quem a grava, se guarda registro de pessoa e quem pode
 | `dbt_staging.stg_vinculos` | dbt | dbt (models/staging/stg_vinculos.sql) | um vínculo por linha, sem id_discente | só o dono do banco | Vínculos de graduação, um por linha, sem identificação do discente. |
 | `operacional.fila_intervencao` | Consumo | src/etl_reverso/fila_intervencao.py | nome do responsável da coordenação (servidor) e o plano de ação | coordenacao_academica (lê; grava só o andamento) | fila que a coordenação opera; o andamento é dela, as métricas são do ETL reverso |
 | `operacional.fila_intervencao_episodios` | Consumo | src/etl_reverso/fila_intervencao.py | nome do responsável da coordenação (servidor) em cada episódio | coordenacao_academica (lê; grava só o andamento) | passagens encerradas de cada curso pela fila, com o andamento e as métricas na saída |
+| `acesso.lotacao_campus` | Controle de acesso | administrador do banco (migração 0030) | login de servidor da secretaria e o campus em que está lotado | secretaria_campus, só as próprias linhas (RLS) | Campi cujos vínculos cada usuário de secretaria_campus enxerga; apagar a linha revoga o acesso |
 
 ## 5. Como manter
 
