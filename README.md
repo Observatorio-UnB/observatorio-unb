@@ -11,7 +11,7 @@
 
 ## 📌 1. Visão Geral e Estrutura dos Entregáveis
 
-Este repositório reúne o projeto inteiro, das semanas 1 e 2 (ingestão, medalhão e painel) às entregas E2 (lote, lago e CDC) e E3 (camada analítica em dbt, testada e orquestrada). Tudo é versionado e reprodutível do zero:
+Este repositório reúne o projeto inteiro, das semanas 1 e 2 (ingestão, medalhão e painel) às entregas E1 (fonte transacional em 3NF), E2 (lote, lago e CDC), E3 (camada analítica em dbt, testada e orquestrada) e E4 (camada semântica, ETL reverso, linhagem, LGPD e controle de acesso). Tudo é versionado e reprodutível do zero:
 
 ```
 observatorio-unb/
@@ -29,10 +29,16 @@ observatorio-unb/
 │   ├── orquestracao.md              # Grafo do Dagster, retry, agenda e backfill
 │   ├── orquestracao/evidencias/     # Logs do retry com o banco derrubado, da falha e do backfill
 │   ├── frescor_sla.md               # Métrica de frescor e SLA da view do painel
+│   ├── caracterizacao_da_carga.md   # E1: volume, escrita, leitura, acesso e latência do OLTP
+│   ├── historico_da_origem.md       # E1: como a origem trata histórico e os carimbos de tempo
+│   ├── camada_semantica_e_etl_reverso.md # E4: definição única das métricas e fila de intervenção
+│   ├── controle_de_acesso.md        # E4: RLS por campus e recorte de coluna
+│   ├── analise_lgpd.md              # E4: base legal, retenção, descarte e reidentificação
+│   ├── catalogo/                    # E4: linhagem da fonte ao consumo (gerada e conferida no CI)
 │   ├── diario/                      # Diário de bordo
-│   └── adr/                         # Decisões de arquitetura (ADRs 0001 a 0030), uma por arquivo
+│   └── adr/                         # Decisões de arquitetura (ADRs 0001 a 0033), uma por arquivo
 ├── db/
-│   └── migrations/                  # Esquema versionado do PostgreSQL (0001 ... 0026)
+│   └── migrations/                  # Esquema versionado do PostgreSQL (0001 ... 0032)
 ├── transform/                       # Projeto dbt: staging, intermediate, marts e snapshot (SCD 2)
 │   ├── models/
 │   ├── snapshots/
@@ -50,9 +56,11 @@ observatorio-unb/
 │   ├── pipeline/                    # Silver e gold (CALL gold.atualizar_gold, ADR 0027)
 │   ├── db/                          # Migrações, 3NF e star schema, lago Delta, frescor, export, Supabase
 │   ├── cdc/                         # Consumidor do Debezium e demonstrações de entrega
-│   ├── busca/                       # Busca semântica híbrida (embeddings + pgvector + texto)
-│   └── dashboard/                   # Painel em Streamlit: app.py (carga e navegação), abas/ (uma tela por módulo), formatacao.py (número em pt-BR), resposta_e1.py (ranking da E1)
-├── tests/                           # 21 arquivos: test_unit_* sem banco; os demais com banco
+│   ├── busca/                       # Busca semântica híbrida (embeddings + pgvector + texto sem acento)
+│   ├── etl_reverso/                 # Fila de intervenção (push depois de cada carga) e a operação da coordenação
+│   ├── governanca/                  # Catálogo e linhagem da fonte ao consumo (linhagem.py)
+│   └── dashboard/                   # Painel em Streamlit: app.py (carga e navegação), abas/ (uma tela por módulo, inclusive a fila de intervenção), metricas.py (camada semântica), coortes.py (seletor de coortes), faixas.py, formatacao.py (número em pt-BR), resposta_e1.py (ranking da E1)
+├── tests/                           # 32 arquivos: test_unit_* sem banco; os demais com banco
 ├── .github/workflows/               # Medalhão, atualização mensal, frescor, lint e keep-alive
 ├── docker-compose.yml               # Banco + pipeline + painel (+ Kafka e Debezium no profile cdc)
 ├── Dockerfile
@@ -164,6 +172,8 @@ python3 src/privacy/lgpd_check.py
 python3 src/db/povoar_dimensional.py
 python3 src/db/atualizar_view_painel.py        # REFRESH da gold.mv_dashboard_executivo, que o painel lê
 pip install -r requirements-dbt.txt && bash scripts/dbt.sh build --full-refresh
+python3 src/etl_reverso/fila_intervencao.py     # ETL reverso: fila de intervenção da coordenação (E4)
+python3 src/governanca/linhagem.py --verificar  # linhagem confere com o código (E4; roda no CI, fora do rodar_pipeline.sh)
 python3 src/db/exportar_lago.py --janelas-alteradas
 
 # 6. Busca semântica e dicionário de dados do banco
@@ -196,10 +206,13 @@ prioritária?*
 
 1. Abra o painel. A página inicial, **📊 Visão Executiva (DEG)**, começa pela pergunta e pela resposta.
 2. A frase de resposta diz quantos cursos estão em **retenção crítica** (o quartil mais alto do
-   Índice de Retenção Crítica) e quais são os primeiros da fila de intervenção. Na carga de 03/11/2026,
-   são 23 cursos, e o primeiro é Física Computacional.
-3. A tabela logo abaixo é a fila: os 15 cursos de maior IRC, com a evasão, o atraso médio na
-   formatura e o percentual de formados no prazo ideal, que mostram por que cada curso está ali.
+   Índice de Retenção Crítica) e quais são os primeiros da fila de intervenção, que considera só os
+   cursos com 30 ou mais ingressantes (ADR 0006). Na carga de 24/11/2026, são 23 cursos em retenção
+   crítica, 22 deles na fila, e o primeiro é Computação.
+3. A tabela logo abaixo é o ranking de todos os cursos, com a evasão, o atraso médio na formatura e o
+   percentual de formados no prazo ideal, que mostram por que cada curso está ali. O seletor de
+   coortes na barra lateral troca o período (o padrão é o oficial, de turmas com 8+ anos), e a aba
+   **📋 Fila de Intervenção** mostra a fila em que a coordenação registra o andamento.
 4. A legenda diz de onde vem o ranking, `dbt_marts.painel_cursos_criticos` (a camada transformada
    em dbt), e de quando são os dados. Se os dados passarem do SLA de frescor de 35 dias, aparece um aviso.
 5. Para o detalhe de um curso da fila, use **🔍 Detalhe por Curso** no menu lateral. A matriz de
@@ -503,16 +516,21 @@ a cada `push` na `main`, em cada Pull Request e sob demanda (`workflow_dispatch`
 1. **Job `pipeline`** — executa o medalhão do zero numa máquina limpa, com um
    PostgreSQL com pgvector como serviço: migrações → ingestão CKAN e INEP (bronze) →
    Silver → Gold → auditoria → privacidade → Silver 3NF e Star Schema → `dbt build` e a
-   documentação do dbt → lago Delta → validação do grafo do Dagster e backfill das janelas
+   documentação do dbt → verificação da linhagem → ETL reverso (fila de intervenção) → lago Delta →
+   validação do grafo do Dagster e backfill das janelas
    do lago → vetorização de cursos e documentação → dicionário, cada etapa gravando direto
    no banco. Roda a suíte de testes como verificação determinística dos contratos da camada
    Gold e do banco, confere o SLA de frescor e, fora de pull request, sincroniza o Supabase. As camadas Bronze/Silver
    (que contêm dado pessoal) **nunca** saem do runner; só o export da Gold agregada
    (k ≥ 5, `export/gold.json`) e os relatórios em `docs/` são empacotados.
-2. **Job `deploy`** — publica o dashboard Streamlit completo no **GitHub Pages**
+2. **Jobs `site` e `deploy`** — o `site` monta o site e envia o artefato do Pages, e o `deploy`,
+   num job separado, publica o dashboard Streamlit completo no **GitHub Pages**
    via [`stlite`](https://github.com/whitphx/stlite) (Python roda no navegador do
    usuário, sem servidor): **https://observatorio-unb.github.io/observatorio-unb/**, e a
    documentação do dbt com a linhagem em `/dbt/`.
+
+Na `main`, os runs ficam no grupo de concorrência `pages`, um de cada vez. Nos PRs, cada um tem o
+próprio grupo, para um PR não cancelar o run de outro.
 
 Os testes unitários (`test_unit_*`) e o limite de tamanho dos arquivos versionados rodam no
 [`lint.yml`](.github/workflows/lint.yml). O [`frescor.yml`](.github/workflows/frescor.yml) confere o SLA no Supabase todo dia.
