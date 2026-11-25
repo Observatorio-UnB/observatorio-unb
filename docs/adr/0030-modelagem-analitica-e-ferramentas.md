@@ -1,7 +1,8 @@
-# ADR 0030: Modelagem analítica em estrela com fato no grão do curso, transformação em dbt e orquestração em Dagster
+# 0030 — Modelagem analítica em estrela com fato no grão do curso, transformação em dbt e orquestração em Dagster
 
-- **Status:** Aceita
+- **Status:** aceito
 - **Data:** 2026-11-01
+- **Decisores:** Squad Observatório UnB (redação: Leandro de Almeida Oliveira e Felipe de Sousa Coelho; gatilhos de revisão: Murilo Perazzo Barbosa Souto)
 
 ## Contexto
 
@@ -32,13 +33,11 @@ A pergunta de gestão da E1 (`docs/challenge_canvas.md`) é quais cursos de grad
 
 Todas essas mudanças foram absorvidas entre a bronze e a silver: harmonização do nome canônico, consolidação do catálogo e contrato de carga que recusa coluna nova (`src/db/tabelas.py`). A bronze guarda o dado bruto, e `bronze.ingestoes` guarda o hash, o tamanho e o metadado de cada arquivo. O volume é pequeno: 152.680 vínculos.
 
-## Alternativas e decisão
+## Alternativas consideradas
 
-Cada uma das quatro escolhas abaixo compara as alternativas numa tabela e termina na decisão.
+A E3 pede quatro escolhas. Em cada uma, as alternativas e a opção nula (continuar como está).
 
-### 1. Modelo: esquema estrela, com tabela larga só na camada de consumo
-
-**Alternativas:**
+### 1. Modelo analítico — A. Opção nula: a estrela que existe desde a E2 · B. Data Vault 2.0 · C. One big table
 
 | Critério | Estrela (Kimball) | Data Vault 2.0 | One big table (OBT) |
 |---|---|---|---|
@@ -51,30 +50,11 @@ Cada uma das quatro escolhas abaixo compara as alternativas numa tabela e termin
 - **Data Vault foi descartado.** Ele compensa quando muitas fontes, com chaves de negócio diferentes, mudam de esquema com frequência, e quando cada linha precisa de auditoria própria. Aqui as 8 fontes convergem numa chave só, e as mudanças de esquema já são absorvidas na silver. A auditoria por arquivo existe na bronze. O vault multiplicaria as tabelas e ainda exigiria um mart em estrela para o painel.
 - **OBT foi descartada como modelo.** Ela fica só como forma de consumo, que é o que `gold.mv_dashboard_executivo` (e `painel_cursos_criticos`, no dbt) já é. Como modelo, repetiria os atributos do curso em cada linha e perderia o histórico da SCD.
 
-**Decisão:** fica a estrela que existe desde a E2 (migração 0012), com a `dim_curso` em SCD tipo 2 (ADR 0028).
+### 2. Grão do fato — curso, curso × coorte, vínculo ou curso × coorte × desfecho × semestre de saída
 
-### 2. Grão: o fato de retenção no grão do curso
+Comparados na [Medição](#medição), abaixo.
 
-**Alternativas (medidas):**
-
-Para medir os grãos, calculei cada nível sobre as coortes maduras da base atual (consulta em [`medicoes/0030_granularidade_do_fato.sql`](medicoes/0030_granularidade_do_fato.sql)): ingresso de 2010 a 2016, 68.339 vínculos, 101 cursos. Os grupos com menos de 5 vínculos são suprimidos (k-anonimato, ADR 0005):
-
-| Grão | Linhas | Grupos com k < 5 | Vínculos perdidos | Tamanho | Responde à E1? |
-|---|---:|---:|---:|---:|---|
-| Vínculo (fato transacional) | 68.339 (universo bruto; o painel usa 67.063) | 100% | 100% | 4,5 MB | Não pode ser publicado |
-| **Curso** | **101** | 5,9% | **0,0%** (12) | 16 kB | **Sim: ranking por curso** |
-| Curso × coorte (ano de ingresso) | 633 | 5,7% | 0,1% (76) | 72 kB | Sim, e mostra a tendência entre coortes |
-| Curso × coorte × desfecho × semestre de saída | 14.359 | 67,6% | **28,1%** (19.196) | 1,5 MB | Não: perde um vínculo em cada quatro |
-
-**Decisão:** o fato de retenção fica no grão do curso, declarado e imposto pela chave `UNIQUE (sk_curso)` (PR #48). A pergunta da E1 é um ranking de cursos, e esse grão a responde sem perder vínculo.
-
-- **Curso × coorte é a extensão viável** quando o DEG quiser saber se um curso está piorando. Perde só 0,1% dos vínculos, mas hoje só há 7 coortes maduras. Fica registrado como o próximo fato, e não como substituto.
-- **O grão fino demais estoura a supressão:** a granularidade por semestre de saída perde 28% dos vínculos para o k-anonimato.
-- **O grão do vínculo serve à transformação, não ao consumo.** Ele já existe na Silver 3NF e no lago Delta, fora do alcance público.
-
-### 3. Transformação: dbt
-
-**Alternativas:**
+### 3. Transformação — A. Opção nula: SQL em scripts Python (como na E2) · B. dbt · C. SQLMesh
 
 | | dbt | SQLMesh | Opção nula: SQL em scripts Python (como na E2) |
 |---|---|---|---|
@@ -85,11 +65,7 @@ Para medir os grãos, calculei cada nível sobre as coortes maduras da base atua
 
 **A opção nula foi levada a sério.** Os modelos levam menos de 5 s, e o SQL já existe e é testado. Ela foi descartada porque não dá o que a E3 cobra: o grafo fica implícito, e não há testes por modelo nem linhagem. O SQLMesh brilha em modelos incrementais grandes, que aqui não existem.
 
-**Decisão:** dbt, em três camadas (staging, intermediate e marts). O detalhamento está no ADR 0029.
-
-### 4. Orquestração: Dagster, disparado pelo GitHub Actions
-
-**Alternativas:**
+### 4. Orquestração — A. Opção nula: cron do GitHub Actions + `rodar_pipeline.sh` · B. Dagster · C. Airflow
 
 | | Airflow | Dagster | Opção nula: cron do GitHub Actions + `rodar_pipeline.sh` |
 |---|---|---|---|
@@ -102,17 +78,55 @@ Para medir os grãos, calculei cada nível sobre as coortes maduras da base atua
 - **A opção nula falha num ponto concreto.** Para ter grafo no GitHub Actions, cada etapa precisaria ser um job com `needs:`. Mas cada job tem o seu próprio container de Postgres, então as etapas não compartilham o banco. O pipeline teria de ficar num job só, com as etapas em fila. O retry viraria laço de shell e o backfill, parâmetro escrito à mão.
 - **Airflow foi descartado pela infraestrutura.** Ele precisa de três serviços sempre no ar para um lote mensal, e o projeto não tem servidor: roda no runner do CI e no Supabase.
 
-**Decisão:** Dagster. O grafo de assets inclui os modelos dbt, com retry por asset e backfill por partição. Ele roda como biblioteca dentro do job do GitHub Actions, que segue como o agendador (cron mensal do `atualiza-dados.yml`). Localmente, `dagster dev` mostra o grafo e os backfills na UI. A implementação está em `orquestracao/definicoes.py` (issue #40), descrita em `docs/orquestracao.md`. A falha forçada que exercita o retry e o backfill executado estão registrados em `docs/orquestracao/evidencias/`.
+## Medição
+
+Para medir os grãos, calculei cada nível sobre as coortes maduras da base atual (consulta em [`medicoes/0030_granularidade_do_fato.sql`](medicoes/0030_granularidade_do_fato.sql)): ingresso de 2010 a 2016, 68.339 vínculos, 101 cursos. Os grupos com menos de 5 vínculos são suprimidos (k-anonimato, ADR 0005):
+
+| Grão | Linhas | Grupos com k < 5 | Vínculos perdidos | Tamanho | Responde à E1? |
+|---|---:|---:|---:|---:|---|
+| Vínculo (fato transacional) | 68.339 (universo bruto; o painel usa 67.063) | 100% | 100% | 4,5 MB | Não pode ser publicado |
+| **Curso** | **101** | 5,9% | **0,0%** (12) | 16 kB | **Sim: ranking por curso** |
+| Curso × coorte (ano de ingresso) | 633 | 5,7% | 0,1% (76) | 72 kB | Sim, e mostra a tendência entre coortes |
+| Curso × coorte × desfecho × semestre de saída | 14.359 | 67,6% | **28,1%** (19.196) | 1,5 MB | Não: perde um vínculo em cada quatro |
+
+Como reproduzir:
+
+```bash
+docker compose exec -T db psql -U observatorio -d observatorio -f - < docs/adr/medicoes/0030_granularidade_do_fato.sql
+```
+
+## Decisão
+
+Escolhemos **a estrela (A), com o fato no grão do curso, a transformação em dbt (B) e a orquestração em Dagster (B)**:
+
+1. **Modelo:** fica a estrela que existe desde a E2 (migração 0012), com a `dim_curso` em SCD tipo 2 (ADR 0028).
+2. **Grão:** o fato de retenção fica no grão do curso, declarado e imposto pela chave `UNIQUE (sk_curso)` (PR #48). A pergunta da E1 é um ranking de cursos, e esse grão a responde sem perder vínculo.
+   - **Curso × coorte é a extensão viável** quando o DEG quiser saber se um curso está piorando. Perde só 0,1% dos vínculos, mas hoje só há 7 coortes maduras. Fica registrado como o próximo fato, e não como substituto.
+   - **O grão fino demais estoura a supressão:** a granularidade por semestre de saída perde 28% dos vínculos para o k-anonimato.
+   - **O grão do vínculo serve à transformação, não ao consumo.** Ele já existe na Silver 3NF e no lago Delta, fora do alcance público.
+3. **Transformação:** dbt, em três camadas (staging, intermediate e marts). O detalhamento está no ADR 0029.
+4. **Orquestração:** Dagster. O grafo de assets inclui os modelos dbt, com retry por asset e backfill por partição. Ele roda como biblioteca dentro do job do GitHub Actions, que segue como o agendador (cron mensal do `atualiza-dados.yml`). Localmente, `dagster dev` mostra o grafo e os backfills na UI. A implementação está em `orquestracao/definicoes.py` (issue #40), descrita em `docs/orquestracao.md`. A falha forçada que exercita o retry e o backfill executado estão registrados em `docs/orquestracao/evidencias/`.
 
 ## Consequências
 
+**O que ganhamos:**
+
 - O modelo não muda de forma: a estrela da E2 continua. O que muda é o grão declarado no catálogo (PR #48), o histórico na `dim_curso` (ADR 0028) e o lugar da transformação (dbt, ADR 0029). No dbt, o histórico vem do snapshot `snap_atributos_curso` (PR #64).
 - O painel lê o mart do dbt, `painel_cursos_criticos`, que é a OBT de consumo (issue #44, `src/dashboard/resposta_e1.py`). O export do GitHub Pages leva essa tabela, e o painel só volta para a `gold.retencao_cursos_unb` quando o mart falta ou não bate com a carga da gold.
-- O fato curso × coorte fica medido e documentado como próximo passo. Ele entra quando a pergunta de tendência for feita e houver mais coortes maduras.
+- Grafo de dependências explícito, testes por modelo e linhagem no `dbt docs`, que a opção nula (SQL em scripts) não dava.
+- Retry por asset e backfill por partição, sem servidor novo: o Dagster roda como biblioteca dentro do job do GitHub Actions.
+
+**O que perdemos:**
+
+- O grão do curso não mostra a tendência entre coortes: para saber se um curso está piorando, é preciso o fato curso × coorte. Ele fica medido e documentado como próximo passo, e entra quando a pergunta de tendência for feita e houver mais coortes maduras.
 - Novas dependências: `dagster` e `dagster-dbt`, em `requirements-orquestracao.txt`. O agendamento continua no GitHub Actions, sem servidor novo.
 - As medições de grão foram feitas sobre a base de 10/10/2026 (silver local). Com uma carga nova, os números mudam, mas a ordem de grandeza da supressão não.
 
-## Gatilhos de revisão
+**O que se torna irreversível:**
+
+O grão declarado do fato, imposto por `UNIQUE (sk_curso)`. Painel, export, fila de intervenção e camada semântica (ADR 0033) leem esse grão. Passar para curso × coorte seria um fato novo, ao lado deste, e não uma troca no mesmo fato. A orquestração e a transformação são trocáveis: os scripts de `src/` continuam chamáveis pelo `rodar_pipeline.sh`.
+
+## Gatilho de revisão
 
 - **O DEG demandar série temporal de tendência por coorte (curso × ano de ingresso) ou o conjunto de coortes maduras ultrapassar 10 anos** (hoje são 7 coortes, 2010–2016).
   - *Estado no semestre (até 24/11/2026):* **Não disparou — decisão mantida.** A pergunta da E1 segue atendida pelo ranking por curso (`painel_cursos_criticos`, 94 cursos no export de 03/11/2026); o fato `curso × coorte` (perda medida de 0,1% por k-anonimato) permanece como próximo passo documentado.
