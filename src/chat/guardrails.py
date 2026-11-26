@@ -3,7 +3,7 @@ Guardrails do chat: filtros determinísticos na entrada (antes do LLM) e na saí
 
 Sem segundo LLM de propósito: em CPU cada chamada extra custa minutos, e um juiz de 7B erra tanto quanto o
 agente. Regex é instantâneo, auditável e testável. A defesa real de dados continua sendo o papel do banco
-(ADR 0033); aqui se barra o que o modelo não deveria nem tentar: injeção de prompt, pedido de dado pessoal,
+(ADR 0034); aqui se barra o que o modelo não deveria nem tentar: injeção de prompt, pedido de dado pessoal,
 assunto fora do Observatório, vazamento de prompt/esquema/SQL, idioma errado e dado pessoal na resposta.
 """
 

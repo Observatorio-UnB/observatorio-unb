@@ -36,7 +36,7 @@ observatorio-unb/
 │   ├── analise_lgpd.md              # E4: base legal, retenção, descarte e reidentificação
 │   ├── catalogo/                    # E4: linhagem da fonte ao consumo (gerada e conferida no CI)
 │   ├── diario/                      # Diário de bordo
-│   └── adr/                         # Decisões de arquitetura (ADRs 0001 a 0033), uma por arquivo
+│   └── adr/                         # Decisões de arquitetura (ADRs 0001 a 0034), uma por arquivo
 ├── db/
 │   └── migrations/                  # Esquema versionado do PostgreSQL (0001 ... 0032)
 ├── transform/                       # Projeto dbt: staging, intermediate, marts e snapshot (SCD 2)
@@ -510,7 +510,7 @@ recall@5 de ao menos 0,8 por tipo. O relatório caso a caso sai com
 
 ## 💬 Chat com os dados (LLM local)
 
-**Assistente** do painel (botão no canto inferior direito): um modelo local (Ollama) responde perguntas consultando só a gold agregada, em modo somente leitura ([ADR 0033](docs/adr/0033-chat-llm-local.md)).
+**Assistente** do painel (botão no canto inferior direito): um modelo local (Ollama) responde perguntas consultando só a gold agregada, em modo somente leitura ([ADR 0034](docs/adr/0034-chat-llm-local.md)).
 
 ```bash
 docker compose up -d db && python3 src/db/migrar.py        # cria o usuário observatorio_chat (migração 0032)

@@ -1,4 +1,4 @@
-# ADR 0033: Chat com LLM local sobre a gold
+# ADR 0034: Chat com LLM local sobre a gold
 
 - **Status:** Aceita
 - **Data:** 2026-11-11

@@ -2,7 +2,7 @@
 Ferramentas que o LLM do chat pode chamar. Todas leem o banco com o usuário observatorio_chat
 (migração 0032): o que protege bronze e silver é o papel do banco; a validação do SQL aqui é só a
 segunda camada, e é contornável (ex.: identificadores Unicode escapados, que recusamos abaixo, mas outros
-truques podem existir). A defesa real é o papel do banco; ver ADR 0033.
+truques podem existir). A defesa real é o papel do banco; ver ADR 0034.
 """
 
 import re
@@ -40,7 +40,7 @@ class SqlRecusado(ValueError):
 
 
 def url_chat() -> str:
-    """URL do usuário do chat. Recusa o Supabase (o chat é local, ADR 0033): host da SUPABASE_DATABASE_URL ou *.supabase.*."""
+    """URL do usuário do chat. Recusa o Supabase (o chat é local, ADR 0034): host da SUPABASE_DATABASE_URL ou *.supabase.*."""
     url = ler_variavel("CHAT_DATABASE_URL") or URL_PADRAO_CHAT
     host = (urlsplit(url).hostname or "").lower()
     hosts_supabase = {(urlsplit(u).hostname or "").lower() for u in [ler_variavel("SUPABASE_DATABASE_URL")] if u}
