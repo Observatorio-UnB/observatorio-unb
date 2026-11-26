@@ -48,7 +48,7 @@ CSS_ASSISTENTE = """
     background: #008940 url("__ICONE__") center / 56% no-repeat !important;
     box-shadow: 0 6px 18px rgba(19,62,121,.35); transition: transform .15s, background-color .15s;
 }
-.st-key-assistente button[data-testid="stPopoverButton"]:hover { background-color: #133E79 !important; transform: scale(1.06); }
+.st-key-assistente button[data-testid="stPopoverButton"]:hover { background-color: #133E79 !important; transform: scale(106%); }
 .st-key-assistente button[data-testid="stPopoverButton"]:focus-visible { outline: 3px solid #F2B705; outline-offset: 2px; }
 /* O rótulo fica no DOM (leitores de tela) mas invisível: quem aparece é o ícone. */
 .st-key-assistente button[data-testid="stPopoverButton"] > div { opacity: 0; }

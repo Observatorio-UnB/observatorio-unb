@@ -33,7 +33,7 @@ class TestUsuarioChat(unittest.TestCase):
 
     def test_esquema_so_tem_camadas_permitidas(self):
         texto = descrever_esquema()
-        tabelas = [l.split()[0] for l in texto.splitlines() if l and not l.startswith(" ")]
+        tabelas = [ln.split()[0] for ln in texto.splitlines() if ln and not ln.startswith(" ")]
         self.assertIn("gold.dim_curso", tabelas)
         # Os COMMENT ON citam a silver como origem; o que não pode aparecer é tabela dela.
         self.assertFalse([t for t in tabelas if t.split(".")[0] not in ("gold", "dbt_marts", "busca")])

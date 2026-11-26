@@ -7,9 +7,9 @@ A validação do SQL aqui é a segunda camada e usa o parser do próprio Postgre
 
 import re
 import sys
-from urllib.parse import urlsplit
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
+from urllib.parse import urlsplit
 
 from pglast import ast, parse_sql
 from pglast.parser import ParseError

@@ -78,7 +78,7 @@ def avaliar(tipo, ref, resposta, historico):
     with conectar() as conn:  # usuário dono: o SQL de referência é do benchmark, não do modelo
         linhas = conn.execute(ref).fetchall()
     if tipo == "texto":
-        esperado = [str(l[0]) for l in linhas]
+        esperado = [str(r[0]) for r in linhas]
         return all(sem_acento(e) in sem_acento(resposta) for e in esperado), esperado
     esperado = float(linhas[0][0])
     return any(abs(n - esperado) <= max(0.06, 0.005 * abs(esperado)) for n in numeros(resposta)), esperado
@@ -113,7 +113,7 @@ def main(argv=None):
         linhas.append((ok, seg, len(consultas), erros, pergunta, esperado, resposta))
     total = len(CASOS)
     print(f"\n{modelo}: {acertos}/{total} ({100 * acertos / total:.0f}%), "
-          f"mediana {sorted(l[1] for l in linhas)[total // 2]:.1f}s")
+          f"mediana {sorted(r[1] for r in linhas)[total // 2]:.1f}s")
     if a.saida:
         md = [f"# Benchmark do chat: {modelo}", "", f"Data: {date.today()}. {acertos}/{total} acertos.", "",
               "| Resultado | Tempo | SQL | Erros SQL | Pergunta |", "|---|---|---|---|---|"]

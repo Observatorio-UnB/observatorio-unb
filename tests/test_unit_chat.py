@@ -173,6 +173,7 @@ class SegurancaExtraTest(unittest.TestCase):
 
     def test_bloco_sql_linear_e_funciona(self):
         import time
+
         from src.chat.agente import BLOCO_SQL
         t = time.time()
         BLOCO_SQL.search("```sql" + " " * 200000)
@@ -181,6 +182,7 @@ class SegurancaExtraTest(unittest.TestCase):
 
     def test_url_chat_recusa_supabase(self):
         from unittest import mock
+
         from src.chat import ferramentas as f
         with mock.patch.object(f, "ler_variavel", side_effect=lambda n: {
                 "CHAT_DATABASE_URL": "postgresql://u:p@db.abc.supabase.co:5432/postgres"}.get(n)):
@@ -283,9 +285,11 @@ class TestRevisao(unittest.TestCase):
 
     def test_habilitar_login_chat(self):
         from unittest import mock
+
         from src.db import migrar
         def conn(host):
-            c = mock.Mock(); c.info.host = host
+            c = mock.Mock()
+            c.info.host = host
             return c
         def roda(url, host):
             with mock.patch.object(migrar, "ler_variavel", return_value=url):
@@ -310,6 +314,7 @@ class TestRevisao(unittest.TestCase):
 
     def test_cabecalho_bearer_e_processador(self):
         from unittest import mock
+
         from src.chat import agente
         env = {"OLLAMA_URL": "https://llm.x/", "OLLAMA_API_KEY": "k"}
         with mock.patch.object(agente, "ler_variavel", side_effect=env.get):
@@ -337,6 +342,7 @@ class TestRevisaoFinal(unittest.TestCase):
 
     def test_aviso_de_chave_em_http(self):
         from unittest import mock
+
         from src.chat import agente
         env = {"OLLAMA_URL": "http://gpu.exemplo.br:11434", "OLLAMA_API_KEY": "k"}
         with mock.patch.object(agente, "ler_variavel", side_effect=env.get), self.assertLogs(agente.log, "WARNING"):
