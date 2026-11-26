@@ -214,10 +214,11 @@ def _rodar_chamada(c: dict, consultas: List[str], ferramenta: Callable[[str, dic
 
 
 def _resultado(resposta: str, pergunta: str, historico: List[dict], consultas: List[str]) -> Dict[str, Any]:
+    resposta = guardrails.limpar(resposta)
     fontes = [pergunta, historico[0]["content"]] + [m["content"] for m in historico if m["role"] == "tool"]
     sem = numeros_sem_fonte(resposta, fontes)
     avisos = [f"Atenção: {', '.join(sem)} não aparece nos dados consultados. Confira esse valor antes de usar."] if sem else []
-    return {"resposta": guardrails.limpar(resposta), "consultas": consultas, "avisos": avisos}
+    return {"resposta": resposta, "consultas": consultas, "avisos": avisos}
 
 
 def conversar(historico: List[dict], pergunta: str,

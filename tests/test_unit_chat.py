@@ -190,10 +190,6 @@ class SegurancaExtraTest(unittest.TestCase):
                 f.url_chat()
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestResultadoLongo(unittest.TestCase):
     def test_truncamento_corta_linhas_e_marca_truncado(self):
         import json
@@ -248,6 +244,7 @@ class TestGuardrails(unittest.TestCase):
         r = conversar([], "contato?", llm=lambda m: resp, esquema=lambda: "")
         self.assertNotIn("ana@unb.br", r["resposta"])
         self.assertNotIn("123.456.789-09", r["resposta"])
+        self.assertEqual(r["avisos"], [])
 
 
 class TestRevisao(unittest.TestCase):
@@ -392,3 +389,7 @@ class TestPessoaisComSufixo(unittest.TestCase):
             with self.assertRaises(SqlRecusado, msg=c):
                 validar_sql(f"select {c} from gold.t")
         self.assertTrue(validar_sql("select qt_matriculas_unb, emails_total from gold.t"))
+
+
+if __name__ == "__main__":
+    unittest.main()
