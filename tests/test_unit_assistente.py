@@ -46,6 +46,15 @@ class PerguntaPendenteTest(unittest.TestCase):
         self.assertEqual(len(at.session_state["exibicao"]), 2)
 
 
+class TimeoutTest(unittest.TestCase):
+    def test_timeout_do_ollama_vira_mensagem_de_preparo(self):
+        import requests
+
+        with mock.patch("src.chat.agente.conversar", side_effect=requests.exceptions.ReadTimeout()):
+            resposta, consultas, avisos = assistente.responder([], "?")
+        self.assertEqual(resposta, assistente.MSG_AQUECENDO)
+
+
 class SqlEscondidoTest(unittest.TestCase):
     SCRIPT = ("from src.dashboard import assistente\n"
               "assistente.desenhar_mensagem('assistant', 'ok', ['SELECT 1'])")
@@ -58,6 +67,12 @@ class SqlEscondidoTest(unittest.TestCase):
 
 
 class BolhaTest(unittest.TestCase):
+    def setUp(self):
+        p = mock.patch("src.chat.agente.aquecer")  # sem chamar o Ollama de verdade
+        self.aquecer = p.start()
+        self.addCleanup(p.stop)
+        assistente._aquecer_modelo.clear()
+
     SCRIPT = "from src.dashboard.assistente import renderizar_assistente\nrenderizar_assistente()"
 
     def test_renderiza_exemplos_e_botao_de_chat(self):

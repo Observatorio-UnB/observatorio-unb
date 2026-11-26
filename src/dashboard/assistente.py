@@ -9,10 +9,11 @@ import base64
 import logging
 import re
 import sys
+import threading
 from pathlib import Path
 
+import requests
 import streamlit as st
-import streamlit.components.v1 as components
 
 log = logging.getLogger(__name__)
 ASSETS = Path(__file__).resolve().parent / "assets"
@@ -20,6 +21,8 @@ ASSETS = Path(__file__).resolve().parent / "assets"
 IMAGEM_MD = re.compile(r"!\[([^\]]*)\]\([^)]*\)")
 LINK_MD = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 MSG_INDISPONIVEL = "O assistente está indisponível no momento. Tente novamente em instantes."
+MSG_AQUECENDO = ("O assistente ainda está se preparando (a primeira pergunta depois de um tempo parado demora). "
+                 "Tente de novo em alguns minutos.")
 
 EXEMPLOS = (
     "Quais cursos têm a maior taxa de evasão?",
@@ -84,7 +87,10 @@ def responder(historico, pergunta):
 
         r = conversar(historico, pergunta)
         return r["resposta"], r["consultas"], r["avisos"]
-    except Exception as e:  # noqa: BLE001
+    except requests.exceptions.Timeout:
+        log.warning("Ollama não respondeu a tempo (modelo ainda carregando o prompt?)")
+        return MSG_AQUECENDO, [], []
+    except Exception:  # noqa: BLE001
         log.exception("Falha no chat")
         return MSG_INDISPONIVEL, [], []
 
@@ -100,7 +106,7 @@ def nova_conversa():
 
 
 ROLAR_PARA_PERGUNTA = """<script>setTimeout(() => {
-  const m = window.parent.document.querySelectorAll('[data-testid="stPopoverBody"] [data-testid="stChatMessage"]');
+  const m = document.querySelectorAll('[data-testid="stPopoverBody"] [data-testid="stChatMessage"]');
   if (m.length > 1) m[m.length - 2].scrollIntoView({block: "start"});
 }, 150);</script>"""
 
@@ -126,7 +132,22 @@ def conversa(pergunta=None, rolar=False):
         st.session_state.historico = historico
         st.session_state.exibicao += [("user", pergunta, [], []), ("assistant", resposta, consultas, avisos)]
         if rolar:
-            components.html(ROLAR_PARA_PERGUNTA, height=0)
+            st.html(ROLAR_PARA_PERGUNTA, unsafe_allow_javascript=True)
+
+
+@st.cache_resource
+def _aquecer_modelo():
+    """Uma vez por processo do painel: aquece o Ollama em segundo plano (falha só vai para o log)."""
+    def tarefa():
+        try:
+            from src.chat.agente import aquecer
+
+            aquecer()
+        except Exception:  # noqa: BLE001
+            log.warning("Não foi possível aquecer o modelo do assistente", exc_info=True)
+
+    threading.Thread(target=tarefa, daemon=True).start()
+    return True
 
 
 def renderizar_assistente():
@@ -134,6 +155,7 @@ def renderizar_assistente():
     if sys.platform == "emscripten":  # stlite: sem banco nem Ollama
         return
     iniciar_estado()
+    _aquecer_modelo()
     icone = "data:image/svg+xml;base64," + base64.b64encode((ASSETS / "assistente.svg").read_bytes()).decode("ascii")
     st.markdown(CSS_ASSISTENTE.replace("__ICONE__", icone), unsafe_allow_html=True)
     with st.container(key="assistente"), st.popover("Abrir o assistente"):

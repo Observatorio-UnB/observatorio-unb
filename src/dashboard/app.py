@@ -35,9 +35,17 @@ ERROS_DE_FONTE = (ImportError, OSError, *_ERROS_DO_BANCO)
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from coortes import anos_disponiveis, intervalo_oficial, reagregar_por_coortes  # noqa: E402
-from formatacao import CORES_DESFECHO, CORES_IRC, SIMBOLOS_IRC, botao_csv, br, dec, delta_pp, grafico, mostrar_tabela, reducao  # noqa: E402,F401
-from abas import alunos_ativos, auditoria, benchmark_inep, busca_semantica, detalhe_curso, fila_intervencao, limites_do_dado, pibic, simulador, turnos, visao_executiva  # noqa: E402
+# Em desenvolvimento, o file watcher do Streamlit pode tirar um módulo de sys.modules no meio deste import (KeyError
+# ao salvar arquivos com o painel aberto). A segunda tentativa carrega de novo e resolve.
+for _tentativa in (1, 2):
+    try:
+        from coortes import anos_disponiveis, intervalo_oficial, reagregar_por_coortes  # noqa: E402
+        from formatacao import CORES_DESFECHO, CORES_IRC, SIMBOLOS_IRC, botao_csv, br, dec, delta_pp, grafico, mostrar_tabela, reducao  # noqa: E402,F401
+        from abas import alunos_ativos, auditoria, benchmark_inep, busca_semantica, detalhe_curso, fila_intervencao, limites_do_dado, pibic, simulador, turnos, visao_executiva  # noqa: E402
+        break
+    except KeyError:
+        if _tentativa == 2:
+            raise
 
 px.defaults.color_discrete_sequence = UNB_PALETTE
 

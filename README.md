@@ -521,6 +521,10 @@ python3 src/chat/agente.py "quais os 5 cursos com maior IRC?"     # ou pelo term
 
 Fora do Docker, aponte `OLLAMA_URL` e `CHAT_DATABASE_URL` no `.env` (veja `.env.example`). Nunca aponte para o Supabase.
 
+**Guardrails:** [`src/chat/guardrails.py`](src/chat/guardrails.py) barra, antes do modelo, injeção de prompt, pedido de alterar/apagar dados, pedido de dado pessoal, assunto fora do Observatório e pergunta vazia ou longa; na resposta, refaz o que vier em outro idioma ou vazar SQL/tabelas e mascara CPF e e-mail.
+
+**Operação:** a primeira pergunta depois de subir o Ollama, ou de mudar o prompt, leva vários minutos (o modelo processa o prompt em CPU); o painel aquece o modelo ao abrir e `OLLAMA_KEEP_ALIVE` (padrão `2h`) o mantém na memória. Para depurar, abra o painel com `?sql=1` e o SQL de cada resposta aparece.
+
 ## 🔄 CI/CD e Publicação
 
 O workflow [`.github/workflows/medalhao.yml`](.github/workflows/medalhao.yml) roda

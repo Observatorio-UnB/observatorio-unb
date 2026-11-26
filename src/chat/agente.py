@@ -14,7 +14,7 @@ import requests
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
-from src.chat import ferramentas  # noqa: E402
+from src.chat import ferramentas, guardrails  # noqa: E402
 from src.chat.verificacao import numeros_sem_fonte  # noqa: E402
 from src.db.conexao import ler_variavel  # noqa: E402
 
@@ -37,8 +37,15 @@ Regras:
   inglês, mesmo que a pergunta tenha erro de digitação ou gíria ("oq" = "o que"). Não cite nomes de tabelas ou colunas
   na resposta, só o que elas significam.
 - Só com o que as ferramentas devolveram. Se não houver dado, diga isso.
-- Sigla ou termo que não está no esquema (ex.: CIC): procure com buscar_documentos; se não achar, diga que não encontrou
-  e peça mais contexto. Nunca chute o significado.
+- Siglas da UnB (use só estas definições, sem acrescentar nada): FGA = Faculdade do Gama, nome antigo da FCTE; FCTE =
+  Faculdade de Ciências e Tecnologias em Engenharia (campus Gama); FCE = Faculdade de Ceilândia, hoje FCTS (Faculdade de
+  Ciências e Tecnologias em Saúde, campus Ceilândia); FUP = Faculdade UnB Planaltina; Darcy Ribeiro = campus principal,
+  em Brasília; CIC = Departamento de Ciência da Computação; DEG = Decanato de Ensino de Graduação; IC/PIBIC =
+  iniciação científica; INEP = Instituto Nacional de Estudos e Pesquisas Educacionais; IRC = índice de retenção crítica.
+- Pergunta sobre o significado de uma sigla da lista: responda só a definição, uma frase por sigla, sem acrescentar
+  curso, projeto ou outras informações.
+- Qualquer outra sigla ou termo que não está no esquema nem na lista acima: procure com buscar_documentos; se não achar, diga que não encontrou
+  essa informação nos dados do Observatório e peça mais contexto. Nunca diga "esquema" ou "tabela" ao usuário. Nunca chute o significado.
   Nunca invente número, tabela, coluna, curso ou fonte; na dúvida, diga que não sabe. Não arredonde nem recalcule
   de cabeça: copie os valores do resultado.
 - Para dados numéricos, CHAME a ferramenta consultar_sql (PostgreSQL, só SELECT) com o SQL; não escreva o SQL
@@ -52,7 +59,7 @@ nos percentis 5 e 95; quanto maior, mais crítico o curso. Responda isso sem SQL
 - Nomes de curso estão em MAIÚSCULAS e sem acento (ex.: CIENCIA DA COMPUTACAO). Para texto, prefira ILIKE '%trecho%' ou
   use exatamente os [valores: ...] listados no esquema. Se uma consulta vier vazia, suspeite do filtro e tente de novo
   com ILIKE antes de concluir que não há dado.
-- Onde procurar (tabelas planas, uma linha por curso, já com nome, campus e turno; prefira-as aos joins do star):
+- Onde procurar (tabelas planas, uma linha por curso; prefira-as aos joins do star):
   retenção, evasão, formatura, IRC, tempo de curso -> gold.retencao_cursos_unb;
   alunos ativos hoje e acima do prazo ideal (NÃO use retencao_cursos_unb para isso) -> gold.ativos_hoje_cursos_unb;
   iniciação científica (planos, bolsas, valor, cotas) -> gold.pibic_social_unb;
@@ -62,6 +69,13 @@ nos percentis 5 e 95; quanto maior, mais crítico o curso. Responda isso sem SQL
   Colunas de gap/mediana/taxa podem ser NULL: ao ordenar por maior valor, use ORDER BY col DESC NULLS LAST.
   Taxas e percentuais já vêm prontos em colunas *_pct (ex.: taxa_formatura_pct, taxa_evasao_pct): use-as em vez de
   recalcular; se precisar dividir, converta com ::numeric (divisão de inteiros dá 0).
+  CAMPUS e turno existem SÓ em gold.retencao_cursos_unb (campus ILIKE '%FCTE%'; FCTE/FCE/FUP/Darcy Ribeiro são valores
+  de campus). ativos_hoje_cursos_unb só tem curso e contagens: para filtrar ou ordenar alunos ativos por campus, junte
+  com retencao_cursos_unb r ON r.curso = a.curso. "Maior curso" = mais alunos (total_ativos_hoje) ORDER BY ... DESC LIMIT 1.
+  Exemplos: maior curso da FCTE -> SELECT a.curso, a.total_ativos_hoje FROM gold.ativos_hoje_cursos_unb a JOIN
+  gold.retencao_cursos_unb r ON r.curso = a.curso WHERE r.campus ILIKE '%FCTE%' ORDER BY a.total_ativos_hoje DESC LIMIT 1;
+  cursos do campus FCTE -> SELECT count(*) FROM gold.retencao_cursos_unb WHERE campus ILIKE '%FCTE%'.
+  ILIKE sempre com % nos dois lados (o campus aparece como "FACULDADE ... (FCTE)"); nunca ILIKE 'FCTE' sem %.
   gold.dim_* e gold.fato_* (star schema) não estão no esquema: não os use.
 - Pergunta "quantos cursos ... ?" = SELECT count(*) FROM ... WHERE ...; não liste linhas nem some colunas de percentual.
   Se o resultado vier com "truncado": true, refaça com agregação (COUNT) ou LIMIT menor, nunca conclua com linhas parciais.
@@ -85,19 +99,27 @@ FERRAMENTAS = [
 ]
 
 
-def chamar_ollama(mensagens: List[dict]) -> dict:
+def chamar_ollama(mensagens: List[dict], aquecimento: bool = False) -> dict:
     url = ler_variavel("OLLAMA_URL") or "http://localhost:11434"
     modelo = ler_variavel("OLLAMA_MODEL") or "qwen2.5:7b-instruct"
     r = requests.post(
         f"{url}/api/chat",
         json={"model": modelo, "messages": mensagens, "tools": FERRAMENTAS, "stream": False,
               # O padrão do Ollama é um contexto de 4096 tokens, curto para esquema + resultados.
-              "options": {"temperature": 0, "num_ctx": 8192}, "keep_alive": "30m"},
+              "options": {"temperature": 0, "num_ctx": 8192, **({"num_predict": 1} if aquecimento else {})},
+              "keep_alive": ler_variavel("OLLAMA_KEEP_ALIVE") or "2h"},
         # Em CPU, a 1ª chamada processa ~6 mil tokens de esquema (~10 min); as seguintes reaproveitam o cache.
-        timeout=int(ler_variavel("OLLAMA_TIMEOUT") or 900),
+        timeout=int(ler_variavel("OLLAMA_TIMEOUT") or (3600 if aquecimento else 900)),
     )
     r.raise_for_status()
     return r.json()["message"]
+
+
+def aquecer() -> None:
+    """Faz o Ollama carregar o modelo e processar o prompt de sistema antes da 1ª pergunta. Em CPU isso leva
+    minutos, e sem o aquecimento quem pergunta primeiro (ou depois do modelo sair da memória) espera tudo isso."""
+    chamar_ollama([{"role": "system", "content": SISTEMA + "\n\nEsquema:\n" + esquema_prompt()},
+                   {"role": "user", "content": "Oi"}], aquecimento=True)
 
 
 def executar_ferramenta(nome: str, args: dict) -> str:
@@ -127,11 +149,6 @@ BLOCO_SQL = re.compile(r"```sql([^`]*)```", re.I)
 SQL_SOLTO = re.compile(r"(?:SELECT|WITH)\b[^`]*", re.I)
 
 
-# Ideogramas chineses/japoneses e hangul: o Qwen às vezes escapa para chinês; a resposta é refeita em português.
-ESTRANGEIRO = re.compile(r"[\u3000-\u9fff\uac00-\ud7af]")
-PEDIDO_PT = "Responda em português do Brasil, com as mesmas informações."
-
-
 def _sql_escrito(conteudo: str) -> str:
     bloco = BLOCO_SQL.search(conteudo)
     if bloco:
@@ -154,7 +171,7 @@ def _resultado(resposta: str, pergunta: str, historico: List[dict], consultas: L
     fontes = [pergunta, historico[0]["content"]] + [m["content"] for m in historico if m["role"] == "tool"]
     sem = numeros_sem_fonte(resposta, fontes)
     avisos = [f"Atenção: {', '.join(sem)} não aparece nos dados consultados. Confira esse valor antes de usar."] if sem else []
-    return {"resposta": resposta, "consultas": consultas, "avisos": avisos}
+    return {"resposta": guardrails.limpar(resposta), "consultas": consultas, "avisos": avisos}
 
 
 def conversar(historico: List[dict], pergunta: str,
@@ -163,6 +180,9 @@ def conversar(historico: List[dict], pergunta: str,
               esquema: Callable[[], str] = esquema_prompt) -> Dict[str, Any]:
     """Uma rodada: acrescenta a pergunta a `historico` (alterado no lugar) e devolve
     {"resposta": str, "consultas": [sql, ...], "avisos": [str, ...]}. Para após MAX_ITERACOES chamadas ao modelo."""
+    recusa = guardrails.entrada(pergunta)
+    if recusa:  # nem chega ao modelo, e a pergunta barrada não entra no histórico
+        return {"resposta": recusa, "consultas": [], "avisos": []}
     if not historico:
         # O esquema vai no prompt de sistema, igual em toda conversa: o Ollama reaproveita o cache desse
         # prefixo e não reprocessa milhares de tokens a cada pergunta (em CPU, eram ~4 min por pergunta).
@@ -180,10 +200,13 @@ def conversar(historico: List[dict], pergunta: str,
             chamadas = [{"function": {"name": "consultar_sql", "arguments": {"sql": sql}}}]
         if not chamadas:
             texto = msg.get("content") or ""
-            if ESTRANGEIRO.search(texto) and not refeita:
+            correcao = guardrails.problema_na_saida(texto)
+            if correcao:
+                historico.pop()  # a resposta barrada não fica na conversa
+                if refeita:  # já tentou corrigir uma vez: devolve a mensagem segura
+                    return {"resposta": guardrails.MSG_SEGURA, "consultas": consultas, "avisos": []}
                 refeita = True
-                historico.pop()  # a resposta fora do idioma não fica na conversa
-                historico.append({"role": "user", "content": PEDIDO_PT})
+                historico.append({"role": "user", "content": correcao})
                 continue
             return _resultado(texto, pergunta, historico, consultas)
         for c in chamadas:

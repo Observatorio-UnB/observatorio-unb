@@ -53,23 +53,56 @@ def _documentos_vetorizados() -> int:
         return conn.execute("SELECT count(*) FROM busca.documentos").fetchone()[0]
 
 
+MINUSCULAS = {"de", "da", "do", "das", "dos", "e", "em", "na", "no"}
+
+
+def _nome(texto):
+    """CURSO EM MAIÚSCULAS -> Curso em Maiúsculas (as fontes vêm sem acento)."""
+    palavras = texto.lower().split()
+    return " ".join(p if (i and p in MINUSCULAS) else p.capitalize() for i, p in enumerate(palavras))
+
+
+def _campus(texto):
+    """'FCE - CEILANDIA' -> 'FCE · Ceilandia': a sigla antes do hífen fica como está."""
+    sigla, _, resto = texto.partition(" - ")
+    return f"{sigla} · {_nome(resto)}" if resto else _nome(texto)
+
+
+def _selos(r, meta):
+    """Selos coloridos do cartão: tipo do resultado e, para IC, ano, curso, campus e linha de pesquisa."""
+    selos = [f":{'green' if r['tipo'] == 'projeto_pibic' else 'blue' if r['tipo'] == 'curso' else 'gray'}-badge[{NOMES_TIPO.get(r['tipo'], r['tipo'])}]"]
+    if r["tipo"] == "projeto_pibic":
+        if meta.get("ano"):
+            selos.append(f":orange-badge[{meta['ano']}]")
+        if meta.get("curso"):
+            selos.append(f":gray-badge[{_nome(meta['curso'])}]")
+        if meta.get("campus"):
+            selos.append(f":gray-badge[{_campus(meta['campus'])}]")
+        if meta.get("linha_pesquisa"):
+            selos.append(f":gray-badge[{meta['linha_pesquisa'].lower().capitalize()}]")
+        if meta.get("planos", 1) > 1:
+            selos.append(f":violet-badge[{br(meta['planos'])} planos iguais]")
+    return " ".join(selos)
+
+
 def _mostrar_resultado(r):
     meta = r["metadados"] or {}
+    com_texto = r["tipo"] != "projeto_pibic"  # o texto do plano de IC só repete o título e os selos
     with st.container(border=True):
-        planos = f" · {br(meta['planos'])} planos iguais" if r["tipo"] == "projeto_pibic" and meta.get("planos", 1) > 1 else ""
-        st.markdown(
-            f"**{r['titulo']}**  \n"
-            f"<small>{NOMES_TIPO.get(r['tipo'], r['tipo'])} · similaridade {dec(r['similaridade'], 2)}{planos}</small>",
-            unsafe_allow_html=True,
-        )
-        st.caption(_virgula_decimal(r["conteudo"], r["tipo"]))
+        titulo = r["titulo"] if r["tipo"] != "curso" else _nome(r["titulo"])
+        st.markdown(f"**{titulo}**")
+        st.markdown(_selos(r, meta))
+        if com_texto:
+            texto = _virgula_decimal(r["conteudo"], r["tipo"])
+            st.caption(texto[:420] + ("…" if len(texto) > 420 else ""))
         if r["tipo"] == "curso":
             evasao, formatura, irc = (meta.get(c) for c in ("taxa_evasao_pct", "taxa_formatura_pct", "indice_retencao_critica"))
             m1, m2, m3 = st.columns(3)
             m1.metric("Evasão", "—" if evasao is None else f"{dec(evasao, 1)}%")
             m2.metric("Formatura", "—" if formatura is None else f"{dec(formatura, 1)}%")
             m3.metric("Índice de retenção crítica", "—" if irc is None else f"{dec(irc, 1)}")
-        if meta:
+        st.caption(f"Similaridade {dec(r['similaridade'], 2)}")
+        if meta and st.query_params.get("sql") == "1":  # metadados brutos: só no modo de depuração (?sql=1)
             with st.expander("Metadados"):
                 st.json(meta)
 
