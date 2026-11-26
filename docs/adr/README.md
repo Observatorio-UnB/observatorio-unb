@@ -53,3 +53,4 @@ Além do portfólio acima, também trazem gatilhos de revisão o [ADR 0001](0001
 | 0031 | [Escopo de disponibilização online do banco no Supabase e salvaguardas de privacidade (LGPD)](0031-escopo-disponibilizacao-online-supabase-lgpd.md) | 2026-11-02 |
 | 0032 | [Sistema de origem em 3NF, recarregado por inteiro, com o tempo de evento em cada vínculo](0032-modelagem-do-sistema-de-origem.md) | 2026-11-24 |
 | 0033 | [Camada semântica feita à mão no dbt, painel público por arquivo e ETL reverso por push](0033-disponibilizacao-camada-semantica-e-etl-reverso.md) | 2026-11-24 |
+| 0034 | [Chat com LLM local sobre a gold](0033-chat-llm-local.md) | 2026-11-24 |

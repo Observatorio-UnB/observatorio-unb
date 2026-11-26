@@ -198,7 +198,7 @@ streamlit run src/dashboard/app.py
 ```
 O painel lê a gold do banco. Sem banco, lê `export/gold.json`, se existir
 (`python3 src/db/exportar_gold.py`), que é o que a versão do GitHub Pages usa. Com o
-banco no ar, a página **busca semântica** aparece no menu lateral.
+banco no ar, a aba **Busca Semântica** e o assistente de chat aparecem no painel.
 
 **Roteiro: a resposta à pergunta da E1.** A pergunta do DEG (`docs/challenge_canvas.md`) é *em
 quais cursos a retenção e o atraso na integralização são mais críticos, demandando intervenção
@@ -510,12 +510,12 @@ recall@5 de ao menos 0,8 por tipo. O relatório caso a caso sai com
 
 ## 💬 Chat com os dados (LLM local)
 
-Página **Chat** do painel: um modelo local (Ollama) responde perguntas consultando só a gold agregada, em modo somente leitura ([ADR 0033](docs/adr/0033-chat-llm-local.md)).
+**Assistente** do painel (botão no canto inferior direito): um modelo local (Ollama) responde perguntas consultando só a gold agregada, em modo somente leitura ([ADR 0033](docs/adr/0033-chat-llm-local.md)).
 
 ```bash
 docker compose up -d db && python3 src/db/migrar.py        # cria o usuário observatorio_chat (migração 0032)
 docker compose --profile chat up -d ollama ollama-pull      # sobe o Ollama e baixa o modelo (1ª vez: ~4,7 GB)
-streamlit run src/dashboard/app.py                               # página Chat
+streamlit run src/dashboard/app.py                               # botão do assistente no canto inferior direito
 python3 src/chat/agente.py "quais os 5 cursos com maior IRC?"     # ou pelo terminal
 ```
 

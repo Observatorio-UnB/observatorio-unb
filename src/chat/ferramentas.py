@@ -1,11 +1,13 @@
 """
 Ferramentas que o LLM do chat pode chamar. Todas leem o banco com o usuário observatorio_chat
 (migração 0032): o que protege bronze e silver é o papel do banco; a validação do SQL aqui é só a
-segunda camada.
+segunda camada, e é contornável (ex.: identificadores Unicode escapados, que recusamos abaixo, mas outros
+truques podem existir). A defesa real é o papel do banco; ver ADR 0033.
 """
 
 import re
 import sys
+from urllib.parse import urlsplit
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -18,7 +20,7 @@ LIMITE_LINHAS = 200
 URL_PADRAO_CHAT = "postgresql://observatorio_chat:observatorio_chat@localhost:5435/observatorio"
 # Esquemas com dado pessoal ou fora do papel de leitura: recusados antes de ir ao banco.
 PROIBIDOS = re.compile(
-    r"\b(bronze|silver|dbt_staging|dbt_intermediate|dbt_snapshots|pg_catalog|information_schema)\b", re.I
+    r"\b(bronze|silver|dbt_staging|dbt_intermediate|dbt_snapshots|information_schema)\b|\bpg_\w+", re.I
 )
 
 
@@ -27,7 +29,9 @@ PROIBIDOS = re.compile(
 FUNCOES_PROIBIDAS = re.compile(
     r"\b(pg_read_\w+|pg_ls_\w+|pg_stat_file|lo_\w+|dblink\w*|set_config|pg_sleep\w*|pg_terminate_backend|"
     r"pg_cancel_backend|current_setting|pg_reload_conf)\b", re.I)
-# Colunas de identificação pessoal: a gold não as tem (k >= 5), então pedir uma é tentativa de reidentificar.
+# Colunas de identificação pessoal: a gold não as tem (é agregada), então pedir uma é tentativa de reidentificar.
+# Identificador/literal Unicode escapado (U&"pg\\005fclass") esconde nomes da denylist; o chat não precisa dele.
+UNICODE_ESCAPADO = re.compile(r"\bU&", re.I)
 PESSOAIS = re.compile(r"\b(matricula|nome_discente|nome_aluno|cpf|email|e_mail|telefone|data_nascimento)\b", re.I)
 
 
@@ -36,7 +40,13 @@ class SqlRecusado(ValueError):
 
 
 def url_chat() -> str:
-    return ler_variavel("CHAT_DATABASE_URL") or URL_PADRAO_CHAT
+    """URL do usuário do chat. Recusa o Supabase (o chat é local, ADR 0033): host da SUPABASE_DATABASE_URL ou *.supabase.*."""
+    url = ler_variavel("CHAT_DATABASE_URL") or URL_PADRAO_CHAT
+    host = (urlsplit(url).hostname or "").lower()
+    hosts_supabase = {(urlsplit(u).hostname or "").lower() for u in [ler_variavel("SUPABASE_DATABASE_URL")] if u}
+    if "supabase" in host or host in hosts_supabase:
+        raise SqlRecusado("CHAT_DATABASE_URL não pode apontar para o Supabase: o chat só lê o banco local.")
+    return url
 
 
 def validar_sql(sql: str) -> str:
@@ -47,13 +57,19 @@ def validar_sql(sql: str) -> str:
         raise SqlRecusado("Só um comando por consulta.")
     if not re.match(r"(?is)^(select|with)\b", s):
         raise SqlRecusado("Só SELECT ou WITH.")
+    if UNICODE_ESCAPADO.search(s):
+        raise SqlRecusado("Identificador Unicode escapado (U&) não é permitido.")
     if PROIBIDOS.search(s):
         raise SqlRecusado("Só gold, dbt_marts e busca podem ser consultados.")
     if FUNCOES_PROIBIDAS.search(s):
         raise SqlRecusado("Função não permitida.")
     if PESSOAIS.search(s):
         raise SqlRecusado("Dado pessoal não é consultável: o chat só responde com dados agregados.")
-    return s
+    # No PostgreSQL, NULL vem primeiro em DESC: "o maior gap" devolvia um curso sem dado. Sempre NULLS LAST.
+    # Literais, identificadores entre aspas e comentários passam intactos (o grupo 1 casa primeiro).
+    return re.sub(
+        r"""('(?:[^']|'')*'|"(?:[^"]|"")*"|--[^\n]*|/\*.*?\*/)|\bDESC\b(?!\s+NULLS)""",
+        lambda m: m.group(1) or "DESC NULLS LAST", s, flags=re.I | re.S)
 
 
 def _json(v):

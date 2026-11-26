@@ -11,8 +11,9 @@ O painel mostra métricas fixas. Faltava uma forma de fazer perguntas e análise
 
 - **Modelo local:** Ollama (`qwen2.5:7b-instruct` por padrão, `OLLAMA_MODEL`), com tool calling. Nenhum dado sai da máquina.
 - **Agente sem framework** (`src/chat/agente.py`): laço de até 6 chamadas ao modelo, com três ferramentas: `descrever_esquema` (catálogo e `COMMENT ON`), `consultar_sql` (só SELECT) e `buscar_documentos` (a busca híbrida do ADR 0011).
-- **Defesa no banco:** usuário `observatorio_chat` (migração 0032), que herda `observatorio_leitura`, com `default_transaction_read_only` e `statement_timeout` de 10 s. Lê só `gold`, `dbt_marts` e `busca`. A validação do SQL em `src/chat/ferramentas.py` (um comando, SELECT/WITH, sem bronze/silver) é segunda camada, por heurística de texto.
-- **Interface:** página Streamlit `src/dashboard/pages/chat.py`, com o SQL executado visível. Não existe na versão estática (stlite).
+- **Defesa no banco:** usuário `observatorio_chat` (migração 0032), que herda `observatorio_leitura`, com `default_transaction_read_only` e `statement_timeout` de 10 s. Lê só `gold`, `dbt_marts` e `busca`. A validação do SQL em `src/chat/ferramentas.py` (um comando, SELECT/WITH, sem bronze/silver) é segunda camada, por heurística de texto, e **contornável** (a denylist não vale contra identificadores Unicode escapados, que são recusados, nem contra truques que ainda não conhecemos): quem segura é o papel do banco. `CHAT_DATABASE_URL` recusa hosts do Supabase.
+- **Limite conhecido:** a gold tem células com menos de 5 (ex.: `total_cotistas` em cursos pequenos); o chat não as mascara, então não afirma k >= 5. Mascarar na gold fica como melhoria.
+- **Interface:** assistente flutuante no canto inferior direito do painel (`src/dashboard/assistente.py`), com o SQL executado visível. Não existe na versão estática (stlite).
 - **Infra:** serviço `ollama` no profile `chat` do `docker-compose.yml`.
 
 ## Consequências

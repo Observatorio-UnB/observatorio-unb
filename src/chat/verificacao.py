@@ -29,18 +29,20 @@ def numeros(texto: str) -> List[float]:
 
 
 def perto(a: float, b: float) -> bool:
-    return abs(a - b) <= max(0.06, 0.005 * abs(b))
+    # A tolerância absoluta (arredondamento de decimais) só vale se a fonte tem casas decimais:
+    # contagem inteira tem de bater ("9 alunos" contra 5, ou 0,04 contra 0, são erros).
+    return abs(a - b) <= max(0.06 if b != int(b) else 0, 0.005 * abs(b))
 
 
 def numeros_sem_fonte(resposta: str, fontes: Iterable[str]) -> List[str]:
-    """Números da resposta (inteiros até 10 são ignorados: "os 5 cursos") sem equivalente nas fontes."""
+    """Números da resposta sem equivalente nas fontes (a pergunta é fonte: "os 5 cursos" passa).
+    Marcadores de lista numerada ("1.") não contam."""
+    resposta = re.sub(r"(?m)^\s*\d+[.)]\s", "", resposta)
     conhecidos = [n for f in fontes for n in numeros(f)]
     sem = []
     for tok in re.findall(r"\d[\d.,]*", resposta):
         tok = tok.rstrip(".,")
         leituras = numeros(tok)
-        if leituras and all(n == int(n) and n <= 10 for n in leituras):
-            continue
         if not any(perto(n, c) for n in leituras for c in conhecidos):
             sem.append(tok)
     return sem

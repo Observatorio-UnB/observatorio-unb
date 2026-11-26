@@ -43,6 +43,7 @@ jobs:
           --health-retries 20
     env:
       DATABASE_URL: postgresql://observatorio:observatorio@localhost:5432/observatorio
+      CHAT_DATABASE_URL: postgresql://observatorio_chat:observatorio_chat@localhost:5432/observatorio
       FASTEMBED_CACHE_PATH: ${{ github.workspace }}/.cache/fastembed
     steps:
       - uses: actions/checkout@v4
