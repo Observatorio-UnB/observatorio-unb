@@ -5,10 +5,12 @@ Uso: python3 src/chat/agente.py "quais os 5 cursos mais críticos por IRC?"
 """
 
 import json
+import logging
 import re
 import sys
 from pathlib import Path
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
+from urllib.parse import urlsplit
 
 import requests
 
@@ -18,7 +20,10 @@ from src.chat import ferramentas, guardrails  # noqa: E402
 from src.chat.verificacao import numeros_sem_fonte  # noqa: E402
 from src.db.conexao import ler_variavel  # noqa: E402
 
+log = logging.getLogger(__name__)
 MAX_ITERACOES = 6
+HOSTS_LOCAIS = {"localhost", "127.0.0.1", "::1", "ollama"}
+MAX_MENSAGENS = 24  # histórico enviado ao modelo: prompt de sistema + as últimas rodadas (num_ctx é só 8192)
 LIMITE_RESULTADO = 6000  # caracteres de resultado de ferramenta devolvidos ao modelo
 LIMITE_ESQUEMA = 20000
 # Só as tabelas planas vão no prompt: o esquema inteiro (~14 mil caracteres) levava ~13 min na 1ª pergunta em
@@ -99,11 +104,45 @@ FERRAMENTAS = [
 ]
 
 
+def _servidor() -> tuple:
+    """(url, cabeçalhos) do Ollama. OLLAMA_URL pode ser um cluster/gateway remoto compatível com a API do
+    Ollama; OLLAMA_API_KEY, se definida, vai como Bearer. Servidor remoto = os resultados das consultas saem da máquina."""
+    url = (ler_variavel("OLLAMA_URL") or "http://localhost:11434").rstrip("/")
+    chave = ler_variavel("OLLAMA_API_KEY")
+    if chave and url.startswith("http://") and (urlsplit(url).hostname or "") not in HOSTS_LOCAIS:
+        log.warning("OLLAMA_API_KEY sendo enviada por http:// a %s: use https:// para não expor a chave.", urlsplit(url).hostname)
+    return url, ({"Authorization": f"Bearer {chave}"} if chave else {})
+
+
+def processador() -> Optional[str]:
+    """'gpu', 'cpu' ou 'misto' conforme onde o Ollama carregou o modelo (/api/ps); None se não der para saber."""
+    try:
+        url, cab = _servidor()
+        r = requests.get(f"{url}/api/ps", headers=cab, timeout=10)
+        r.raise_for_status()
+        modelos = r.json()["models"]
+        nome = ler_variavel("OLLAMA_MODEL") or "qwen2.5:7b-instruct"
+        m = next((x for x in modelos if x.get("name") == nome or x.get("model") == nome), modelos[0])
+        return "cpu" if not m.get("size_vram") else "gpu" if m["size_vram"] >= m["size"] else "misto"
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def podar(historico: List[dict]) -> None:
+    """Descarta as rodadas mais antigas (mantém o prompt de sistema) até caber em MAX_MENSAGENS,
+    sempre recomeçando numa mensagem do usuário. Altera no lugar."""
+    while len(historico) > MAX_MENSAGENS:
+        i = next((j for j in range(2, len(historico)) if historico[j]["role"] == "user"), None)
+        if i is None:
+            return
+        del historico[1:i]
+
+
 def chamar_ollama(mensagens: List[dict], aquecimento: bool = False) -> dict:
-    url = ler_variavel("OLLAMA_URL") or "http://localhost:11434"
+    url, cabecalhos = _servidor()
     modelo = ler_variavel("OLLAMA_MODEL") or "qwen2.5:7b-instruct"
     r = requests.post(
-        f"{url}/api/chat",
+        f"{url}/api/chat", headers=cabecalhos,
         json={"model": modelo, "messages": mensagens, "tools": FERRAMENTAS, "stream": False,
               # O padrão do Ollama é um contexto de 4096 tokens, curto para esquema + resultados.
               "options": {"temperature": 0, "num_ctx": 8192, **({"num_predict": 1} if aquecimento else {})},
@@ -120,6 +159,7 @@ def aquecer() -> None:
     minutos, e sem o aquecimento quem pergunta primeiro (ou depois do modelo sair da memória) espera tudo isso."""
     chamar_ollama([{"role": "system", "content": SISTEMA + "\n\nEsquema:\n" + esquema_prompt()},
                    {"role": "user", "content": "Oi"}], aquecimento=True)
+    log.info("Modelo do assistente carregado em: %s (servidor %s)", processador() or "?", _servidor()[0])
 
 
 def executar_ferramenta(nome: str, args: dict) -> str:
@@ -158,13 +198,19 @@ def _sql_escrito(conteudo: str) -> str:
 
 
 def _rodar_chamada(c: dict, consultas: List[str], ferramenta: Callable[[str, dict], str]) -> str:
-    f = c["function"]
-    args = f.get("arguments") or {}
-    if isinstance(args, str):
-        args = json.loads(args or "{}")
-    if f["name"] == "consultar_sql":
+    try:
+        f = c["function"]
+        args = f.get("arguments") or {}
+        if isinstance(args, str):
+            args = json.loads(args or "{}")
+        if not isinstance(args, dict):
+            raise ValueError("os argumentos precisam ser um objeto JSON")
+        nome = f["name"]
+    except (KeyError, TypeError, ValueError) as e:  # chamada malformada do modelo: ele corrige, o chat não cai
+        return f"ERRO: chamada de ferramenta inválida ({e}). Chame de novo com argumentos em JSON."
+    if nome == "consultar_sql":
         consultas.append(args.get("sql", ""))
-    return ferramenta(f["name"], args)
+    return ferramenta(nome, args)
 
 
 def _resultado(resposta: str, pergunta: str, historico: List[dict], consultas: List[str]) -> Dict[str, Any]:
@@ -188,6 +234,7 @@ def conversar(historico: List[dict], pergunta: str,
         # prefixo e não reprocessa milhares de tokens a cada pergunta (em CPU, eram ~4 min por pergunta).
         historico.append({"role": "system", "content": SISTEMA + "\n\nEsquema:\n" + esquema()})
     historico.append({"role": "user", "content": pergunta})
+    podar(historico)
     consultas: List[str] = []
     refeita = False
     for _ in range(MAX_ITERACOES):

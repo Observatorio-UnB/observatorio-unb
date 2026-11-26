@@ -28,7 +28,9 @@ MSG_SEGURA = "Não consegui formular uma resposta segura para essa pergunta. Ten
 # Tentativas de trocar ou extrair as instruções do assistente (pt e en).
 INJECAO = re.compile(
     r"ignor\w*\s+(?:\w+\s+){0,3}(?:instru\w+|regras|prompt|anterior\w*)|"
-    r"(?:revel\w+|mostr\w+|repit\w+|imprim\w+|exib\w+|diga)\s+(?:\w+\s+){0,3}(?:instru\w+|prompt|regras)|"
+    r"(?:revel\w+|mostr\w+|repit\w+|imprim\w+|exib\w+|diga)\s+(?:\w+\s+){0,3}(?:instru\w+|prompt)|"
+    r"(?:revel\w+|mostr\w+|repit\w+|imprim\w+|exib\w+|diga)\s+(?:\w+\s+){0,2}(?:suas?|seus?|tuas?|teus?|internas?|ocultas?|do\s+sistema)\s+(?:\w+\s+){0,2}regras|"
+    r"(?:revel\w+|mostr\w+|repit\w+|imprim\w+|exib\w+|diga)\s+(?:\w+\s+){0,3}regras\s+(?:do\s+sistema|internas?|ocultas?|iniciais)|"
     r"(?:prompt|mensagem)\s+(?:de\s+)?sistema|system\s*prompt|"
     r"ignore\s+(?:\w+\s+){0,3}(?:instructions|rules|prompt|previous)|"
     r"voc[eê]\s+agora\s+(?:é|e)\b|a\s+partir\s+de\s+agora\s+voc[eê]|finja\s+(?:que\s+)?(?:ser|voc[eê])|"

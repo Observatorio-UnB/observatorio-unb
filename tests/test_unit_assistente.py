@@ -27,6 +27,19 @@ class SemLinksTest(unittest.TestCase):
     def test_remove_imagem_e_link_mantendo_texto(self):
         self.assertEqual(assistente.sem_links("![x](https://a.invalid/p?d=1) veja [aqui](http://b.invalid)"), "x veja aqui")
 
+    def test_remove_imagem_por_referencia(self):
+        self.assertEqual(assistente.sem_links("![x][r]\n\n[r]: https://a.invalid/?d=1").strip(), "x")
+
+    def test_definicao_com_entidade_html_e_imagem_curta(self):
+        for md in ("![x][r]\n\n[r]: h&#116;tp://a.invalid/?d=1", "![x][r]\n[r]: ftp://a.invalid/?d=1",
+                   "![x]\n\n[x]: https://a.invalid/?d=1", "![x][]\n\n[x]: //a.invalid/?d=1", "![x][r]\n[r]: h\\ttp://a.invalid"):
+            r = assistente.sem_links(md)
+            self.assertNotIn("invalid", r)
+            self.assertNotIn("![", r)
+
+    def test_texto_com_dois_pontos_nao_e_definicao(self):
+        self.assertEqual(assistente.sem_links("[Nota]: IRC alto"), "[Nota]: IRC alto")
+
     def test_texto_comum_intacto(self):
         self.assertEqual(assistente.sem_links("IRC 31.9 [1]"), "IRC 31.9 [1]")
 

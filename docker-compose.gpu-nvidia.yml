@@ -1,0 +1,11 @@
+# Override do Ollama para GPU NVIDIA (requer nvidia-container-toolkit). Usado por scripts/chat.sh:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu-nvidia.yml --profile chat up -d
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

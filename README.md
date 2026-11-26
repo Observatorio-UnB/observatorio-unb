@@ -513,13 +513,15 @@ recall@5 de ao menos 0,8 por tipo. O relatório caso a caso sai com
 **Assistente** do painel (botão no canto inferior direito): um modelo local (Ollama) responde perguntas consultando só a gold agregada, em modo somente leitura ([ADR 0034](docs/adr/0034-chat-llm-local.md)).
 
 ```bash
-docker compose up -d db && python3 src/db/migrar.py        # cria o usuário observatorio_chat (migração 0032)
-docker compose --profile chat up -d ollama ollama-pull      # sobe o Ollama e baixa o modelo (1ª vez: ~4,7 GB)
+docker compose up -d db && python3 src/db/migrar.py        # cria o usuário observatorio_chat (migração 0033) e aplica a senha de CHAT_DATABASE_URL
+scripts/chat.sh                                             # sobe o Ollama (GPU NVIDIA/AMD se houver, senão CPU) e baixa o modelo (1ª vez: ~4,7 GB)
 streamlit run src/dashboard/app.py                               # botão do assistente no canto inferior direito
 python3 src/chat/agente.py "quais os 5 cursos com maior IRC?"     # ou pelo terminal
 ```
 
 Fora do Docker, aponte `OLLAMA_URL` e `CHAT_DATABASE_URL` no `.env` (veja `.env.example`). Nunca aponte para o Supabase.
+
+**GPU e cluster:** `scripts/chat.sh` detecta GPU NVIDIA (`nvidia-smi`, exige nvidia-container-toolkit) ou AMD (`/dev/kfd`) e sobe o Ollama com ela (`docker-compose.gpu-*.yml`); sem GPU, usa CPU. Com o Ollama instalado fora do Docker, ele já usa a GPU sozinho. Ao aquecer, o painel registra no log se o modelo ficou em `gpu`, `cpu` ou `misto`. Para usar um servidor ou cluster de LLM com API do Ollama (ou um gateway na frente de vários), defina `OLLAMA_URL` (fora do Docker) ou `OLLAMA_URL_REMOTO` (painel no compose) e `OLLAMA_API_KEY` (enviada como `Bearer`); com `OLLAMA_URL_REMOTO` o `scripts/chat.sh` não sobe o Ollama local. Atenção: com servidor remoto, as linhas devolvidas pelas consultas (dados agregados) saem da máquina; use só um cluster da própria instituição.
 
 **Guardrails:** [`src/chat/guardrails.py`](src/chat/guardrails.py) barra, antes do modelo, injeção de prompt, pedido de alterar/apagar dados, pedido de dado pessoal, assunto fora do Observatório e pergunta vazia ou longa; na resposta, refaz o que vier em outro idioma ou vazar SQL/tabelas e mascara CPF e e-mail.
 

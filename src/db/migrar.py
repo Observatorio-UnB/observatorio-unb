@@ -11,10 +11,13 @@ import logging
 import sys
 from pathlib import Path
 from typing import List, Optional
+from urllib.parse import unquote, urlsplit
+
+from psycopg import sql
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR))
-from src.db.conexao import conectar  # noqa: E402
+from src.db.conexao import conectar, ler_variavel  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,6 +35,29 @@ ADVISORY_LOCK_ID = 70402026
 
 def _checksum(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def habilitar_login_chat(conn) -> bool:
+    """Dá login ao papel observatorio_chat (criado NOLOGIN pela migração 0033) com a senha de
+    CHAT_DATABASE_URL. Só age se essa URL for do usuário observatorio_chat e do mesmo host do banco migrado:
+    sem a variável, ou apontando para outro servidor, o papel continua sem login."""
+    url = ler_variavel("CHAT_DATABASE_URL")
+    if not url:
+        logger.warning("CHAT_DATABASE_URL não definida: o papel observatorio_chat segue sem login (chat indisponível).")
+        return False
+    p = urlsplit(url)
+    host = p.hostname or ""
+    if p.username != "observatorio_chat" or not p.password:
+        logger.warning("CHAT_DATABASE_URL não é do usuário observatorio_chat com senha: login do chat não habilitado.")
+        return False
+    if "supabase" in host or host != (conn.info.host or ""):
+        logger.warning("Host de CHAT_DATABASE_URL (%s) difere do banco migrado (%s): login do chat não habilitado.",
+                       host, conn.info.host)
+        return False
+    if not conn.execute("SELECT 1 FROM pg_roles WHERE rolname = 'observatorio_chat'").fetchone():
+        return False
+    conn.execute(sql.SQL("ALTER ROLE observatorio_chat LOGIN PASSWORD {}").format(sql.Literal(unquote(p.password))))
+    return True
 
 
 def aplicar_migracoes(url: Optional[str] = None) -> List[str]:
@@ -73,6 +99,8 @@ def aplicar_migracoes(url: Optional[str] = None) -> List[str]:
                     (arquivo.name, checksum),
                 )
             aplicadas_agora.append(arquivo.name)
+        if habilitar_login_chat(conn):
+            logger.info("Login do observatorio_chat habilitado (senha de CHAT_DATABASE_URL).")
     finally:
         conn.execute("SELECT pg_advisory_unlock(%s)", (ADVISORY_LOCK_ID,))
         conn.close()

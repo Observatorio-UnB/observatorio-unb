@@ -1,5 +1,5 @@
 """
-O usuário do chat (migração 0032) lê gold, não lê silver e não escreve. Precisa de PostgreSQL migrado.
+O usuário do chat (migração 0033) lê gold, não lê silver e não escreve. Precisa de PostgreSQL migrado.
 
 Uso:
     python3 -m unittest tests/test_banco_chat.py
@@ -41,3 +41,13 @@ class TestUsuarioChat(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLimiteDeLinhas(unittest.TestCase):
+    def test_resultado_enorme_e_cortado_sem_carregar_tudo(self):
+        import time
+        t = time.time()
+        r = consultar_sql("select g, g::text || 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' as r from generate_series(1, 5000000) g")
+        self.assertEqual(len(r["linhas"]), 200)
+        self.assertTrue(r["truncado"])
+        self.assertLess(time.time() - t, 3)

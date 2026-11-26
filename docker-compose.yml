@@ -39,6 +39,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-observatorio}:${POSTGRES_PASSWORD:-observatorio}@db:5432/${POSTGRES_DB:-observatorio}
       SUPABASE_DATABASE_URL: ${SUPABASE_DATABASE_URL:-}
+      CHAT_DATABASE_URL: postgresql://observatorio_chat:${CHAT_DB_PASSWORD:-observatorio_chat}@db:5432/${POSTGRES_DB:-observatorio}
       FASTEMBED_CACHE_PATH: /cache/fastembed
     volumes:
       - modelos:/cache
@@ -52,8 +53,11 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-observatorio}:${POSTGRES_PASSWORD:-observatorio}@db:5432/${POSTGRES_DB:-observatorio}
       FASTEMBED_CACHE_PATH: /cache/fastembed
-      CHAT_DATABASE_URL: postgresql://observatorio_chat:observatorio_chat@db:5432/${POSTGRES_DB:-observatorio}
-      OLLAMA_URL: http://ollama:11434
+      CHAT_DATABASE_URL: postgresql://observatorio_chat:${CHAT_DB_PASSWORD:-observatorio_chat}@db:5432/${POSTGRES_DB:-observatorio}
+      # Cluster/servidor remoto: OLLAMA_URL_REMOTO=https://llm.exemplo.br (e OLLAMA_API_KEY, se houver). Ver README.
+      # Nome próprio de propósito: OLLAMA_URL do .env (localhost) vale fora do Docker e quebraria o container.
+      OLLAMA_URL: ${OLLAMA_URL_REMOTO:-http://ollama:11434}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b-instruct}
     ports:
       - "127.0.0.1:${PAINEL_PORT:-8501}:8501"
@@ -69,7 +73,7 @@ services:
   # LLM local do chat (profile chat): docker compose --profile chat up -d
   # O ollama-pull baixa o modelo na primeira vez (fica no volume `ollama`) e termina.
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:${OLLAMA_IMAGE_TAG:-0.40.18}
     profiles: ["chat"]
     ports:
       - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"
@@ -82,7 +86,7 @@ services:
       retries: 20
 
   ollama-pull:
-    image: ollama/ollama:latest
+    image: ollama/ollama:${OLLAMA_IMAGE_TAG:-0.40.18}
     profiles: ["chat"]
     environment:
       OLLAMA_HOST: http://ollama:11434

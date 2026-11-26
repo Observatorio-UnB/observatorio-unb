@@ -6,6 +6,7 @@ Precisa do banco e do Ollama; na versão estática (stlite, sys.platform == "ems
 """
 
 import base64
+import html
 import logging
 import re
 import sys
@@ -20,6 +21,12 @@ ASSETS = Path(__file__).resolve().parent / "assets"
 # Imagem e link do markdown: o navegador buscaria a URL (vazamento por injeção de prompt). Fica só o texto.
 IMAGEM_MD = re.compile(r"!\[([^\]]*)\]\([^)]*\)")
 LINK_MD = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+# Imagem/link por referência: `![x][r]` mais a definição `[r]: url` em outra linha.
+# Cobre também as formas curta `![x]` e colapsada `![x][]`.
+IMAGEM_REF_MD = re.compile(r"!\[([^\]]*)\](?:\[[^\]]*\])?")
+DEFINICAO_MD = re.compile(r"(?m)^[ ]{0,3}\[[^\]]+\]:[ \t]*(\S.*)$")
+# Destino com esquema (qualquer um) ou `//`; o markdown aceita entidades HTML e escapes (`h&#116;tp://`), então decodifica antes.
+DESTINO_URL = re.compile(r"<?(?:[a-z][a-z0-9+.-]*:|//)", re.I)
 MSG_INDISPONIVEL = "O assistente está indisponível no momento. Tente novamente em instantes."
 MSG_AQUECENDO = ("O assistente ainda está se preparando (a primeira pergunta depois de um tempo parado demora). "
                  "Tente de novo em alguns minutos.")
@@ -64,8 +71,10 @@ def mostrar_sql() -> bool:
 
 
 def sem_links(texto):
-    """Remove imagens e links do markdown (mantém o texto/rótulo)."""
-    return LINK_MD.sub(r"\1", IMAGEM_MD.sub(r"\1", texto))
+    """Remove imagens e links do markdown, inclusive por referência (mantém o texto/rótulo)."""
+    texto = DEFINICAO_MD.sub(
+        lambda m: "" if DESTINO_URL.match(html.unescape(m.group(1)).replace("\\", "")) else m.group(0), texto)
+    return LINK_MD.sub(r"\1", IMAGEM_REF_MD.sub(r"\1", IMAGEM_MD.sub(r"\1", texto)))
 
 
 def desenhar_mensagem(papel, texto, consultas=(), avisos=()):

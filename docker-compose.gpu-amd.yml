@@ -1,0 +1,7 @@
+# Override do Ollama para GPU AMD (ROCm). Usado por scripts/chat.sh.
+services:
+  ollama:
+    image: ollama/ollama:${OLLAMA_IMAGE_TAG:-0.40.18}-rocm
+    devices:
+      - /dev/kfd
+      - /dev/dri
