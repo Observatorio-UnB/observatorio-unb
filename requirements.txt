@@ -11,3 +11,4 @@ fastembed>=0.4
 pyarrow>=15.0
 deltalake>=1.0
 confluent-kafka>=2.3
+pglast>=7

@@ -39,6 +39,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-observatorio}:${POSTGRES_PASSWORD:-observatorio}@db:5432/${POSTGRES_DB:-observatorio}
       SUPABASE_DATABASE_URL: ${SUPABASE_DATABASE_URL:-}
+      CHAT_DATABASE_URL: postgresql://observatorio_chat:${CHAT_DB_PASSWORD:-observatorio_chat}@db:5432/${POSTGRES_DB:-observatorio}
       FASTEMBED_CACHE_PATH: /cache/fastembed
     volumes:
       - modelos:/cache
@@ -52,6 +53,12 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-observatorio}:${POSTGRES_PASSWORD:-observatorio}@db:5432/${POSTGRES_DB:-observatorio}
       FASTEMBED_CACHE_PATH: /cache/fastembed
+      CHAT_DATABASE_URL: postgresql://observatorio_chat:${CHAT_DB_PASSWORD:-observatorio_chat}@db:5432/${POSTGRES_DB:-observatorio}
+      # Cluster/servidor remoto: OLLAMA_URL_REMOTO=https://llm.exemplo.br (e OLLAMA_API_KEY, se houver). Ver README.
+      # Nome próprio de propósito: OLLAMA_URL do .env (localhost) vale fora do Docker e quebraria o container.
+      OLLAMA_URL: ${OLLAMA_URL_REMOTO:-http://ollama:11434}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b-instruct}
     ports:
       - "127.0.0.1:${PAINEL_PORT:-8501}:8501"
     volumes:
@@ -59,6 +66,34 @@ services:
     depends_on:
       pipeline:
         condition: service_completed_successfully
+      ollama-pull:
+        condition: service_completed_successfully
+        required: false
+
+  # LLM local do chat (profile chat): docker compose --profile chat up -d
+  # O ollama-pull baixa o modelo na primeira vez (fica no volume `ollama`) e termina.
+  ollama:
+    image: ollama/ollama:${OLLAMA_IMAGE_TAG:-0.40.18}
+    profiles: ["chat"]
+    ports:
+      - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ollama-pull:
+    image: ollama/ollama:${OLLAMA_IMAGE_TAG:-0.40.18}
+    profiles: ["chat"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["ollama", "pull", "${OLLAMA_MODEL:-qwen2.5:7b-instruct}"]
+    depends_on:
+      ollama:
+        condition: service_healthy
 
   # Captura de mudanças (profile cdc): Kafka em modo KRaft, sem ZooKeeper, e Kafka Connect com o
   # conector do Debezium. Os tópicos não têm volume: recriar o container do Kafka apaga o histórico,
@@ -110,3 +145,4 @@ services:
 volumes:
   pgdata:
   modelos:
+  ollama:

@@ -36,7 +36,7 @@ observatorio-unb/
 │   ├── analise_lgpd.md              # E4: base legal, retenção, descarte e reidentificação
 │   ├── catalogo/                    # E4: linhagem da fonte ao consumo (gerada e conferida no CI)
 │   ├── diario/                      # Diário de bordo
-│   └── adr/                         # Decisões de arquitetura (ADRs 0001 a 0033), uma por arquivo
+│   └── adr/                         # Decisões de arquitetura (ADRs 0001 a 0034), uma por arquivo
 ├── db/
 │   └── migrations/                  # Esquema versionado do PostgreSQL (0001 ... 0032)
 ├── transform/                       # Projeto dbt: staging, intermediate, marts e snapshot (SCD 2)
@@ -198,7 +198,7 @@ streamlit run src/dashboard/app.py
 ```
 O painel lê a gold do banco. Sem banco, lê `export/gold.json`, se existir
 (`python3 src/db/exportar_gold.py`), que é o que a versão do GitHub Pages usa. Com o
-banco no ar, a página **busca semântica** aparece no menu lateral.
+banco no ar, a aba **Busca Semântica** e o assistente de chat aparecem no painel.
 
 **Roteiro: a resposta à pergunta da E1.** A pergunta do DEG (`docs/challenge_canvas.md`) é *em
 quais cursos a retenção e o atraso na integralização são mais críticos, demandando intervenção
@@ -507,6 +507,25 @@ recall@5 de ao menos 0,8 por tipo. O relatório caso a caso sai com
 `python3 tests/test_banco_busca.py --relatorio`.
 
 ---
+
+## 💬 Chat com os dados (LLM local)
+
+**Assistente** do painel (botão no canto inferior direito): um modelo local (Ollama) responde perguntas consultando só a gold agregada, em modo somente leitura ([ADR 0034](docs/adr/0034-chat-llm-local.md)).
+
+```bash
+docker compose up -d db && python3 src/db/migrar.py        # cria o usuário observatorio_chat (migração 0033) e aplica a senha de CHAT_DATABASE_URL
+scripts/chat.sh                                             # sobe o Ollama (GPU NVIDIA/AMD se houver, senão CPU) e baixa o modelo (1ª vez: ~4,7 GB)
+streamlit run src/dashboard/app.py                               # botão do assistente no canto inferior direito
+python3 src/chat/agente.py "quais os 5 cursos com maior IRC?"     # ou pelo terminal
+```
+
+Fora do Docker, aponte `OLLAMA_URL` e `CHAT_DATABASE_URL` no `.env` (veja `.env.example`). Nunca aponte para o Supabase.
+
+**GPU e cluster:** `scripts/chat.sh` detecta GPU NVIDIA (`nvidia-smi`, exige nvidia-container-toolkit) ou AMD (`/dev/kfd`) e sobe o Ollama com ela (`docker-compose.gpu-*.yml`); sem GPU, usa CPU. Com o Ollama instalado fora do Docker, ele já usa a GPU sozinho. Ao aquecer, o painel registra no log se o modelo ficou em `gpu`, `cpu` ou `misto`. Para usar um servidor ou cluster de LLM com API do Ollama (ou um gateway na frente de vários), defina `OLLAMA_URL` (fora do Docker) ou `OLLAMA_URL_REMOTO` (painel no compose) e `OLLAMA_API_KEY` (enviada como `Bearer`); com `OLLAMA_URL_REMOTO` o `scripts/chat.sh` não sobe o Ollama local. Atenção: com servidor remoto, as linhas devolvidas pelas consultas (dados agregados) saem da máquina; use só um cluster da própria instituição.
+
+**Guardrails:** [`src/chat/guardrails.py`](src/chat/guardrails.py) barra, antes do modelo, injeção de prompt, pedido de alterar/apagar dados, pedido de dado pessoal, assunto fora do Observatório e pergunta vazia ou longa; na resposta, refaz o que vier em outro idioma ou vazar SQL/tabelas e mascara CPF e e-mail.
+
+**Operação:** a primeira pergunta depois de subir o Ollama, ou de mudar o prompt, leva vários minutos (o modelo processa o prompt em CPU); o painel aquece o modelo ao abrir e `OLLAMA_KEEP_ALIVE` (padrão `2h`) o mantém na memória. Para depurar, abra o painel com `?sql=1` e o SQL de cada resposta aparece.
 
 ## 🔄 CI/CD e Publicação
 

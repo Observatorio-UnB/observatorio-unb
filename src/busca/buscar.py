@@ -248,8 +248,10 @@ def buscar(
     tipo: Optional[str] = None,
     tipos: Optional[Iterable[str]] = None,
     filtros: Optional[Dict[str, Any]] = None,
+    url: Optional[str] = None,
 ) -> List[Dict]:
-    """Os k documentos mais relevantes para a consulta, do mais para o menos relevante."""
+    """Os k documentos mais relevantes para a consulta, do mais para o menos relevante.
+    `url`: banco a consultar (padrão: DATABASE_URL); o chat passa a do usuário somente leitura."""
     consulta_expandida, expansoes = expandir_consulta(consulta)
     vetor = gerar_embeddings(modelo(), [consulta_expandida])[0]
 
@@ -362,7 +364,7 @@ def buscar(
         "relaxar_com_filtro": tem_filtro_facetado,
         **params_filtro,
     }
-    with conexao_do_pool() as conn:
+    with conexao_do_pool(url) as conn:
         with conn.cursor() as cur:
             # No cursor, e não na conexão, que volta ao pool: o vetor vai em binário.
             register_vector_info(cur, TypeInfo.fetch(conn, "vector"))

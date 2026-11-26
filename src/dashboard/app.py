@@ -35,9 +35,17 @@ ERROS_DE_FONTE = (ImportError, OSError, *_ERROS_DO_BANCO)
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from coortes import anos_disponiveis, intervalo_oficial, reagregar_por_coortes  # noqa: E402
-from formatacao import CORES_DESFECHO, CORES_IRC, SIMBOLOS_IRC, botao_csv, br, dec, delta_pp, grafico, mostrar_tabela, reducao  # noqa: E402,F401
-from abas import alunos_ativos, auditoria, benchmark_inep, detalhe_curso, fila_intervencao, limites_do_dado, pibic, simulador, turnos, visao_executiva  # noqa: E402
+# Em desenvolvimento, o file watcher do Streamlit pode tirar um módulo de sys.modules no meio deste import (KeyError
+# ao salvar arquivos com o painel aberto). A segunda tentativa carrega de novo e resolve.
+for _tentativa in (1, 2):
+    try:
+        from coortes import anos_disponiveis, intervalo_oficial, reagregar_por_coortes  # noqa: E402
+        from formatacao import CORES_DESFECHO, CORES_IRC, SIMBOLOS_IRC, botao_csv, br, dec, delta_pp, grafico, mostrar_tabela, reducao  # noqa: E402,F401
+        from abas import alunos_ativos, auditoria, benchmark_inep, busca_semantica, detalhe_curso, fila_intervencao, limites_do_dado, pibic, simulador, turnos, visao_executiva  # noqa: E402
+        break
+    except KeyError:
+        if _tentativa == 2:
+            raise
 
 px.defaults.color_discrete_sequence = UNB_PALETTE
 
@@ -78,6 +86,13 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Bolha de assistente (canto inferior direito); some no stlite, onde não há banco nem Ollama.
+if sys.platform != "emscripten":
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+    from src.dashboard.assistente import renderizar_assistente
+
+    renderizar_assistente()
+
 # Estilização CSS customizada (cores institucionais UnB: verde #008940 / azul #133E79)
 st.markdown(
     """
@@ -109,6 +124,18 @@ st.markdown(
         font-size: 0.9rem;
         color: #64748B;
     }
+    /* Busca na barra do topo (sobre o cabeçalho do Streamlit), em todas as abas menos na própria busca. */
+    .st-key-busca_topo { position: fixed; top: .4rem; right: 9rem; width: min(380px, calc(100vw - 13rem)); z-index: 999991; }
+    .st-key-busca_topo [data-testid="stForm"] { border: 0; padding: 0; }
+    .st-key-busca_topo [data-testid="stTextInputRootElement"] {
+        height: 2.7rem; border-radius: 999px; background: #fff; border: 2px solid #008940;
+        box-shadow: 0 3px 10px rgba(0,137,64,.25);
+    }
+    .st-key-busca_topo [data-testid="stTextInputRootElement"]:focus-within { border-color: #133E79; box-shadow: 0 0 0 3px rgba(242,183,5,.6); }
+    .st-key-busca_topo input { padding-left: 1.1rem; font-weight: 500; }
+    .st-key-busca_topo input::placeholder { color: #133E79; opacity: .8; }
+    .st-key-busca_topo [data-testid="stFormSubmitButton"], .st-key-busca_topo [data-testid="InputInstructions"] { display: none; }
+    @media (max-width: 640px) { .st-key-busca_topo { display: none; } }  /* no celular a busca fica na aba do menu */
     .badge-critica {
         background-color: #FEE2E2;
         color: #991B1B;
@@ -583,6 +610,9 @@ st.sidebar.caption(
 with st.sidebar.expander("📖 Como ler este painel"):
     st.markdown(GLOSSARIO)
 
+# A busca semântica e o assistente precisam do banco (e do Ollama): ficam fora da versão estática (stlite).
+COM_BANCO = sys.platform != "emscripten"
+ABA_BUSCA = "🔎 Busca Semântica"
 OPCOES_ABAS = [
     "📊 Visão Executiva (DEG)",
     "🔍 Detalhe por Curso",
@@ -592,6 +622,7 @@ OPCOES_ABAS = [
     "🇧🇷 Benchmark Nacional (INEP)",
     "💡 Simulador What-If & Custo da Retenção",
     "📋 Fila de Intervenção (Coordenações)",
+    *([ABA_BUSCA] if COM_BANCO else []),
     "🛠️ Auditoria & Qualidade de Dados",
     "⚠️ O Que Este Dado NÃO Responde",
 ]
@@ -604,8 +635,9 @@ SLUG_PARA_ABA = {
     "inep": OPCOES_ABAS[5],
     "simulador": OPCOES_ABAS[6],
     "fila": OPCOES_ABAS[7],
-    "auditoria": OPCOES_ABAS[8],
-    "limites": OPCOES_ABAS[9],
+    "auditoria": "🛠️ Auditoria & Qualidade de Dados",
+    "limites": "⚠️ O Que Este Dado NÃO Responde",
+    **({"busca": ABA_BUSCA} if COM_BANCO else {}),
 }
 ABA_PARA_SLUG = {v: k for k, v in SLUG_PARA_ABA.items()}
 
@@ -630,6 +662,18 @@ if "_ir_para_aba" in st.session_state:
         st.session_state["nav_aba"] = _destino
 
 tab_choice = st.sidebar.radio("Navegação:", OPCOES_ABAS, key="nav_aba")
+
+
+def _ir_para_busca():
+    st.session_state["nav_aba"] = ABA_BUSCA
+    st.session_state["busca_consulta"] = st.session_state["busca_cabecalho"].strip()
+
+
+if COM_BANCO and tab_choice != ABA_BUSCA:
+    with st.container(key="busca_topo"), st.form("busca_topo_form", border=False):
+        st.text_input("Buscar no observatório", key="busca_cabecalho", label_visibility="collapsed",
+                      placeholder="🔎  Buscar cursos, projetos de IC e documentos")
+        st.form_submit_button("Buscar", on_click=_ir_para_busca)
 
 # Seletor global de intervalo de coortes (ano_ingresso) usando gold.retencao_cursos_coorte
 COORTE_SELECIONADA = str(_COORTES)
@@ -766,6 +810,7 @@ if df_gold is not None:
         "🇧🇷 Benchmark Nacional (INEP)": benchmark_inep.renderizar,
         "💡 Simulador What-If & Custo da Retenção": simulador.renderizar,
         "📋 Fila de Intervenção (Coordenações)": fila_intervencao.renderizar,
+        ABA_BUSCA: busca_semantica.renderizar,
         "🛠️ Auditoria & Qualidade de Dados": auditoria.renderizar,
         "⚠️ O Que Este Dado NÃO Responde": limites_do_dado.renderizar,
     }
